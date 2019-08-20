@@ -134,6 +134,7 @@ def find_citations_for_cases(filename):
     print()
     print("Fetching citations from LIDO...")
     print()
+    
     num_eclis = len(eclis)
     index = 1
     for ecli in eclis:
