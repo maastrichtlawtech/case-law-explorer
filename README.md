@@ -1,2 +1,2 @@
 # case-law-explorer
-case law app 2.0
+Materials for building a network analysis software platform for analyzing Dutch and European court decisions.
