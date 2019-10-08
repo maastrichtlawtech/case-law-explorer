@@ -1,19 +1,20 @@
 from lxml import etree
+from lxml.etree import tostring
+from itertools import chain
+
 import os
 import csv
 import time
-import pandas as pd
 
 is_case = False
-contains_isReplacedBy = False
 
-eclis = []
-caserecords = []
-opinionrecords = []
+case_records = []
+opinion_records = []
 
 datarecord = {}
 
 
+# Initialize the datarecord with the default fields and inital values
 def initialise_data_record():
     global datarecord
     datarecord = {
@@ -35,17 +36,11 @@ def initialise_data_record():
     }
 
 
-def clean_namespace(item):
-    item_str = str(item)
-    item_str = item_str.replace("{http://www.w3.org/2005/Atom}", "")
-    return item_str.replace(" ", "")
-
-
 def stringify_children(node):
-    from lxml.etree import tostring
-    from itertools import chain
+    # https://stackoverflow.com/a/4624146
     parts = ([node.text] + list(chain(*([c.text, tostring(c, encoding=str), c.tail] for c in node.getchildren()))) + [
         node.tail])
+
     # filter removes possible Nones in texts and tails
     return ''.join(filter(None, parts))
 
@@ -53,16 +48,11 @@ def stringify_children(node):
 def processtag(cleantagname, tag):
     global datarecord
     global is_case
-    global contains_isReplacedBy
-    global eclis
 
-    # if (cleantagname == 'isReplacedBy'):
-    # 	contains_isReplacedBy = True
     if (cleantagname == 'type' and tag.text == 'Uitspraak'):
         is_case = True
     if (cleantagname == 'identifier'):
         if datarecord['id'] == "":
-            eclis.append([tag.text])
             datarecord['id'] = tag.text
     if (cleantagname == 'date'):
         if datarecord['date'] == "":
@@ -109,7 +99,6 @@ def processtag(cleantagname, tag):
 def parse_metadata_from_xml_file(filename):
     global datarecord
     global is_case
-    global contains_isReplacedBy
 
     initialise_data_record()
     is_case = False
@@ -127,13 +116,12 @@ def parse_metadata_from_xml_file(filename):
             cleantagname = tagname
             processtag(cleantagname, tag)
 
-    if not contains_isReplacedBy:
-        if is_case:
-            print("\033[94mCASE\033[0m %s" % datarecord['id'])
-            caserecords.append(datarecord)
-        else:
-            print("\033[95mOPINION\033[0m %s" % datarecord['id'])
-            opinionrecords.append(datarecord)
+    if is_case:
+        print("\033[94mCASE\033[0m %s" % datarecord['id'])
+        case_records.append(datarecord)
+    else:
+        print("\033[95mOPINION\033[0m %s" % datarecord['id'])
+        opinion_records.append(datarecord)
 
 
 # Function to write data to file
@@ -178,7 +166,7 @@ for directory in dirs:
     # Get all the files from the directory
     files_in_dir = os.listdir(directory)
 
-    for file in files_in_dir[:20]:
+    for file in files_in_dir[:100]:
         # Append only the xml files
         if file[-4:].lower() == ".xml":
             list_of_files_to_parse.append(directory + "/" + file)
@@ -197,7 +185,7 @@ for file in list_of_files_to_parse:
     parse_metadata_from_xml_file(file)
     index += 1
 
-print("Number of files: %i %i+%i" % (num_files, len(caserecords), len(opinionrecords)))
+print("Number of files: %i %i+%i" % (num_files, len(case_records), len(opinion_records)))
 
 print()
 print("Parsing successfully completed!")
@@ -208,9 +196,9 @@ print()
 # case_dataframe = pd.DataFrame(caserecords)
 # case_dataframe.to_csv('case.csv')
 
-write_data_to_file(caserecords, 'case.csv')
-write_data_to_file(opinionrecords, 'case_opinion_from_advocate_general.csv')
-write_eclis_to_file(eclis, 'eclis_for_citations.csv')
+write_data_to_file(case_records, 'case.csv')
+write_data_to_file(opinion_records, 'case_opinion_from_advocate_general.csv')
+# write_eclis_to_file(eclis,'eclis_for_citations.csv')
 print("Data successfully written to file!")
 print()
 
