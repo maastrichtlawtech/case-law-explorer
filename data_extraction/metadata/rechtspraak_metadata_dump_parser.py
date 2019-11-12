@@ -50,51 +50,51 @@ def processtag(cleantagname, tag):
     global datarecord
     global is_case
 
-    if (cleantagname == 'type' and tag.text == 'Uitspraak'):
+    if cleantagname == 'type' and tag.text == 'Uitspraak':
         is_case = True
-    if (cleantagname == 'identifier'):
+    if cleantagname == 'identifier':
         if datarecord['case_id'] == "":
             datarecord['case_id'] = tag.text
-    if (cleantagname == 'date'):
+    if cleantagname == 'date':
         if datarecord['date'] == "":
             datarecord['date'] = tag.text
-    if (cleantagname == 'zaaknummer'):
+    if cleantagname == 'zaaknummer':
         if datarecord['case_number'] == "":
             datarecord['case_number'] = tag.text
-    if (cleantagname == 'inhoudsindicatie'):
+    if cleantagname == 'inhoudsindicatie':
         if datarecord['description'] == "":
             datarecord['description'] = stringify_children(tag)
-    if (cleantagname == 'language'):
+    if cleantagname == 'language':
         if datarecord['language'] == "":
             datarecord['language'] = tag.text.upper()
-    if (cleantagname == 'spatial'):
+    if cleantagname == 'spatial':
         if datarecord['venue'] == "":
             datarecord['venue'] = tag.text
-    if (cleantagname == 'uitspraak.info'):
+    if cleantagname == 'uitspraak.info':
         if datarecord['abstract'] == "":
             datarecord['abstract'] = stringify_children(tag)
-    if (cleantagname == 'conclusie.info'):
+    if cleantagname == 'conclusie.info':
         if datarecord['abstract'] == "":
             datarecord['abstract'] = stringify_children(tag)
-    if (cleantagname == 'procedure'):
+    if cleantagname == 'procedure':
         if datarecord['procedure_type'] == "":
             datarecord['procedure_type'] = tag.text
-    if (cleantagname == 'subject'):
+    if cleantagname == 'subject':
         if datarecord['subject'] == "":
             datarecord['subject'] = tag.text
-    if (cleantagname == 'creator'):
+    if cleantagname == 'creator':
         if datarecord['authority'] == "":
             datarecord['authority'] = tag.text
-    if (cleantagname == 'references'):
+    if cleantagname == 'references':
         if datarecord['legal_references'] == "":
             datarecord['legal_references'] = stringify_children(tag)
-    if (cleantagname == 'relation'):
+    if cleantagname == 'relation':
         if datarecord['related_cases'] == "":
             datarecord['related_cases'] = stringify_children(tag)
-    if (cleantagname == 'hasVersion'):
+    if cleantagname == 'hasVersion':
         if datarecord['alternative_sources'] == "":
             datarecord['alternative_sources'] = stringify_children(tag)
-    if (cleantagname == 'uitspraak'):
+    if cleantagname == 'uitspraak':
         file_name = tag.attrib['id']
         file_name = 'full-text/' + file_name.replace(":", "_") + '.xml'
 
@@ -119,7 +119,7 @@ def parse_metadata_from_xml_file(filename):
         tagname = str(t)
 
         # We have to remove the namespace preceding the tag name which is enclosed in '{}'
-        if ("}" in tagname):
+        if "}" in tagname:
             tagcomponents = tagname.split("}")
             cleantagname = tagcomponents[1]
             processtag(cleantagname, tag)
@@ -172,7 +172,7 @@ for directory in dirs:
     # Get all the files from the directory
     files_in_dir = os.listdir(directory)
 
-    for file in files_in_dir[:3]:
+    for file in files_in_dir[:10]:
         # Append only the xml files
         if file[-4:].lower() == ".xml":
             list_of_files_to_parse.append(directory + "/" + file)
