@@ -18,7 +18,7 @@ datarecord = {}
 def initialise_data_record():
     global datarecord
     datarecord = {
-        "id": "",
+        "case_id": "",
         "date": "",
         "case_number": "",
         "description": "",
@@ -32,7 +32,8 @@ def initialise_data_record():
         "authority": "",
         "legal_references": "",
         "related_cases": "",
-        "alternative_sources": ""
+        "alternative_sources": "",
+        "full_text": ""
     }
 
 
@@ -52,8 +53,8 @@ def processtag(cleantagname, tag):
     if (cleantagname == 'type' and tag.text == 'Uitspraak'):
         is_case = True
     if (cleantagname == 'identifier'):
-        if datarecord['id'] == "":
-            datarecord['id'] = tag.text
+        if datarecord['case_id'] == "":
+            datarecord['case_id'] = tag.text
     if (cleantagname == 'date'):
         if datarecord['date'] == "":
             datarecord['date'] = tag.text
@@ -93,6 +94,15 @@ def processtag(cleantagname, tag):
     if (cleantagname == 'hasVersion'):
         if datarecord['alternative_sources'] == "":
             datarecord['alternative_sources'] = stringify_children(tag)
+    if (cleantagname == 'uitspraak'):
+        file_name = tag.attrib['id']
+        file_name = 'full-text/' + file_name.replace(":", "_") + '.xml'
+
+        file = open(file_name, "w")
+        file.write(stringify_children(tag))
+
+        if datarecord['full_text'] == "":
+            datarecord['full_text'] = file_name
 
 
 # Function to get all tags from an XML file
@@ -107,6 +117,7 @@ def parse_metadata_from_xml_file(filename):
     for tag in root.iter():
         t = tag.tag
         tagname = str(t)
+
         # We have to remove the namespace preceding the tag name which is enclosed in '{}'
         if ("}" in tagname):
             tagcomponents = tagname.split("}")
@@ -117,18 +128,18 @@ def parse_metadata_from_xml_file(filename):
             processtag(cleantagname, tag)
 
     if is_case:
-        print("\033[94mCASE\033[0m %s" % datarecord['id'])
+        print("\033[94mCASE\033[0m %s" % datarecord['case_id'])
         case_records.append(datarecord)
     else:
-        print("\033[95mOPINION\033[0m %s" % datarecord['id'])
+        print("\033[95mOPINION\033[0m %s" % datarecord['case_id'])
         opinion_records.append(datarecord)
 
 
 # Function to write data to file
 def write_data_to_file(data, filename):
-    csv_columns = ['id', 'date', 'case_number', 'description', 'language', 'venue', 'abstract', 'procedure_type',
+    csv_columns = ['case_id', 'date', 'case_number', 'description', 'language', 'venue', 'abstract', 'procedure_type',
                    'lodge_date', 'country', 'subject', 'authority', 'legal_references', 'related_cases',
-                   'alternative_sources']
+                   'alternative_sources', 'full_text']
     with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
         writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
         writer.writeheader()
@@ -152,12 +163,7 @@ print()
 
 # List all top-level directories
 files = os.listdir(".")
-dirs = [file for file in files if os.path.isdir(file)]
-
-# for file in files:
-# 	if os.path.isdir(file):
-# 		# if file == "1965":
-# 			dirs.append(file)
+dirs = [file for file in files if os.path.isdir(file) and file != 'full-text']
 
 # List all the .xml files from the directories
 list_of_files_to_parse = []
@@ -166,7 +172,7 @@ for directory in dirs:
     # Get all the files from the directory
     files_in_dir = os.listdir(directory)
 
-    for file in files_in_dir[:100]:
+    for file in files_in_dir[:3]:
         # Append only the xml files
         if file[-4:].lower() == ".xml":
             list_of_files_to_parse.append(directory + "/" + file)
