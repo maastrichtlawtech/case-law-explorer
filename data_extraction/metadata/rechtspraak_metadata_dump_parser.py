@@ -5,6 +5,7 @@ from itertools import chain
 import os
 import csv
 import time
+import re
 
 is_case = False
 
@@ -96,7 +97,11 @@ def processtag(cleantagname, tag):
             datarecord['alternative_sources'] = stringify_children(tag)
     if cleantagname == 'uitspraak':
         file_name = tag.attrib['id']
-        file_name = 'full-text/' + file_name.replace(":", "_") + '.xml'
+        # ECLI_NL_RBROT_1913_22
+        reg_post = re.search(
+            'ECLI:(?P<country>.*):(?P<jur>.*):(?P<year>.*):(?P<no>.*):(?P<doc>.*)',
+            file_name)
+        file_name = PATH + reg_post.group('year') + '/' + file_name.replace(":", "_") + '.html'
 
         file = open(file_name, "w")
         file.write(stringify_children(tag))
