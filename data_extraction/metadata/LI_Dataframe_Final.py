@@ -290,9 +290,9 @@ def createLIDataframe(year_dump, save_path, id_list, json_files):
 
 
 #list of years we want to retrieve LI cases for
-years = list(range(1972, 2001))
+years = list(range(1913, 2000))
 #where we want to store the csv files as well as the individual html docs
-save_path = "C:/Users/mario/Documents/LawTechLab/legal-intelligence-api/LI_archive"
+save_path = "../../data/cases"
 
 for year in years:
     #time.sleep(70)
@@ -310,7 +310,7 @@ for year in years:
     json_files = search_results["Documents"]
     
     #create dataframe
-    os.mkdir(save_path+'/'+str(year)+'/')
+    #os.mkdir(save_path+'/'+str(year)+'/')
     LI_df = createLIDataframe(str(year), save_path, ids, json_files)
     LI_df.to_csv(save_path+'/'+str(year)+'/'+str(year)+'.csv')
     
