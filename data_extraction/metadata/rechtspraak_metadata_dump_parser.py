@@ -105,6 +105,18 @@ def processtag(cleantagname, tag):
             datarecord['full_text'] = file_name
 
 
+#Function to write new line in the csv file
+def write_line_csv(file_path, row):
+    with open(file_path, 'a', newline='') as csvfile:
+        columns = ['case_id', 'date', 'case_number', 'description', 'language', 'venue', 'abstract',
+                       'procedure_type',
+                       'lodge_date', 'country', 'subject', 'authority', 'legal_references', 'related_cases',
+                       'alternative_sources', 'full_text']
+
+        writer = csv.DictWriter(csvfile, fieldnames=columns)
+        writer.writerow(row)
+
+
 # Function to get all tags from an XML file
 def parse_metadata_from_xml_file(filename):
     global datarecord
@@ -129,10 +141,10 @@ def parse_metadata_from_xml_file(filename):
 
     if is_case:
         print("\033[94mCASE\033[0m %s" % datarecord['case_id'])
-        case_records.append(datarecord)
+        write_line_csv('case.csv', datarecord)
     else:
         print("\033[95mOPINION\033[0m %s" % datarecord['case_id'])
-        opinion_records.append(datarecord)
+        write_line_csv('case_opinion_from_advocate_general.csv', datarecord)
 
 
 # Function to write data to file
@@ -205,8 +217,8 @@ print()
 # case_dataframe = pd.DataFrame(caserecords)
 # case_dataframe.to_csv('case.csv')
 
-write_data_to_file(case_records, 'case.csv')
-write_data_to_file(opinion_records, 'case_opinion_from_advocate_general.csv')
+# write_data_to_file(case_records, 'case.csv')
+# write_data_to_file(opinion_records, 'case_opinion_from_advocate_general.csv')
 # write_eclis_to_file(eclis,'eclis_for_citations.csv')
 print("Data successfully written to file!")
 print()
