@@ -153,17 +153,20 @@ def write_eclis_to_file(data, filename):
         writer = csv.writer(csvfile, delimiter=',')
         writer.writerows(data)
 
+###################################
+
+PATH = "../../data/OpenDataUitspraken/"
+
 
 # Start script timer
 start = time.time()
 
-print()
-print("Building index of XML files...")
-print()
+print("Building index of XML files...\n")
 
 # List all top-level directories
-files = os.listdir(".")
-dirs = [file for file in files if os.path.isdir(file) and file != 'full-text']
+files = os.listdir(PATH)
+dirs = [PATH + file for file in files if os.path.isdir(PATH + file) and file != 'full-text']
+print(dirs)
 
 # List all the .xml files from the directories
 list_of_files_to_parse = []
