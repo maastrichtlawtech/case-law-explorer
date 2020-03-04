@@ -1,4 +1,4 @@
-import requests
+import request
 from lxml import etree
 import urllib.request
 import rdflib
