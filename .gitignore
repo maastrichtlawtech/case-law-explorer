@@ -3,6 +3,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# mac
+.DS_Store
+
 # C extensions
 *.so
 
@@ -104,7 +107,8 @@ venv.bak/
 .mypy_cache/
 
 # data folder
-data/
+data/testdb/
+data/caselawDB.sql
 
 # IDEA files
 .idea/
