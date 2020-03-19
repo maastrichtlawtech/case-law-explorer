@@ -293,6 +293,7 @@ def createLIDataframe(year_dump, save_path, id_list, json_files):
 years = list(range(1913, 2000))
 #where we want to store the csv files as well as the individual html docs
 save_path = "../../data/cases"
+svae_path_large_file = "../../data/"
 total_LI_df = pd.DataFrame()
 
 for year in years:
@@ -318,7 +319,7 @@ for year in years:
     #print(total_LI_df.head())
     print('total shape : '+str(total_LI_df.shape))
     #print('column names : '+str(total_LI_df.columns))
-total_LI_df.to_csv(save_path+'/legal_intelligence_cases.csv')
+total_LI_df.to_csv(save_path+'legal_intelligence_cases.csv')
     
 
 
