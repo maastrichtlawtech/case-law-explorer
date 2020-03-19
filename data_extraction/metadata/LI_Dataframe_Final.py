@@ -19,8 +19,8 @@ import time
 
 
 #legal intelligence credentials
-CLIENT_ID = 'marion.meyers@student.maastrichtuniversity.nl'
-CLIENT_SECRET = '8bf03e23-1faf-430d-a5a5-ab907b5af436'
+CLIENT_ID = 'm.meyers@maastrichtuniversity.nl'
+CLIENT_SECRET = '0def3e99-2fbf-482c-8695-634c56d48739'
 
 
 # # Methods needed for using the LI API
@@ -293,6 +293,7 @@ def createLIDataframe(year_dump, save_path, id_list, json_files):
 years = list(range(1913, 2000))
 #where we want to store the csv files as well as the individual html docs
 save_path = "../../data/cases"
+total_LI_df = pd.DataFrame()
 
 for year in years:
     #time.sleep(70)
@@ -312,12 +313,14 @@ for year in years:
     #create dataframe
     #os.mkdir(save_path+'/'+str(year)+'/')
     LI_df = createLIDataframe(str(year), save_path, ids, json_files)
+    total_LI_df = total_LI_df.append(LI_df, ignore_index=True)
     LI_df.to_csv(save_path+'/'+str(year)+'/'+str(year)+'.csv')
+    #print(total_LI_df.head())
+    print('total shape : '+str(total_LI_df.shape))
+    #print('column names : '+str(total_LI_df.columns))
+total_LI_df.to_csv(save_path+'/legal_intelligence_cases.csv')
     
 
 
 # In[23]:
-
-
-get_document(4598940)
 
