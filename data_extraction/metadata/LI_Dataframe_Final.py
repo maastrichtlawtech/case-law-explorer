@@ -41,13 +41,13 @@ def get_access_token():
      "cache-control": "no-cache"
     }
 
-    request = requests.post('https://api.legalintelligence.com/token', data=data, headers=headers)
-    #print('Auth status code: %s' %request.status_code)
-
-    response = request.json()
-    #print('Auth access code: %s' %response['access_token'])
-    
-    return response['access_token']
+    try:
+        request = requests.post('https://api.legalintelligence.com/token', data=data, headers=headers)
+        response = request.json()
+        return response['access_token']
+    except:
+        print(f'NO AUTH CODE {request}')
+    return None
 
 
 # In[4]:
@@ -299,8 +299,8 @@ def createLIDataframe(year_dump, save_path, id_list, json_files):
 #list of years we want to retrieve LI cases for
 years = list(range(1913, 2000))
 #where we want to store the csv files as well as the individual html docs
-save_path = "../../data/cases"
-svae_path_large_file = "../../data/"
+save_path = "../../../data/cases"
+svae_path_large_file = "../../../data/"
 total_LI_df = pd.DataFrame()
 
 for year in years:
