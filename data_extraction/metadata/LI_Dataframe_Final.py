@@ -71,7 +71,6 @@ def get_search_query(query, filters=[]):
     
     request = requests.get(link, headers=headers, params = params)
     
-    
     #total number of cases retrieved by the given query
     count = request.json()["Count"]
     print("case count : "+str(count))
@@ -85,8 +84,10 @@ def get_search_query(query, filters=[]):
     pages = list()
 
     #append the first request to the list of request dictionaries
-    pages.append(request.json())
-    
+    try:
+        pages.append(request.json())
+    except:
+        print(f'JSON ${link} FAILED')
     
     #go through all pages, and add each dictionary request to the list until no more pages
     while page_index < nb_pages: 
@@ -99,16 +100,19 @@ def get_search_query(query, filters=[]):
         if (page_index/50).is_integer():
             print('put computer to sleep, it has been 50 request')
             time.sleep(70)
-            request = requests.get(link, headers=headers, params = params)
-            pages.append(request.json())
-            page_index = page_index + 1
-        else:
-            request = requests.get(link, headers=headers, params = params)
-            #here I am unsure what the error exactly is... so for now I just excluse it as an exception
             try:
+                request = requests.get(link, headers=headers, params = params)
                 pages.append(request.json())
             except:
-                print('weird error')
+                print(f'GET ${link} FAILED')
+            page_index = page_index + 1
+        else:
+            #here I am unsure what the error exactly is... so for now I just excluse it as an exception
+            try:
+                request = requests.get(link, headers=headers, params = params)
+                pages.append(request.json())
+            except:
+                print(f'GET ${link} FAILED')
                 #print(request.json())
             page_index = page_index + 1  
 
@@ -143,7 +147,10 @@ def get_document(id):
         "accept": "application/json"  
     }
 
-    request = requests.get('https://api.legalintelligence.com/documents/%s' %id, headers=headers)
+    try: 
+        request = requests.get('https://api.legalintelligence.com/documents/%s' %id, headers=headers)
+    except:
+        print(f'GET DOC ${id} FAILED')
     
     return request.text
 
