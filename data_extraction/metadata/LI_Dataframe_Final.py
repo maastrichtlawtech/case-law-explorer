@@ -1,32 +1,26 @@
-
-# coding: utf-8
-
-# In[1]:
-
-
 import requests 
 import json
 
 import os
+
 import pandas as pd
 import numpy as np
+
 import math
 import re
+
 import time
 
+# Import and load env vars, see .env
+from dotenv import load_dotenv
+load_dotenv()
 
-# In[2]:
-
-
-#legal intelligence credentials
-CLIENT_ID = 'm.meyers@maastrichtuniversity.nl'
-CLIENT_SECRET = '0def3e99-2fbf-482c-8695-634c56d48739'
+# Legal intelligence credentials
+CLIENT_ID = os.getenv("CLIENT_ID")
+CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 
 
 # # Methods needed for using the LI API
-
-# In[3]:
-
 
 def get_access_token():
     data = {
@@ -48,9 +42,6 @@ def get_access_token():
     except:
         print(f'NO AUTH CODE {request}')
     return None
-
-
-# In[4]:
 
 
 def get_search_query(query, filters=[]):
@@ -136,9 +127,6 @@ def get_search_query(query, filters=[]):
 
 # Now, in order to be able to merge informations from Rechtspraak and Legal Intelligence, we need to match the corresponding cases. To do this, we will use the ECLI number. However, this number is not present in the json format output by Legal Intelligence, but it is present in the request.text format that we can also have from our query. 
 
-# In[5]:
-
-
 #retrieve the document based on its id
 def get_document(id):
     headers = {    
@@ -153,10 +141,6 @@ def get_document(id):
         print(f'GET DOC ${id} FAILED')
     
     return request.text
-
-
-# In[6]:
-
 
 #this method takes the case text as an argument, searches for teh ecli number and outputs it. 
 def getECLInumber(caseText):
@@ -173,9 +157,6 @@ def getECLInumber(caseText):
     return ecliNumber 
 
 
-# In[7]:
-
-
 def saveTextToArchive(year, ecliNumber, caseText, save_path):
     print('saving case as html file')
     
@@ -185,10 +166,6 @@ def saveTextToArchive(year, ecliNumber, caseText, save_path):
     file = open(save_path_html, "w", encoding="utf-8")
     file.write(caseText)
     file.close()
-
-
-# In[8]:
-
 
 def saveJsonToArchive(year, ecliNumber, json_file):
     print('saving case as a json file')
@@ -299,8 +276,8 @@ def createLIDataframe(year_dump, save_path, id_list, json_files):
 #list of years we want to retrieve LI cases for
 years = list(range(1913, 2000))
 #where we want to store the csv files as well as the individual html docs
-save_path = "../../../data/cases"
-svae_path_large_file = "../../../data/"
+save_path = "."
+svae_path_large_file = "."
 total_LI_df = pd.DataFrame()
 
 for year in years:

@@ -106,6 +106,7 @@ venv.bak/
 
 # data folder
 data/
+*.csv
 
 # IDEA files
 # Byte-compiled / optimized / DLL files
