@@ -218,8 +218,7 @@ venv.bak/
 .mypy_cache/
 
 # data folder
-data/testdb/
-data/caselawDB.sql
+data_dump/
 
 # IDEA files
 .idea/
