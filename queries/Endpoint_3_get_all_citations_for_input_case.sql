@@ -1,0 +1,1 @@
+SELECT caselaw.case_citation.source_ecli, caselaw.case_citation.source_ecli, caselaw.case_citation.source_paragraph, caselaw.case_citation.target_paragraph FROM caselaw.case_citation WHERE caselaw.case_citation.source_ecli = "ECLI:NL:GHAMS:1916:68";
