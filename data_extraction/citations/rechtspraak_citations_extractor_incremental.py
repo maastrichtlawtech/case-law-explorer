@@ -123,6 +123,7 @@ def get_ecli(sub_ref):
 
 # Extract the LIDO identifier of the cited legislation from the XML response from LIDO API
 def get_legislation_identifier(sub_ref):
+    #print(sub_ref.attrib)
     return sub_ref.attrib['idref']
 
 # Find the webpage expressing, in writing, the legislation referred to by the input LIDO identifier
@@ -140,7 +141,40 @@ def get_legislation_webpage(identifier):
             if date in str(o):
                 return o
     return article
-    
+
+def get_legislation_name(url):
+    #print("sub ref type : "+str(type(sub_ref)))
+    #print(sub_ref)
+
+    #get the url from where we can retrieve the info
+    #url = str(sub_ref.attrib['idref'])
+
+    #turn the response into an xml tree
+    xml_response = get_lido_response(url)
+    xml = etree.fromstring(bytes(xml_response, encoding='utf8'))
+
+    pref_label=""
+    title=""
+    #RDF main element (root)
+    for element in xml.iterchildren():
+        # there is only one child and it is the "description" in whichh the rest of the info is
+        #print("%s - %s" % (element.tag, element.text))
+        #go through all the tags (all the info)
+        for el in element.iterchildren():
+            #print("%s - %s" % (el.tag, el.text))
+
+            #the title (same thing as the preLabel) is the feature we want to be using
+            if el.tag == "{http://purl.org/dc/terms/}title":
+                title = el.text
+
+    #if title==pref_label:
+    #    print("title and pref label are equal")
+    #else:
+    #    print("not equal")
+
+    return title
+
+
 # Check if outgoing links in the XML response from the LIDO API are of type "Jurisprudentie" (case law)
 def is_case_law(sub_ref):
     return sub_ref.attrib['groep'] == 'Jurisprudentie'
@@ -212,7 +246,7 @@ def find_citations_for_cases(filename, last_ecli, downloaded_citations, download
     num_eclis = len(eclis)
     index = 1
 
-    hundred_counts = 0
+    hundred_counts = 3000
     case_law_result_temp = []
     legislation_result_temp = []
     for ecli in eclis:
@@ -231,7 +265,7 @@ def find_citations_for_cases(filename, last_ecli, downloaded_citations, download
 
 
         #save in csv file when count == 100
-        if hundred_counts == 3000:
+        if hundred_counts == 30:
             #write them to the csv file
             downloaded_citations, downloaded_legislation_citations = write_incremental_rows(downloaded_citations, downloaded_legislation_citations, case_law_result_temp, legislation_result_temp, case_citations_output_name, legislation_citation_output_name)
             #set the hundred ones to 0, and empty the temporary citations list
@@ -260,7 +294,10 @@ def find_citations_for_case(ecli):
         xml_text = get_lido_response(url)
         xml_elements.append(etree.fromstring(xml_text.encode('utf8')))
         for el in xml_elements:
+            #print(el.tag)
+            #print(etree.tostring(el))
             for sub in list(el.iterchildren('subject')):
+                #rint(etree.tostring(sub))
                 if (citation_type == "uitgaande-links"):
                     for the_citations in sub.iterchildren(citation_type):
                         for sub_ref in the_citations.iterchildren():
@@ -314,6 +351,9 @@ def find_citations_for_case(ecli):
         current_row.append(leg_citation)                                # Target article
         current_row.append("")                                          # Target paragraph
         current_row.append(get_legislation_webpage(leg_citation))       # Target article webpage
+
+        article_name = get_legislation_name(leg_citation)
+        current_row.append(article_name)                               #pref label == article name
         legislation_result.append(current_row)
 
     result.append(case_law_result)
@@ -360,7 +400,7 @@ else:
     if os.path.isfile(legislation_citations_output_filename):
         downloaded_legislation_citations = pd.read_csv(legislation_citations_output_filename)
     else:
-        downloaded_legislation_citations = pd.DataFrame(columns=['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage'])
+        downloaded_legislation_citations = pd.DataFrame(columns=['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage', "article_name"])
 
 
 
