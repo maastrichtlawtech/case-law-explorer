@@ -56,9 +56,9 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`case` (
   `ecli` VARCHAR(60) NOT NULL,
   `court_id` INT NOT NULL,
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `id_UNIQUE` (`id` ASC) VISIBLE,
-  INDEX `fk_case_court_idx` (`court_id` ASC) VISIBLE,
-  UNIQUE INDEX `ecli_UNIQUE` (`ecli` ASC) VISIBLE,
+  UNIQUE INDEX `id_UNIQUE` (`id` ASC) ,
+  INDEX `fk_case_court_idx` (`court_id` ASC) ,
+  UNIQUE INDEX `ecli_UNIQUE` (`ecli` ASC) ,
   CONSTRAINT `fk_case_court`
     FOREIGN KEY (`court_id`)
     REFERENCES `caselaw`.`court` (`id`)
@@ -77,7 +77,7 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`subject` (
   `name` VARCHAR(255) NULL COMMENT 'An English name for the legal topic (subject)',
   `standard_name` VARCHAR(255) NULL COMMENT 'A standardized name for the legal topic (commonly used across legal systems or jurisdictions)',
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `id_UNIQUE` (`id` ASC) VISIBLE)
+  UNIQUE INDEX `id_UNIQUE` (`id` ASC) )
 ENGINE = InnoDB;
 
 
@@ -94,7 +94,7 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`case_citation` (
   `target_paragraph` VARCHAR(255) NULL COMMENT 'The paragraph number which is cited from the the cited case (the citee)',
   `case_id` INT NOT NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_case_citation_citation` (`case_id` ASC) VISIBLE,
+  INDEX `idx_case_citation_citation` (`case_id` ASC) ,
   CONSTRAINT `fk_case_citation_citation`
     FOREIGN KEY (`case_id`)
     REFERENCES `caselaw`.`case` (`id`)
@@ -120,7 +120,7 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`legislation_citation` (
   `article_name` VARCHAR(255) NULL,
   `case_id` INT NOT NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_legislation_citation_case` (`case_id` ASC) VISIBLE,
+  INDEX `idx_legislation_citation_case` (`case_id` ASC) ,
   CONSTRAINT `fk_legislation_citation_case`
     FOREIGN KEY (`case_id`)
     REFERENCES `caselaw`.`case` (`id`)
@@ -142,7 +142,7 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`country` (
   `eu` BINARY NULL COMMENT 'Is this country part of the European Union (EU)?',
   `eea` BINARY NULL COMMENT 'Is this country part of the European Economic Area (EEA) countries?',
   PRIMARY KEY (`id`),
-  UNIQUE INDEX `id_UNIQUE` (`id` ASC) VISIBLE);
+  UNIQUE INDEX `id_UNIQUE` (`id` ASC) );
 
 
 -- -----------------------------------------------------
@@ -164,8 +164,8 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`case_opinion` (
   `authority` VARCHAR(255) NULL COMMENT 'The English name of the court which is arbitrating the case being opined',
   `ecli_opinion` VARCHAR(60) NOT NULL,
   PRIMARY KEY (`id`),
-  INDEX `fk_case_opinion_case_idx` (`ecli` ASC) VISIBLE,
-  UNIQUE INDEX `ecli_UNIQUE` (`ecli` ASC) VISIBLE,
+  INDEX `fk_case_opinion_case_idx` (`ecli` ASC) ,
+  UNIQUE INDEX `ecli_UNIQUE` (`ecli` ASC) ,
   CONSTRAINT `fk_case_opinion_case`
     FOREIGN KEY (`ecli`)
     REFERENCES `caselaw`.`case` (`ecli`)
@@ -186,7 +186,7 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`case_related_decision` (
   `referenced_case_ecli` VARCHAR(255) NULL COMMENT 'Case which is referenced by another one because it is related or similar (not just via an official or explicit citation)',
   `case_id` INT NOT NULL,
   PRIMARY KEY (`id`),
-  INDEX `fk_case_related_decision_case_idx` (`case_id` ASC) VISIBLE,
+  INDEX `fk_case_related_decision_case_idx` (`case_id` ASC) ,
   CONSTRAINT `fk_case_related_decision_case`
     FOREIGN KEY (`case_id`)
     REFERENCES `caselaw`.`case` (`id`)
@@ -221,8 +221,8 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`legal_intelligence_case` (
   `court` VARCHAR(255) NULL,
   `DisplaySubtitle` VARCHAR(255) NULL,
   PRIMARY KEY (`id`),
-  INDEX `idx_licase_case` (`ecli` ASC) VISIBLE,
-  UNIQUE INDEX `ecli_UNIQUE` (`ecli` ASC) VISIBLE,
+  INDEX `idx_licase_case` (`ecli` ASC) ,
+  UNIQUE INDEX `ecli_UNIQUE` (`ecli` ASC) ,
   CONSTRAINT `fk_licase_case`
     FOREIGN KEY (`ecli`)
     REFERENCES `caselaw`.`case` (`ecli`)
@@ -240,7 +240,7 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`case_subject` (
   `case_id` INT NOT NULL,
   `subject_id` INT NOT NULL,
   PRIMARY KEY (`case_id`, `subject_id`),
-  INDEX `idx_subject` (`subject_id` ASC) VISIBLE,
+  INDEX `idx_subject` (`subject_id` ASC) ,
   CONSTRAINT `fk_case_subject_case`
     FOREIGN KEY (`case_id`)
     REFERENCES `caselaw`.`case` (`id`)
@@ -263,7 +263,7 @@ CREATE TABLE IF NOT EXISTS `caselaw`.`case_country` (
   `case_id` INT NOT NULL,
   `country_id` VARCHAR(3) NOT NULL,
   PRIMARY KEY (`country_id`, `case_id`),
-  INDEX `idx_country` (`country_id` ASC) VISIBLE,
+  INDEX `idx_country` (`country_id` ASC) ,
   CONSTRAINT `fk_case_coutry_country`
     FOREIGN KEY (`country_id`)
     REFERENCES `caselaw`.`country` (`id`)
