@@ -11,7 +11,7 @@ print()
 print("Downloading Rechtspraak.nl dump - " + date + " ...")
 print()
 
-urllib.request.urlretrieve("http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip", "OpenDataUitspraken_" + date + ".zip")
+urllib.request.urlretrieve("http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip", "../data/OpenDataUitspraken.zip")
 
 end = time.time()
 

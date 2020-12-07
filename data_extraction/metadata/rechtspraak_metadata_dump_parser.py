@@ -1,11 +1,13 @@
 from lxml import etree
 from lxml.etree import tostring
 from itertools import chain
-
+import zipfile
 import os
 import csv
 import time
+import pandas as pd
 import re
+import io
 
 is_case = False
 
@@ -13,6 +15,27 @@ case_records = []
 opinion_records = []
 
 datarecord = {}
+
+
+# extract all files in directory "filename" and all subdirectories:
+def extract_all(filename):
+    newpath = '../../data/OpenDataUitspraken/'
+    os.makedirs(newpath)
+    z = zipfile.ZipFile(filename)
+    for f in z.namelist():
+        if f.endswith('.zip'):
+            # get directory name from file
+            dirname = os.path.dirname(f)
+            if not os.path.exists(newpath + dirname):
+                os.mkdir(newpath + dirname)
+            newdir = os.path.splitext(f)[0]
+            # create new directory
+            os.mkdir(newpath + newdir)
+            # read inner zip file into bytes buffer
+            content = io.BytesIO(z.read(f))
+            zip_file = zipfile.ZipFile(content)
+            for i in zip_file.namelist():
+                zip_file.extract(i, newpath + newdir)
 
 
 # Initialize the datarecord with the default fields and inital values
@@ -178,6 +201,10 @@ PATH = "../../data/OpenDataUitspraken/"
 # Start script timer
 start = time.time()
 
+print("Extracting files...\n")
+extract_all("../../data/OpenDataUitspraken.zip")
+print("All files extracted!\n")
+
 print("Building index of XML files...\n")
 
 # List all top-level directories
@@ -189,13 +216,19 @@ print(dirs)
 list_of_files_to_parse = []
 
 for directory in dirs:
+    print('DIRNAME: ' + directory)
     # Get all the files from the directory
-    files_in_dir = os.listdir(directory)
+    subdirectories = os.listdir(directory)
+    subdirs = [directory + '/' + sub for sub in subdirectories if os.path.isdir(directory + '/' + sub) and sub != 'full-text']
 
-    for file in files_in_dir[:10]:
-        # Append only the xml files
-        if file[-4:].lower() == ".xml":
-            list_of_files_to_parse.append(directory + "/" + file)
+    for subdir in subdirs:
+        print('SUBDIRNAME: ' + subdir)
+        files_in_dir = os.listdir(subdir)
+
+        for file in files_in_dir:
+            # Append only the xml files
+            if file[-4:].lower() == ".xml":
+                list_of_files_to_parse.append(subdir + "/" + file)
 
 num_files = len(list_of_files_to_parse)
 
@@ -219,12 +252,12 @@ print()
 print("Writing data to file...")
 print()
 
-# case_dataframe = pd.DataFrame(caserecords)
-# case_dataframe.to_csv('case.csv')
+#case_dataframe = pd.DataFrame(case_records)
+#case_dataframe.to_csv('case.csv')
 
-# write_data_to_file(case_records, 'case.csv')
-# write_data_to_file(opinion_records, 'case_opinion_from_advocate_general.csv')
-# write_eclis_to_file(eclis,'eclis_for_citations.csv')
+#write_data_to_file(case_records, 'case.csv')
+#write_data_to_file(opinion_records, 'case_opinion_from_advocate_general.csv')
+#write_eclis_to_file(eclis,'eclis_for_citations.csv')
 print("Data successfully written to file!")
 print()
 
