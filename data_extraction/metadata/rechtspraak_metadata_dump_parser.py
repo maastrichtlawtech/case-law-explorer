@@ -8,13 +8,18 @@ import time
 import pandas as pd
 import re
 import io
+from terminology import *
 
 is_case = False
 
 case_records = []
 opinion_records = []
 
-datarecord = {}
+global case_counter
+global opinion_counter
+global datarecord
+case_counter = 0
+opinion_counter = 0
 
 
 # extract all files in directory "filename" and all subdirectories:
@@ -40,108 +45,137 @@ def extract_all(filename):
 
 # Initialize the datarecord with the default fields and inital values
 def initialise_data_record():
+    global case_counter
+    global opinion_counter
     global datarecord
     datarecord = {
-        "case_id": "",
-        "date": "",
-        "case_number": "",
-        "description": "",
-        "language": "",
-        "venue": "",
-        "abstract": "",
-        "procedure_type": "",
-        "lodge_date": "",
-        "country": "NL",
-        "subject": "",
-        "authority": "",
-        "legal_references": "",
-        "related_cases": "",
-        "alternative_sources": "",
-        "full_text": ""
+        RS_IDENTIFIER_ECLI: None,
+        RS_ISSUED: None,
+        RS_LANGUAGE: None,
+        RS_CREATOR: None,
+        RS_DATE: None,
+        RS_ZAAKNUMMER: None,
+        RS_TYPE: None,
+        RS_PROCEDURE: None,
+        RS_SPATIAL: None,
+        RS_SUBJECT: None,
+        RS_RELATION: None,
+        RS_REFERENCES: None,
+        RS_HASVERSION: None,
+        RS_IDENTIFIER_URL: None,
+        RS_TITLE: None,
+        RS_INHOUDSINDICATIE: None,
+        RS_INFO: None,
+        RS_FULLTEXT: None,
+        RS_SOURCE: "Rechtspraak",
+        RS_JURISDICTION_COUNTRY: "NL",
     }
 
 
 def stringify_children(node):
     # https://stackoverflow.com/a/4624146
-    parts = ([node.text] + list(chain(*([c.text, tostring(c, encoding=str), c.tail] for c in node.getchildren()))) + [
-        node.tail])
+    return ''.join(
+        chunk for chunk in chain(
+            (node.text,),
+            chain(*((tostring(child, with_tail=False, encoding=str), child.tail) for child in node.getchildren())),
+            (node.tail,)) if chunk)
 
-    # filter removes possible Nones in texts and tails
-    return ''.join(filter(None, parts))
+# to get only text without tags:
+# ''.join(tag.itertext())
 
 
 def processtag(cleantagname, tag):
     global datarecord
     global is_case
 
-    if cleantagname == 'type' and tag.text == 'Uitspraak':
-        is_case = True
     if cleantagname == 'identifier':
-        if datarecord['case_id'] == "":
-            datarecord['case_id'] = tag.text
-    if cleantagname == 'date':
-        if datarecord['date'] == "":
-            datarecord['date'] = tag.text
-    if cleantagname == 'zaaknummer':
-        if datarecord['case_number'] == "":
-            datarecord['case_number'] = tag.text
-    if cleantagname == 'inhoudsindicatie':
-        if datarecord['description'] == "":
-            datarecord['description'] = stringify_children(tag)
+        if datarecord[RS_IDENTIFIER_ECLI] is None:
+            datarecord[RS_IDENTIFIER_ECLI] = tag.text
+        else:
+            datarecord[RS_IDENTIFIER_URL] = tag.text
+    if cleantagname == 'issued':
+        datarecord[RS_ISSUED] = tag.text
     if cleantagname == 'language':
-        if datarecord['language'] == "":
-            datarecord['language'] = tag.text.upper()
-    if cleantagname == 'spatial':
-        if datarecord['venue'] == "":
-            datarecord['venue'] = tag.text
-    if cleantagname == 'uitspraak.info':
-        if datarecord['abstract'] == "":
-            datarecord['abstract'] = stringify_children(tag)
-    if cleantagname == 'conclusie.info':
-        if datarecord['abstract'] == "":
-            datarecord['abstract'] = stringify_children(tag)
-    if cleantagname == 'procedure':
-        if datarecord['procedure_type'] == "":
-            datarecord['procedure_type'] = tag.text
-    if cleantagname == 'subject':
-        if datarecord['subject'] == "":
-            datarecord['subject'] = tag.text
+        if datarecord[RS_LANGUAGE] is None:
+            datarecord[RS_LANGUAGE] = tag.text.upper()
     if cleantagname == 'creator':
-        if datarecord['authority'] == "":
-            datarecord['authority'] = tag.text
-    if cleantagname == 'references':
-        if datarecord['legal_references'] == "":
-            datarecord['legal_references'] = stringify_children(tag)
+        if datarecord[RS_CREATOR] is None:
+            datarecord[RS_CREATOR] = tag.text
+    if cleantagname == 'date':
+        if datarecord[RS_DATE] is None:
+            datarecord[RS_DATE] = tag.text
+    if cleantagname == 'zaaknummer':
+        if datarecord[RS_ZAAKNUMMER] is None:
+            datarecord[RS_ZAAKNUMMER] = tag.text
+    if cleantagname == 'type':
+        if datarecord[RS_TYPE] is None:
+            datarecord[RS_TYPE] = tag.text
+        if tag.text == 'Uitspraak':
+            is_case = True
+    if cleantagname == 'procedure':
+        if datarecord[RS_PROCEDURE] is None:
+            datarecord[RS_PROCEDURE] = tag.text
+        else:
+            datarecord[RS_PROCEDURE] += ', ' + tag.text
+    if cleantagname == 'spatial':
+        if datarecord[RS_SPATIAL] is None:
+            datarecord[RS_SPATIAL] = tag.text
+    if cleantagname == 'subject':
+        if datarecord[RS_SUBJECT] is None:
+            datarecord[RS_SUBJECT] = tag.text
     if cleantagname == 'relation':
-        if datarecord['related_cases'] == "":
-            datarecord['related_cases'] = stringify_children(tag)
+        if datarecord[RS_RELATION] is None:
+            datarecord[RS_RELATION] = tag.text
+        else:
+            datarecord[RS_RELATION] += ', ' + tag.text
+    if cleantagname == 'references':
+        if datarecord[RS_REFERENCES] is None:
+            datarecord[RS_REFERENCES] = tag.text
+        else:
+            datarecord[RS_REFERENCES] += ', ' + tag.text
     if cleantagname == 'hasVersion':
-        if datarecord['alternative_sources'] == "":
-            datarecord['alternative_sources'] = stringify_children(tag)
+        if datarecord[RS_HASVERSION] is None:
+            datarecord[RS_HASVERSION] = stringify_children(tag)
+    if cleantagname == 'title':
+        if datarecord[RS_TITLE] is None:
+            datarecord[RS_TITLE] = stringify_children(tag)
+    if cleantagname == 'inhoudsindicatie':
+        if datarecord[RS_INHOUDSINDICATIE] is None:
+            datarecord[RS_INHOUDSINDICATIE] = stringify_children(tag)
+    if cleantagname == 'uitspraak.info' or cleantagname == 'conclusie.info':
+        if datarecord[RS_INFO] is None:
+            datarecord[RS_INFO] = stringify_children(tag)
     if cleantagname == 'uitspraak':
-        file_name = tag.attrib['id']
-        # ECLI_NL_RBROT_1913_22
-        reg_post = re.search(
-            'ECLI:(?P<country>.*):(?P<jur>.*):(?P<year>.*):(?P<no>.*):(?P<doc>.*)',
-            file_name)
-        file_name = PATH + reg_post.group('year') + '/' + file_name.replace(":", "_") + '.html'
+        # file_name = tag.attrib['id']
+        # # ECLI_NL_RBROT_1913_22
+        # reg_post = re.search(
+        #     'ECLI:(?P<country>.*):(?P<jur>.*):(?P<year>.*):(?P<no>.*):(?P<doc>.*)',
+        #     file_name)
+        # file_name = PATH + reg_post.group('year') + '/' + file_name.replace(":", "_") + '.html'
+        #
+        # file = open(file_name, "w")
+        # file.write(stringify_children(tag))
 
-        file = open(file_name, "w")
-        file.write(stringify_children(tag))
-
-        if datarecord['full_text'] == "":
-            datarecord['full_text'] = file_name
+        if datarecord[RS_FULLTEXT] is None:
+            datarecord[RS_FULLTEXT] = stringify_children(tag)
 
 
-#Function to write new line in the csv file
+# write column names to csv
+def initialise_csv_files():
+    initialise_data_record()
+    with open('case.csv', 'w') as f:
+        # Using dictionary keys as fieldnames for the CSV file header
+        writer = csv.DictWriter(f, datarecord.keys())
+        writer.writeheader()
+    with open('case_opinion_from_advocate_general.csv', 'w') as f:
+        writer = csv.DictWriter(f, datarecord.keys())
+        writer.writeheader()
+
+
+# Function to write new line in the csv file
 def write_line_csv(file_path, row):
     with open(file_path, 'a', newline='') as csvfile:
-        columns = ['case_id', 'date', 'case_number', 'description', 'language', 'venue', 'abstract',
-                       'procedure_type',
-                       'lodge_date', 'country', 'subject', 'authority', 'legal_references', 'related_cases',
-                       'alternative_sources', 'full_text']
-
-        writer = csv.DictWriter(csvfile, fieldnames=columns)
+        writer = csv.DictWriter(csvfile, fieldnames=row.keys())
         writer.writerow(row)
 
 
@@ -149,6 +183,8 @@ def write_line_csv(file_path, row):
 def parse_metadata_from_xml_file(filename):
     global datarecord
     global is_case
+    global case_counter
+    global opinion_counter
 
     initialise_data_record()
     is_case = False
@@ -168,30 +204,32 @@ def parse_metadata_from_xml_file(filename):
             processtag(cleantagname, tag)
 
     if is_case:
-        print("\033[94mCASE\033[0m %s" % datarecord['case_id'])
+        case_counter += 1
+        print("\033[94mCASE\033[0m %s" % datarecord[RS_IDENTIFIER_ECLI])
         write_line_csv('case.csv', datarecord)
     else:
-        print("\033[95mOPINION\033[0m %s" % datarecord['case_id'])
+        opinion_counter += 1
+        print("\033[95mOPINION\033[0m %s" % datarecord[RS_IDENTIFIER_ECLI])
         write_line_csv('case_opinion_from_advocate_general.csv', datarecord)
 
 
 # Function to write data to file
-def write_data_to_file(data, filename):
-    csv_columns = ['case_id', 'date', 'case_number', 'description', 'language', 'venue', 'abstract', 'procedure_type',
-                   'lodge_date', 'country', 'subject', 'authority', 'legal_references', 'related_cases',
-                   'alternative_sources', 'full_text']
-    with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
-        writer.writeheader()
-        for row in data:
-            writer.writerow(row)
+#def write_data_to_file(data, filename):
+#    csv_columns = ['case_id', 'date', 'case_number', 'description', 'language', 'venue', 'abstract', 'procedure_type',
+#                   'lodge_date', 'country', 'subject', 'authority', 'legal_references', 'related_cases',
+#                   'alternative_sources', 'full_text']
+#    with open(filename, 'w', newline='', encoding='utf-8') as csvfile:
+#        writer = csv.DictWriter(csvfile, fieldnames=csv_columns)
+#        writer.writeheader()
+#        for row in data:
+#            writer.writerow(row)
 
 
 # Function to write data to file
-def write_eclis_to_file(data, filename):
-    with open(filename, 'w', newline='') as csvfile:
-        writer = csv.writer(csvfile, delimiter=',')
-        writer.writerows(data)
+#def write_eclis_to_file(data, filename):
+#    with open(filename, 'w', newline='') as csvfile:
+#        writer = csv.writer(csvfile, delimiter=',')
+#        writer.writerows(data)
 
 ###################################
 
@@ -202,7 +240,7 @@ PATH = "../../data/OpenDataUitspraken/"
 start = time.time()
 
 print("Extracting files...\n")
-extract_all("../../data/OpenDataUitspraken.zip")
+#extract_all("../../data/OpenDataUitspraken.zip")
 print("All files extracted!\n")
 
 print("Building index of XML files...\n")
@@ -237,6 +275,9 @@ print()
 print("Parsing files...")
 print()
 
+# Initialise csv files:
+initialise_csv_files()
+
 # Parse files to obtain list of tags in them
 index = 1
 for file in list_of_files_to_parse:
@@ -266,5 +307,7 @@ end = time.time()
 
 print("Done!")
 print()
-
+print('Number of cases: ', case_counter)
+print('Number of opinions: ', opinion_counter)
 print("Time taken: ", (end - start), "s")
+
