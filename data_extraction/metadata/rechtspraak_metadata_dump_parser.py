@@ -163,11 +163,11 @@ def processtag(cleantagname, tag):
 # write column names to csv
 def initialise_csv_files():
     initialise_data_record()
-    with open('case.csv', 'w') as f:
+    with open('../../data/case.csv', 'w') as f:
         # Using dictionary keys as fieldnames for the CSV file header
         writer = csv.DictWriter(f, datarecord.keys())
         writer.writeheader()
-    with open('case_opinion_from_advocate_general.csv', 'w') as f:
+    with open('../../data/case_opinion_from_advocate_general.csv', 'w') as f:
         writer = csv.DictWriter(f, datarecord.keys())
         writer.writeheader()
 
@@ -206,11 +206,11 @@ def parse_metadata_from_xml_file(filename):
     if is_case:
         case_counter += 1
         print("\033[94mCASE\033[0m %s" % datarecord[RS_IDENTIFIER_ECLI])
-        write_line_csv('case.csv', datarecord)
+        write_line_csv('../../data/case.csv', datarecord)
     else:
         opinion_counter += 1
         print("\033[95mOPINION\033[0m %s" % datarecord[RS_IDENTIFIER_ECLI])
-        write_line_csv('case_opinion_from_advocate_general.csv', datarecord)
+        write_line_csv('../../data/case_opinion_from_advocate_general.csv', datarecord)
 
 
 # Function to write data to file
