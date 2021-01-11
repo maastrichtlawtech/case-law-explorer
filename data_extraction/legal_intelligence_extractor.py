@@ -7,8 +7,10 @@ from definitions import CSV_LI_CASES
 
 # Import and load env vars, see .env
 from dotenv import load_dotenv
-load_dotenv()
 
+start_script = time.time()
+
+load_dotenv()
 # Legal intelligence credentials
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
@@ -181,4 +183,9 @@ df.to_csv(CSV_LI_CASES, index=False)
 
 #print(f'All {len(eclis)} eclis processed and saved to dataframe.')
 print(f'LI dataframe shape: {df.shape}')
+
+end_script = time.time()
+
+print("Done!")
+print("Time taken: ", (end_script - start_script), "s")
 
