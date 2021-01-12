@@ -35,7 +35,7 @@ IDENTIFIER2 = 'identifier2'
 TITLE = 'title'
 INHOUDSINDICATIE = 'inhoudsindicatie'
 INFO = 'info'
-UITSPRAAK = 'uitspraak'
+FULL_TEXT = 'full_text'
 
 
 # Initialize the datarecord with the default fields and inital values
@@ -61,7 +61,7 @@ def initialise_data_record():
         TITLE: None,
         INHOUDSINDICATIE: None,
         INFO: None,
-        UITSPRAAK: None,
+        FULL_TEXT: None,
         SOURCE: "Rechtspraak",
         JURISDICTION_COUNTRY: "NL",
     }
@@ -140,7 +140,7 @@ def processtag(cleantagname, tag):
     if cleantagname == 'uitspraak.info' or cleantagname == 'conclusie.info':
         if datarecord[INFO] is None:
             datarecord[INFO] = stringify_children(tag)
-    if cleantagname == 'uitspraak':
+    if cleantagname == 'uitspraak' or cleantagname == 'conclusie':
         # file_name = tag.attrib['id']
         # # ECLI_NL_RBROT_1913_22
         # reg_post = re.search(
@@ -151,8 +151,8 @@ def processtag(cleantagname, tag):
         # file = open(file_name, "w")
         # file.write(stringify_children(tag))
 
-        if datarecord[UITSPRAAK] is None:
-            datarecord[UITSPRAAK] = stringify_children(tag)
+        if datarecord[FULL_TEXT] is None:
+            datarecord[FULL_TEXT] = stringify_children(tag)
 
 
 # write column names to csv
