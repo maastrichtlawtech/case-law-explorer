@@ -158,7 +158,9 @@ df.drop_duplicates(set(df.columns) - {'Url'}, inplace=True)
 
 # group by ecli number, select most relevant entry
 df = df.groupby('ecli').apply(select_entry).reset_index(drop=True)
-
+df['PublicationDate'] = df['PublicationDate'].astype(int)
+df['EnactmentDate'] = df['EnactmentDate'].astype(int)
+df['DateAdded'] = df['DateAdded'].astype(int)
 
     # # select correct return document: "NJ" is first choice, "RvdW" is second choice
     # document = None
