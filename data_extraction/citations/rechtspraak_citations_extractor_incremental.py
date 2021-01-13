@@ -6,6 +6,7 @@ import os
 import sys
 import csv
 import pandas as pd
+from definitions import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
 
 # SCRIPT USAGE:
 # python rechtspraak_citations_extractor.py param1 param2 param3 param4 param5
@@ -202,7 +203,7 @@ def get_last_ecli_downloaded(downloaded_citations):
     #if there are no citations yet
     if downloaded_citations.shape[0] != 0:
         print(downloaded_citations.shape)
-        last_citation_ecli = downloaded_citations.iloc[downloaded_citations.shape[0]-1]['source_ecli']
+        last_citation_ecli = downloaded_citations.iloc[downloaded_citations.shape[0]-1]['ecli']
 
     return last_citation_ecli
 
@@ -339,17 +340,17 @@ def find_citations_for_case(ecli):
     for case_citation in case_law_citations:
         current_row = []
         current_row.append(remove_spaces_from_ecli(ecli))    # Source ECLI
-        current_row.append("")                                          # Source paragraph     
+        #  current_row.append("")                                          # Source paragraph   --> not needed
         current_row.append(remove_spaces_from_ecli(case_citation))      # Target ECLI
-        current_row.append("")                                          # Target paragraph
+        #  current_row.append("")                                          # Target paragraph  --> not needed
         case_law_result.append(current_row)
     
     for leg_citation in legislation_citations:
         current_row = []
         current_row.append(remove_spaces_from_ecli(ecli))    # Source ECLI
-        current_row.append("")                                          # Source paragraph     
+        #  current_row.append("")                                          # Source paragraph  --> not needed
         current_row.append(leg_citation)                                # Target article
-        current_row.append("")                                          # Target paragraph
+        #  current_row.append("")                                          # Target paragraph  --> not needed
         current_row.append(get_legislation_webpage(leg_citation))       # Target article webpage
 
         article_name = get_legislation_name(leg_citation)
@@ -373,17 +374,19 @@ if (num_of_cases_switch == 's'):                                                
     
     legislation_citations_output_filename = ecli_code + "_legislation_citations.csv"
     citations = find_citations_for_case(remove_spaces_from_ecli(input_eclis))
-    citations[0].insert(0,['source_ecli','source_paragraph','target_ecli','target_paragraph'])                                      # Insert case citations header
+    # citations[0].insert(0,['source_ecli','source_paragraph','target_ecli','target_paragraph'])                                      # Insert case citations header --> old
+    citations[0].insert(0,['ecli', 'Jurisprudentie'])                                      # Insert case citations header
     write_data_to_csv(case_citations_output_filename, citations[0])                                                                 # Write case law citations to file
-    citations[1].insert(0,['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage'])  # Insert legislation citations header
+    # citations[1].insert(0,['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage'])  # Insert legislation citations header  --> old
+    citations[1].insert(0,['ecli', 'Wet', 'Artikel'])  # Insert legislation citations header
     write_data_to_csv(legislation_citations_output_filename, citations[1])                                                          # Write legislation citations to file
 else:                                                       
     if (citation_type_switch == "i"):                                                                        # Multiple ECLIs
         case_citations_output_filename = "caselaw_citations_incoming.csv"
     else:
-        case_citations_output_filename = "caselaw_citations_outgoing.csv"
+        case_citations_output_filename = CSV_CASE_CITATIONS  # outgoing citations
 
-    legislation_citations_output_filename = "legislation_citations.csv"
+    legislation_citations_output_filename = CSV_LEGISLATION_CITATIONS
 
     #default value for the last ecli downloaded
     last_ecli = 0
@@ -395,12 +398,12 @@ else:
         print("citation file already exists, last ecli : " + str(last_ecli))
     #if it doesnt, create it with the right columns
     else:
-        downloaded_citations = pd.DataFrame(columns=['source_ecli','source_paragraph','target_ecli','target_paragraph'])
+        downloaded_citations = pd.DataFrame(columns=['ecli', 'Jurisprudentie'])
 
     if os.path.isfile(legislation_citations_output_filename):
         downloaded_legislation_citations = pd.read_csv(legislation_citations_output_filename)
     else:
-        downloaded_legislation_citations = pd.DataFrame(columns=['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage', "article_name"])
+        downloaded_legislation_citations = pd.DataFrame(columns=['ecli', 'Wet', 'Artikel'])
 
 
 
@@ -411,7 +414,7 @@ else:
         #delte the rows that come from that ecli, so that we dont re-download some of the citations (in case it broke in the middle)
         #if a later case had legislation citations but no case citations, it will be re-downloaded (because we are taking the last ecli
         #in the case citation table). This is why we have to drop duplicated from the legislation citation table at the very end of the script.
-        downloaded_citations = downloaded_citations[downloaded_citations["source_ecli"] != last_ecli]
+        downloaded_citations = downloaded_citations[downloaded_citations["ecli"] != last_ecli]
         print("post size : " + str(downloaded_citations.shape))
 
         print('legislation citations downloaded shape : '+str(downloaded_legislation_citations.shape))

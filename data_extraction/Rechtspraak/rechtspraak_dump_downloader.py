@@ -11,7 +11,6 @@ date = str(dateTimeObj.year) + '-' + str(dateTimeObj.month) + '-' + str(dateTime
 
 print("Downloading Rechtspraak.nl dump - " + date + " ...")
 
-os.makedirs(DIR_DATA)
 urllib.request.urlretrieve("http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip",
                            DIR_RECHTSPRAAK + '.zip')
 

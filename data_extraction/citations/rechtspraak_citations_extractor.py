@@ -5,6 +5,7 @@ import rdflib
 import os
 import sys
 import csv
+from definitions import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
 
 # SCRIPT USAGE:
 # python rechtspraak_citations_extractor.py param1 param2 param3 param4 param5
@@ -227,18 +228,18 @@ def find_citations_for_case(ecli):
     
     for case_citation in case_law_citations:
         current_row = []
-        current_row.append(remove_spaces_from_ecli(ecli))    # Source ECLI
-        current_row.append("")                                          # Source paragraph     
+        current_row.append(remove_spaces_from_ecli(ecli))               # Source ECLI
+        # current_row.append("")                                          # Source paragraph --> not needed
         current_row.append(remove_spaces_from_ecli(case_citation))      # Target ECLI
-        current_row.append("")                                          # Target paragraph
+        # current_row.append("")                                          # Target paragraph --> not needed
         case_law_result.append(current_row)
     
     for leg_citation in legislation_citations:
         current_row = []
-        current_row.append(remove_spaces_from_ecli(ecli))    # Source ECLI
-        current_row.append("")                                          # Source paragraph     
+        current_row.append(remove_spaces_from_ecli(ecli))               # Source ECLI
+        # current_row.append("")                                          # Source paragraph --> not needed
         current_row.append(leg_citation)                                # Target article
-        current_row.append("")                                          # Target paragraph
+        # current_row.append("")                                          # Target paragraph --> not needed
         current_row.append(get_legislation_webpage(leg_citation))       # Target article webpage
         legislation_result.append(current_row)
 
@@ -258,19 +259,21 @@ if (num_of_cases_switch == 's'):                                                
     
     legislation_citations_output_filename = ecli_code + "_legislation_citations.csv"
     citations = find_citations_for_case(remove_spaces_from_ecli(input_eclis))
-    citations[0].insert(0,['source_ecli','source_paragraph','target_ecli','target_paragraph'])                                      # Insert case citations header
+    citations[0].insert(0,['ecli', 'Jurisprudentie'])                                      # Insert case citations header
     write_data_to_csv(case_citations_output_filename, citations[0])                                                                 # Write case law citations to file
-    citations[1].insert(0,['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage'])  # Insert legislation citations header
+    citations[1].insert(0,['ecli', 'Wet', 'Artikel'])  # Insert legislation citations header
     write_data_to_csv(legislation_citations_output_filename, citations[1])                                                          # Write legislation citations to file
 else:                                                       
     if (citation_type_switch == "i"):                                                                        # Multiple ECLIs
         case_citations_output_filename = "caselaw_citations_incoming.csv"
     else:
-        case_citations_output_filename = "caselaw_citations_outgoing.csv"
+        case_citations_output_filename = CSV_CASE_CITATIONS  # outgoing citations
 
-    legislation_citations_output_filename = "legislation_citations.csv"
+    legislation_citations_output_filename = CSV_LEGISLATION_CITATIONS
     citations = find_citations_for_cases(input_eclis)
-    citations[0].insert(0,['source_ecli','source_paragraph','target_ecli','target_paragraph'])                                      # Insert case citations header
-    write_data_to_csv(case_citations_output_filename, citations[0])        
-    citations[1].insert(0,['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage'])  # Insert legislation citations header                                                         # Write case law citations to file
+    # citations[0].insert(0,['source_ecli','source_paragraph','target_ecli','target_paragraph'])                                 # Insert case citations header --> old
+    citations[0].insert(0, ['ecli', 'Jurisprudentie'])                                      # Insert case citations header
+    write_data_to_csv(case_citations_output_filename, citations[0])
+    # citations[1].insert(0,['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage'])  # Insert legislation citations header   --> old                                                      # Write case law citations to file
+    citations[1].insert(0, ['ecli', 'Wet', 'Artikel'])  # Insert legislation citations header                                                         # Write case law citations to file
     write_data_to_csv(legislation_citations_output_filename, citations[1])                                                          # Write legislation citations to file
