@@ -10,6 +10,11 @@ b)  define the terminology to be used throughout all data processing steps.
     (RS = Rechtspraak, LI = Legal intelligence). 
 """
 
+# URL DEFINITIONS:
+URL_LI_ENDPOINT = 'https://api.legalintelligence.com/'
+URL_RS_ARCHIVE = 'http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip'
+URL_RS_ARCHIVE_SAMPLE = 'https://transfer.sh/4LPyZ/OpenDataUitspraken_xs.zip'
+
 # PATH DEFINITIONS:
 # data folder structure
 DIR_ROOT = dirname(abspath(__file__))
