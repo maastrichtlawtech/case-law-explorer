@@ -10,13 +10,25 @@
 </head>
 <body>
   <div id="app"></div>
+
+  <!-- Plugins Top-->
+  <script src="//cdn.jsdelivr.net/npm/docsify-edit-on-github"></script>
+
+  <!-- Config -->
   <script>
     window.$docsify = {
       name: 'Case Law Explorer',
-      repo: 'maastrichtlawtech/case-law-explorer',
-      loadSidebar: true
+      loadSidebar: true,
+      themeColor: '#001C3D',
+      plugins: [
+        EditOnGithubPlugin.create('https://github.com/maastrichtlawtech/case-law-explorer/tree/master/docs/')
+      ]
     }
   </script>
+
+  <!-- Plugins Bottom-->
   <script src="//cdn.jsdelivr.net/npm/docsify/lib/docsify.min.js"></script>
+  <script src="//cdn.jsdelivr.net/npm/docsify-copy-code"></script>
+  <script src="//unpkg.com/docsify-count/dist/countable.min.js"></script>
 </body>
 </html>
