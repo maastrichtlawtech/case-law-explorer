@@ -8,3 +8,6 @@
     * [Extract](/elt/?id=extract)
     * [Transform](/elt/?id=transform)
     * [Load](/elt/?id=load)
+* **Deployment**
+    * [Extraction](/deploy/?id=extraction)
+    
