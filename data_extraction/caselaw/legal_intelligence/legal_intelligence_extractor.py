@@ -5,19 +5,16 @@ import math
 import time
 from definitions import CSV_LI_CASES
 
-# Import and load env vars, see .env
-from dotenv import load_dotenv
-
 start_script = time.time()
 
-load_dotenv()
 # Legal intelligence credentials
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
 
+# Debug var
+TEST = os.getenv('SAMPLE_TEST')
 
 # # Methods needed for using the LI API
-
 def get_access_token():
     data = {
      "grant_type": "client_credentials",
@@ -69,9 +66,14 @@ def get_search_query(query, filters=[]):
     # total number of cases retrieved by the given query
     count = initial_response.json()["Count"]
     print("case count : " + str(count))
+
     # because we are using 40 as the number of cases retrieved at a time by Legal Intelligence (see params),
     # this is the total number of iterations we will have tot loop through in order to retrieve all cases
-    nb_pages = math.ceil(count / 40)
+    if TEST == "TRUE":
+        nb_pages = 0
+    else:
+        nb_pages = math.ceil(count / 40)
+
     print('number of pages : ' + str(nb_pages))
     # append the first response to the list of response dictionaries
     documents += initial_response.json()['Documents']
