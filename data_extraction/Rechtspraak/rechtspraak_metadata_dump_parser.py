@@ -212,28 +212,21 @@ start = time.time()
 
 print("Building index of XML files...\n")
 
-# List all top-level directories
-files = os.listdir(DIR_RECHTSPRAAK)
-dirs = [join(DIR_RECHTSPRAAK, file) for file in files if os.path.isdir(join(DIR_RECHTSPRAAK, file)) and file != 'full-text']
-print(dirs)
-
-# List all the .xml files from the directories
 list_of_files_to_parse = []
 
-for directory in dirs:
-    print('DIRNAME: ' + directory)
-    # Get all the files from the directory
-    subdirectories = os.listdir(directory)
-    subdirs = [join(directory, sub) for sub in subdirectories if os.path.isdir(join(directory, sub)) and sub != 'full-text']
+# List all top-level directories
+file_tree = os.walk(DIR_RECHTSPRAAK)
 
-    for subdir in subdirs:
-        print('SUBDIRNAME: ' + subdir)
-        files_in_dir = os.listdir(subdir)
+# List all the files from the sub-directories
+for (dirpath, dirnames, filenames) in file_tree:
+    for file in filenames:
+        # Append only the xml files
+        if file[-4:].lower() == ".xml":
+            list_of_files_to_parse.append(os.path.join(dirpath, file))
+        else:
+            print(file)
 
-        for file in files_in_dir:
-            # Append only the xml files
-            if file[-4:].lower() == ".xml":
-                list_of_files_to_parse.append(join(subdir, file))
+    # list_of_files_to_parse.extend([os.path.join(dirpath, file) for file in filenames])
 
 num_files = len(list_of_files_to_parse)
 
