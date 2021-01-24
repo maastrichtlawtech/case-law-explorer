@@ -11,6 +11,41 @@ Vel pharetra vel turpis nunc. Malesuada nunc vel risus commodo. Nisi vitae susci
 ## ETL pipeline
 See [Data extraction](/elt/)
 
+## Datasets
+Let's describe the current datasets, the reasons we use them and maybe future plans?
+
+### Rechtspraak Archive
+Description of Rechtspraak Archive
+
+Current sources: 
+- Original archive: http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip ~5GB
+- Sample _small_ (~125k cases): https://transfer.sh/pYNKA/OpenDataUitspraken_small.zip ~300MB
+- Sample _xsmall_ (~1k cases): https://transfer.sh/4LPyZ/OpenDataUitspraken_xs.zip ~2MB
+
+### Legal Intelligence API
+Description of Legal Intelligence API
+
+Current endpoints:
+- Original endpoint: https://api.legalintelligence.com/
+- Documentation: https://www.legalintelligence.com/handleidingen/api-technical-information/
+
+## Taxonomy
+|                 Term                |                                         Definition                                        |
+|:-----------------------------------:|:-----------------------------------------------------------------------------------------:|
+| ECLI (European Case Law Identifier) | Unique identifier for court decisions in Europe                                           |
+| Issued date                         | Date of document publication                                                              |
+| Enactment Date                      | Date of court decision                                                                    |
+| Language                            | Language of jurisdiction to which case belongs                                            |
+| Creator                             | Name of instance (court)                                                                  |
+| Zaaknummer                          | Case number, for internal use by courts                                                   |
+| Case type                           | 'uitspraak' (decision) or 'conclusie' (opinion)                                           |
+| Procedure type                      | e.g. summary proceedings                                                                  |
+| Spatial                             | Court location (municipality)                                                             |
+| Subject                             | Domain (area of the law) applicable to case                                               |
+| Relation                            | Predecessor and successor cases (in case of appeal, cassation, preliminary decisions etc) |
+| References                          | Title of applicable legislation                                                           |
+| Inhoudsindicatie                    | Case summary                                                                              |
+
 ## License 
 This work is licensed under a [Creative Commons Attribution-NonCommercial 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/legalcode.en) 
 
