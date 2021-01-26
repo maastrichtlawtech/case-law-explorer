@@ -4,7 +4,9 @@ from itertools import chain
 import os
 import csv
 import time
-from definitions import DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, SOURCE, JURISDICTION_COUNTRY, join
+from definitions.file_paths import DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS
+from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION
+from definitions.terminology.field_values import RS_SOURCE, NL
 
 is_case = False
 
@@ -44,6 +46,7 @@ def initialise_data_record():
     global opinion_counter
     global datarecord
     datarecord = {
+        ECLI_DECISION: None,
         IDENTIFIER: None,
         ISSUED: None,
         LANGUAGE: None,
@@ -62,8 +65,8 @@ def initialise_data_record():
         INHOUDSINDICATIE: None,
         INFO: None,
         FULL_TEXT: None,
-        SOURCE: "Rechtspraak",
-        JURISDICTION_COUNTRY: "NL",
+        SOURCE: RS_SOURCE,
+        JURISDICTION_COUNTRY: NL,
     }
 
 
@@ -107,6 +110,9 @@ def processtag(cleantagname, tag):
             datarecord[TYPE] = tag.text
         if tag.text == 'Uitspraak':
             is_case = True
+        # add case ecli to opinion records
+        elif datarecord[ECLI_DECISION] is None and ':PHR:' in datarecord[IDENTIFIER]:
+            datarecord[ECLI_DECISION] = datarecord[IDENTIFIER].replace(':PHR:', ':HR:')
     if cleantagname == 'procedure':
         if datarecord[PROCEDURE] is None:
             datarecord[PROCEDURE] = tag.text
@@ -158,11 +164,12 @@ def processtag(cleantagname, tag):
 # write column names to csv
 def initialise_csv_files():
     initialise_data_record()
-    with open(CSV_RS_CASES, 'w') as f:
-        # Using dictionary keys as fieldnames for the CSV file header
+    with open(CSV_RS_OPINIONS, 'w') as f:
         writer = csv.DictWriter(f, datarecord.keys())
         writer.writeheader()
-    with open(CSV_RS_OPINIONS, 'w') as f:
+    with open(CSV_RS_CASES, 'w') as f:
+        # Using dictionary keys as fieldnames for the CSV file header
+        datarecord.pop(ECLI_DECISION)
         writer = csv.DictWriter(f, datarecord.keys())
         writer.writeheader()
 
@@ -201,6 +208,7 @@ def parse_metadata_from_xml_file(filename):
     if is_case:
         case_counter += 1
         print("\033[94mCASE\033[0m %s" % datarecord[IDENTIFIER])
+        datarecord.pop(ECLI_DECISION)
         write_line_csv(CSV_RS_CASES, datarecord)
     else:
         opinion_counter += 1
