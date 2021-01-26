@@ -5,7 +5,7 @@ import rdflib
 import os
 import sys
 import csv
-from definitions import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
+from definitions.file_paths import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
 
 # SCRIPT USAGE:
 # python rechtspraak_citations_extractor.py param1 param2 param3 param4 param5
@@ -14,11 +14,11 @@ from definitions import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
 # param3 : Indicates whether you want to run this script on a single case or multiple cases. Use "s" for single ECLI OR "m" for multiple ECLIs
 # param4 : Indicates whether you want the "incoming" or "outgoing" citations for the given case(s). Use "i" for incoming and "o" for outgoing
 # param5 : Indicates the ECLI code(s) for the case(s) you want to extract the citations for. If you chose "s" for param3 then put the ECLI code
-# for the case here. If you chose "m" for param3 then put the path to a .csv file which contains a list of case ECLI codes (one on each line, no commas)
+# for the case here. If you chose "m" for param3 then put the path to a .csv file which contains a list of case ECLI codes (one on each line, no commas) @TODO check: path to full csv (CSV_RS_CASES) should be fine too
 
 def is_valid_ecli_code(ecli):
     ecli_code = ecli.replace(" ","")                                        # Remove spaces
-    ecli_components = ecli_code.split(":")                                  # Split the ECLI into components 
+    ecli_components = ecli_code.split(":")                                  # Split the ECLI into components
     if ("." in input_eclis or len(ecli_components) != 5):                   # Each ECLI has exactly 5 components (and does not have a full stop - this probably indicates a file name)
         return False
     if (ecli_components[0].lower() == 'ecli'):                              # The first part of an ECLI is "ECLI"
