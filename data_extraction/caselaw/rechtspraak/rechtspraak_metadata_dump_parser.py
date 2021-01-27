@@ -4,7 +4,7 @@ from itertools import chain
 import os
 import csv
 import time
-from definitions.file_paths import DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS
+from definitions.file_paths import DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_ECLIS
 from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION
 from definitions.terminology.field_values import RS_SOURCE, NL
 
@@ -210,6 +210,8 @@ def parse_metadata_from_xml_file(filename):
         print("\033[94mCASE\033[0m %s" % datarecord[IDENTIFIER])
         datarecord.pop(ECLI_DECISION)
         write_line_csv(CSV_RS_CASES, datarecord)
+        with open(CSV_RS_ECLIS, 'a') as f:
+            f.write(datarecord[IDENTIFIER] + '\n')
     else:
         opinion_counter += 1
         print("\033[95mOPINION\033[0m %s" % datarecord[IDENTIFIER])

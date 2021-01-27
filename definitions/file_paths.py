@@ -33,3 +33,6 @@ CSV_RS_OPINIONS_PROC = join(DIR_DATA_PROCESSED, 'RS_opinions_clean.csv')
 CSV_LI_CASES_PROC = join(DIR_DATA_PROCESSED, 'LI_cases_clean.csv')
 CSV_CASE_CITATIONS_PROC = join(DIR_DATA_PROCESSED, 'caselaw_citations_clean.csv')
 CSV_LEGISLATION_CITATIONS_PROC = join(DIR_DATA_PROCESSED, 'legislation_citations_clean.csv')
+
+# list of ECLIs (output of RS extractor, input to LIDO extractor)
+CSV_RS_ECLIS = join(DIR_DATA, 'RS_eclis.csv')
