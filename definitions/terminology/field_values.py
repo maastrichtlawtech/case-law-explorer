@@ -76,7 +76,7 @@ NL = NEDERLAND = 'NL'  # used for country and language
 """
 Sources
 """
-RS_SOURCE = 'Rechtspraak'
+RECHTSPRAAK = 'Rechtspraak'
 # to be extended
 
 

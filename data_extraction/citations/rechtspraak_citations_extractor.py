@@ -14,7 +14,7 @@ from definitions.file_paths import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
 # param3 : Indicates whether you want to run this script on a single case or multiple cases. Use "s" for single ECLI OR "m" for multiple ECLIs
 # param4 : Indicates whether you want the "incoming" or "outgoing" citations for the given case(s). Use "i" for incoming and "o" for outgoing
 # param5 : Indicates the ECLI code(s) for the case(s) you want to extract the citations for. If you chose "s" for param3 then put the ECLI code
-# for the case here. If you chose "m" for param3 then put the path to a .csv file which contains a list of case ECLI codes (one on each line, no commas) @TODO check: path to full csv (CSV_RS_CASES) should be fine too
+# for the case here. If you chose "m" for param3 then put the path to a .csv file which contains a list of case ECLI codes (one on each line, no commas)
 
 def is_valid_ecli_code(ecli):
     ecli_code = ecli.replace(" ","")                                        # Remove spaces

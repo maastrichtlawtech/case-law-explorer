@@ -33,24 +33,24 @@ MAP_RS_OPINION[ECLI_DECISION] = ECLI_DECISION  # not in original data, added thr
 # original field names of LI can be found here: https://www.legalintelligence.com/files/li-search-endpoint.pdf
 MAP_LI = {
     ECLI: ECLI,  # not in original data, added through script
-    'Id': LI_ID + LI,  # internal document id in LI
-    'Title': LI_TITLE + LI,  # title of original document
-    'DisplayTitle': LI_DISPLAY_TITLE + LI,  # title of document entry in LI
-    'DisplaySubtitle': LI_DISPLAY_SUBTITLE + LI,  # subtitle of document entry in LI
-    'Summary': LI_SUMMARY + LI,  # case summary
-    'Url': LI_URL + LI,  # URL to LI entry of document
-    'OriginalUrl': LI_ORIGINAL_URL + LI,  # URL to original document by publisher
-    'Jurisdiction': LI_JURISDICTION + LI,  # country of jurisdiction
-    'DocumentType': LI_DOCUMENT_TYPE + LI,  # source of case (here: always 'Rechtspraak')
-    'LawArea': LI_LAW_AREA + LI,  # domain(s) (area(s) of the law) applicable to case
-    'IssuingInstitution': LI_ISSUING_INSTITUTION + LI,  # name of instance (court)
-    'CaseNumber': LI_CASE_NUMBER + LI,  # unique case identifier (ECLI or previous format)
-    'PublicationNumber': LI_PUBLICATION_NUMBER + LI,  # internal document id of publisher
-    'IssueNumber': LI_ISSUE_NUMBER + LI,  # collection id of publisher
-    'PublicationDate': LI_PUBLICATION_DATE + LI,  # date of document publication (by publisher)
-    'EnactmentDate': LI_ENACTMENT_DATE + LI,  # date of court decision
-    'DateAdded': LI_DATE_ADDED + LI,  # date of document added to the LI platform
-    'Sources': LI_SOURCES + LI  # alternative publishing institutions
+    'Id': LI_ID,  # internal document id in LI
+    'Title': LI_TITLE,  # title of original document
+    'DisplayTitle': LI_DISPLAY_TITLE,  # title of document entry in LI
+    'DisplaySubtitle': LI_DISPLAY_SUBTITLE,  # subtitle of document entry in LI
+    'Summary': LI_SUMMARY,  # case summary
+    'Url': LI_URL,  # URL to LI entry of document
+    'OriginalUrl': LI_ORIGINAL_URL,  # URL to original document by publisher
+    'Jurisdiction': LI_JURISDICTION,  # country of jurisdiction
+    'DocumentType': LI_DOCUMENT_TYPE,  # source of case (here: always 'Rechtspraak')
+    'LawArea': LI_LAW_AREA,  # domain(s) (area(s) of the law) applicable to case
+    'IssuingInstitution': LI_ISSUING_INSTITUTION,  # name of instance (court)
+    'CaseNumber': LI_CASE_NUMBER,  # unique case identifier (ECLI or previous format)
+    'PublicationNumber': LI_PUBLICATION_NUMBER,  # internal document id of publisher
+    'IssueNumber': LI_ISSUE_NUMBER,  # collection id of publisher
+    'PublicationDate': LI_PUBLICATION_DATE,  # date of document publication (by publisher)
+    'EnactmentDate': LI_ENACTMENT_DATE,  # date of court decision
+    'DateAdded': LI_DATE_ADDED,  # date of document added to the LI platform
+    'Sources': LI_SOURCES  # alternative publishing institutions
 }
 
 MAP_CASE_CITATIONS = {

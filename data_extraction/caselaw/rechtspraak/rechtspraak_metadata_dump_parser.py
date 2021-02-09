@@ -6,7 +6,7 @@ import csv
 import time
 from definitions.file_paths import DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_ECLIS
 from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION
-from definitions.terminology.field_values import RS_SOURCE, NL
+from definitions.terminology.field_values import RECHTSPRAAK, NL
 
 is_case = False
 
@@ -65,7 +65,7 @@ def initialise_data_record():
         INHOUDSINDICATIE: None,
         INFO: None,
         FULL_TEXT: None,
-        SOURCE: RS_SOURCE,
+        SOURCE: RECHTSPRAAK,
         JURISDICTION_COUNTRY: NL,
     }
 

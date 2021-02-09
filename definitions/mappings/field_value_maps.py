@@ -43,4 +43,3 @@ MAP_JURISDICTION = {
     'NL': NL,
     'Nederland': NEDERLAND
 }
-

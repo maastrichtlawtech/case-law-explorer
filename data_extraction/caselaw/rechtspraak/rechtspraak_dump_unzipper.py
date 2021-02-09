@@ -1,5 +1,5 @@
 import zipfile
-from definitions import DIR_RECHTSPRAAK, join
+from definitions.file_paths import DIR_RECHTSPRAAK, join
 import os
 import io
 import time

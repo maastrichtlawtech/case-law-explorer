@@ -31,7 +31,7 @@ def format_rs_xml(text):
 # converts RS list notation: 'item1, item2, item3'
 # to unified list notation: 'item1; item2; item3'
 def format_rs_list(text):
-    return re.sub(' *, *', '; ', text)
+    return '; '.join(i for i in set(text.split(', ')))
 
 
 # converts LI list notation: "['item1', 'item2', 'item3']"
@@ -74,7 +74,7 @@ def format_li_domains(text):
 
 def format_instance(text):
     for key, value in MAP_INSTANCE.items():
-        text = text = text.replace(key, value)
+        text = text.replace(key, value)
     return text
 
 
@@ -124,8 +124,6 @@ def read_csv(path, cols=None):
 
 # only returns (number) rows of dataframe df for which no column in columns is None
 def not_none_rows(df, columns=None, number=-1):
-    if columns is None:
-        columns = []
     if number == -1:
         number = len(df)
     if not columns:
