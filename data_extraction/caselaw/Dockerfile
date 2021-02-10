@@ -14,7 +14,7 @@ COPY data_extraction/caselaw/legal_intelligence/* .
 COPY data_extraction/caselaw/requirements.txt .
 
 # Copy definitions file
-COPY definitions.py .
+COPY definitions/ ./definitions
 
 # Copy extraction script
 COPY data_extraction/caselaw/extract.sh .

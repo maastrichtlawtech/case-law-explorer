@@ -1,7 +1,7 @@
 import urllib.request
 import time
 from datetime import datetime
-from definitions import DIR_DATA, DIR_RECHTSPRAAK, URL_RS_ARCHIVE, URL_RS_ARCHIVE_SAMPLE
+from definitions.file_paths import DIR_DATA, DIR_RECHTSPRAAK, URL_RS_ARCHIVE, URL_RS_ARCHIVE_SAMPLE
 import os
 
 start = time.time()
