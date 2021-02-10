@@ -141,6 +141,7 @@ def get_legislation_webpage(identifier):
             article = o
             if date in str(o):
                 return o
+    
     return article
 
 def get_legislation_name(url):
@@ -174,7 +175,6 @@ def get_legislation_name(url):
     #    print("not equal")
 
     return title
-
 
 # Check if outgoing links in the XML response from the LIDO API are of type "Jurisprudentie" (case law)
 def is_case_law(sub_ref):
@@ -233,9 +233,13 @@ def find_citations_for_cases(filename, last_ecli, downloaded_citations, download
     except IOError:
         print()
         sys.exit("Error opening " + str(filename))
+    
     if (not csv_reader) or (len(eclis) == 0):
         print()
         sys.exit("No data in " + str(filename))
+
+    if os.getenv('SAMPLE_TEST') == 'TRUE':
+        eclis = eclis[-10:]
 
     print()
     if (citation_type_switch == "i"):
@@ -378,7 +382,7 @@ if (num_of_cases_switch == 's'):                                                
     citations[0].insert(0,['ecli', 'Jurisprudentie'])                                      # Insert case citations header
     write_data_to_csv(case_citations_output_filename, citations[0])                                                                 # Write case law citations to file
     # citations[1].insert(0,['source_ecli','source_paragraph','target_article','target_article_paragraph','target_article_webpage'])  # Insert legislation citations header  --> old
-    citations[1].insert(0,['ecli', 'Wet', 'Artikel'])  # Insert legislation citations header
+    citations[1].insert(0,['ecli', 'Wet', 'Artikel', 'Artikel Title'])  # Insert legislation citations header
     write_data_to_csv(legislation_citations_output_filename, citations[1])                                                          # Write legislation citations to file
 else:                                                       
     if (citation_type_switch == "i"):                                                                        # Multiple ECLIs
@@ -403,7 +407,7 @@ else:
     if os.path.isfile(legislation_citations_output_filename):
         downloaded_legislation_citations = pd.read_csv(legislation_citations_output_filename)
     else:
-        downloaded_legislation_citations = pd.DataFrame(columns=['ecli', 'Wet', 'Artikel'])
+        downloaded_legislation_citations = pd.DataFrame(columns=['ecli', 'Wet', 'Artikel', 'Artikel Title'])
 
 
 
