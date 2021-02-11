@@ -19,8 +19,8 @@ Description of Rechtspraak Archive
 
 Current sources: 
 - Original archive: http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip ~5GB
-- Sample _small_ (~125k cases): https://transfer.sh/pYNKA/OpenDataUitspraken_small.zip ~300MB
-- Sample _xsmall_ (~1k cases): https://transfer.sh/4LPyZ/OpenDataUitspraken_xs.zip ~2MB
+- Sample _small_ (~125k cases): https://surfdrive.surf.nl/files/index.php/s/4qETcxSDuybc4SC ~300MB
+- Sample _xsmall_ (~1k cases): https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0 ~2MB
 
 ### Legal Intelligence API
 Description of Legal Intelligence API

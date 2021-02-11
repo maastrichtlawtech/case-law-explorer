@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import math
 import time
-from definitions import CSV_LI_CASES
+from definitions.file_paths import CSV_LI_CASES, URL_LI_ENDPOINT
 
 start_script = time.time()
 
@@ -50,7 +50,7 @@ def get_search_query(query, filters=[]):
         "rows": 40
     }
    
-    link = 'https://api.legalintelligence.com/search?q=%s' % query
+    link = f'{URL_LI_ENDPOINT}/search?q=%s' % query
     for filter in filters:
         link += '&fq=%s' % filter
 
