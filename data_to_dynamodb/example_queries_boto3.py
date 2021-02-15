@@ -1,14 +1,13 @@
 #%%
 import boto3
-from boto3.dynamodb import conditions
 from boto3.dynamodb.conditions import Key, Attr
 from pprint import pprint
 
 # example queries to the data that's currently in dynamo
 # (will be updated and probably have a slightly different key schema)
 
-dynamodb = boto3.resource('dynamodb')  #, endpoint_url="http://localhost:8000")  # remove 'endpoint_url' to use web service
-caselaw_table = dynamodb.Table('Caselaw')
+dynamodb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")  # remove 'endpoint_url' to use web service
+caselaw_table = dynamodb.Table('caselaw-v2')
 
 
 def full_query(table, **kwargs):
@@ -32,13 +31,13 @@ def full_query(table, **kwargs):
 
 #%% query for list of eclis
 
-pprint(caselaw_table.get_item(Key={'id': 'ECLI:NL:RBHAA:2006:1006',
-                                   'doctype': 'uitspraak'}))
+pprint(caselaw_table.get_item(Key={'ecli': 'ECLI:NL:RBHAA:2006:1006',
+                                   'doc-source-id': 'DEC-RS-ECLI:NL:XX:2012:BY7277'}))
 
 #%% query on primary index with limited output
 pprint(full_query(caselaw_table,
-                  ProjectionExpression="id, subject",  # specifies which output to return
-                  KeyConditionExpression=Key('id').eq('ECLI:NL:RBHAA:2006:1006') & Key('doctype').eq('uitspraak'))
+                  #ProjectionExpression="ecli",  # specifies which output to return
+                  KeyConditionExpression=Key('ecli').eq('ECLI:NL:XX:2012:BY7277'))
 )
 
 
@@ -52,7 +51,7 @@ pprint(full_query(caselaw_table,
 #%% query & filter on secondary index
 pprint(full_query(caselaw_table,
                   IndexName='GSI-court',  # only needs to be specified if secondary index is used
-                  ProjectionExpression="id",  #"id, court, subject, doctype",
+                  #ProjectionExpression="id",  #"id, court, subject, doctype",
                   FilterExpression=Attr('subject').contains('Ambtenarenrecht'),
                   KeyConditionExpression=Key('doctype').eq('uitspraak') & Key('court').begins_with('G'))
 )

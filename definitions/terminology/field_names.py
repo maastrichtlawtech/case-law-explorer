@@ -28,6 +28,7 @@ RS_RELATION = 'predecessor_successor_cases'  # predecessor and successor cases (
 RS_REFERENCES = 'referenced_legislation_titles'  # title of applicable legislation
 RS_INFO = 'info'  # information about case, often not systematic or already captured in other fields
 ECLI_DECISION = 'ecli_decision'  # ecli of case decision corresponding to case opinion
+ECLI_OPINION = 'ecli_opinion'  # ecli of case opinion corresponding to case decision
 
 # fields only in LI
 LI_ID = 'document_id'  # internal document id in LI
@@ -39,7 +40,7 @@ LI_ISSUE_NUMBER = 'issue_number'  # collection id of publisher
 LI_DATE_ADDED = 'date_added'  # date of document added to the LI platform
 
 # fields only in LIDO
-LIDO_ECLI = 'source_ecli'  # @TODO before re run pipeline change to: ECLI
 LIDO_JURISPRUDENTIE = 'target_ecli'  # @TODO before re run pipeline change to: 'target_ecli'  # cited case ecli
-LIDO_WET = 'target_article'  # @TODO before re run pipeline change to: 'target_legislation_url'  # URL to cited legislation
-LIDO_ARTIKEL = 'target_article_webpage'  # @TODO before re run pipeline change to: 'target_legislation_article_url'  # URL to cited legislation article
+LIDO_WET = 'Wet'  # @TODO before re run pipeline change to: 'legal_provision_url_lido'  # URL to lido entry of cited legislation
+LIDO_ARTIKEL = 'Artikel'  # @TODO before re run pipeline change to: 'legal_provision_url'  # URL to cited legislation (on wetten.nl)
+LIDO_ARTIKEL_TITLE = 'Artikel Title' # @TODO before re run pipeline change to: 'legal_provision'  # title of cited legislation

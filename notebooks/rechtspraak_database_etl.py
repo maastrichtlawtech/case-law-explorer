@@ -49,7 +49,7 @@ li_intersection = list(set(df_li_cases['ecli']).intersection(set(df_case_raw['ca
 #sample for testing
 #sample_size = 500000
 #uniques = list(df_case_citation['source_ecli'].sample(n=sample_size, random_state=18))
-#uniques.extend(li_intersection)
+#uniques.extend(rs_li_intersection)
 
 uniques = list(df_case_citation['source_ecli'])
 uniques.extend(li_intersection)
@@ -90,7 +90,7 @@ def clean_table_sql(table_name):
   engine.execute("""ALTER TABLE `{}` AUTO_INCREMENT = 1;""".format(table_name))
 
 def get_parent_ids(table, column_table, df, column_df):
-  """DB table, DB column_table, df: pandas df to look at, column_df"""
+  """DB dynamodb_table, DB column_table, df: pandas df to look at, column_df"""
   read_all_ids = pd.read_sql("""SELECT id, `{}` FROM `{}` """.format(column_table, table), con=connection)
   id_list = []
   for idx, data in enumerate(df[column_df]):
