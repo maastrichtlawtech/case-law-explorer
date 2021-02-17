@@ -59,7 +59,7 @@ def format_li_date(text):
 
 def format_domains(text):
     if len(text.split('; ')) == 1:
-        text += '; ' + ALGEMEEN_OVERIG_NIED_GELABELD
+        text += '; ' + text + '-' + ALGEMEEN_OVERIG_NIED_GELABELD
     return text
 
 

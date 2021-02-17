@@ -19,4 +19,6 @@ class Table:
             )
         except resource.meta.client.exceptions.ResourceInUseException:
             self.dynamodb_table = resource.Table(self.name)
+        except resource.meta.client.exceptions.ResourceNotFoundException:
+            self.dynamodb_table = resource.Table(self.name)
         print("Table status:", self.dynamodb_table.table_status)

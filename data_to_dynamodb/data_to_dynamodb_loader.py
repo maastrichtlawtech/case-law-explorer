@@ -22,6 +22,7 @@ def csv_to_dynamo(path_to_csv, table):
 
     case_counter = 0
     item_counter = 0
+    reschedule = []
     with open(path_to_csv, 'r', newline='') as in_file:
         reader = DictReader(in_file)
         # write items in batches to dynamo
@@ -31,14 +32,30 @@ def csv_to_dynamo(path_to_csv, table):
                 case_counter += 1
                 if row != '':
                     items = schema.row_processor(path_to_csv, row)
+
                     for item in items:
-                        item_counter += 1
                         try:
                             batch.put_item(Item=item)
+                            item_counter += 1
                             # batch.put_item(Item=item, ConditionExpression='attribute_not_exists(ecli)')
                             # batch.put_item(Item=item, ConditionExpression=Attr('ecli').not_exists())
                         except botocore.exceptions.ClientError:
-                            dynamodb_table.put_item(Item=item)
+                            try:
+                                dynamodb_table.put_item(Item=item)
+                                item_counter += 1
+                            except botocore.exceptions.ClientError:
+                                reschedule.append(item)
+                                print('rescheduling', item['ecli'])
+
+                    # work-around for weird bug that causes identical items to fail in some batches
+                    # while succeeding in other batches?!
+                    for old_item in reschedule:
+                        try:
+                            batch.put_item(Item=old_item)
+                            reschedule.remove(old_item)
+                            item_counter += 1
+                        except botocore.exceptions.ClientError:
+                            print('could not reschedule', old_item['ecli'], 'trying again')
 
     print(f'{case_counter} cases ({item_counter} items) added.')
 
@@ -46,6 +63,7 @@ def csv_to_dynamo(path_to_csv, table):
 start = time.time()
 
 caselaw_table = Table('caselaw-v2', SchemaCaselaw(), local=True)
+
 
 print('Uploading RS cases...')
 csv_to_dynamo(CSV_RS_CASES_PROC, caselaw_table)
@@ -56,11 +74,11 @@ csv_to_dynamo(CSV_RS_OPINIONS_PROC, caselaw_table)
 print('\nProcessing LI cases...')
 csv_to_dynamo(CSV_LI_CASES_PROC, caselaw_table)
 
-print('\nProcessing case citations...')
-csv_to_dynamo(CSV_CASE_CITATIONS, caselaw_table)
-
 print('\nProcessing legislation citations...')
 csv_to_dynamo(CSV_LEGISLATION_CITATIONS, caselaw_table)
+
+print('\nProcessing case citations...')
+csv_to_dynamo(CSV_CASE_CITATIONS, caselaw_table)
 
 end = time.time()
 print("\n\nTime taken: ", (end - start), "s")

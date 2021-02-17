@@ -121,7 +121,7 @@ class SchemaCaselaw:
                         **self.SK_id.set_value(doc_type=doctype, source=Source.RS, doc_id=val),
                         attribute[:-1]: val
                     })
-                row.pop(attribute)
+            row.pop(attribute)
         items.append({
             **self.SK_id.set_value(doc_type=DocType.DEC, source=Source.RS, doc_id=row[ECLI]),
             **self.SK_date.set_value(source=Source.RS, doc_type=DocType.DEC, date_decision=row[RS_DATE]),
@@ -130,6 +130,7 @@ class SchemaCaselaw:
         return items
 
     def __row_processor_rs_opinions(self, row):
+        row.pop(RS_SUBJECT)
         items = [{
             **self.SK_id.set_value(doc_type=DocType.OPI, source=Source.RS, doc_id=row[ECLI]),
             **self.SK_date.set_value(source=Source.RS, doc_type=DocType.OPI, date_decision=row[RS_DATE]),
@@ -151,11 +152,12 @@ class SchemaCaselaw:
     def __row_processor_li_cases(self, row):
         items = []
         if row[LI_LAW_AREA] != '':
-            items.append({
-                self.PK_ecli: row[ECLI],
-                **self.SK_id.set_value(doc_type=DocType.DOM, source=Source.LI, doc_id=row[LI_LAW_AREA]),
-                LI_LAW_AREA[:-1]: row[LI_LAW_AREA]
-            })
+            for val in row[LI_LAW_AREA].split('; '):
+                items.append({
+                    self.PK_ecli: row[ECLI],
+                    **self.SK_id.set_value(doc_type=DocType.DOM, source=Source.LI, doc_id=val),
+                    LI_LAW_AREA[:-1]: row[LI_LAW_AREA]
+                })
         row.pop(LI_LAW_AREA)
         items.append({
             **self.SK_id.set_value(doc_type=DocType.DEC, source=Source.LI, doc_id=row[ECLI]),
