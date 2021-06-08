@@ -222,5 +222,6 @@ data_dump/
 
 # IDEA files
 .idea/
+ttt/
 
 ignore/
