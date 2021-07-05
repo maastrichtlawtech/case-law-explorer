@@ -1,7 +1,13 @@
+import sys
+from os.path import dirname, abspath
+#DIR_ROOT = dirname(dirname(abspath(__file__)))
+#sys.path.append(DIR_ROOT)
+
 from definitions.mappings.field_names_maps import *
 from definitions.file_paths import *
 from data_transformation.utils import *
 import time
+
 
 
 """
@@ -27,7 +33,8 @@ tool_map_li = {
     'PublicationDate': format_li_date,
     'EnactmentDate': format_li_date,
     'DateAdded': format_li_date,
-    'Sources': format_li_list
+    'Sources': format_li_list,
+    'SearchNumbers': format_li_list
 }
 
 
@@ -50,3 +57,4 @@ print('Completed processing LI cases.')
 
 end = time.time()
 print("\nTime taken: ", (end - start), "s")
+
