@@ -4,6 +4,9 @@ import pandas as pd
 import math
 import time
 from definitions.file_paths import CSV_LI_CASES, URL_LI_ENDPOINT
+from dotenv import load_dotenv
+
+load_dotenv()
 
 start_script = time.time()
 
@@ -80,7 +83,6 @@ def get_search_query(query, filters=[]):
 
     # go through all pages, and add each dictionary response to the list until no more pages
     for page_index in range(1, nb_pages + 1):
-        print('page index : ' + str(page_index))
         params = {
             "start": page_index,
             "rows": 40
@@ -95,6 +97,7 @@ def get_search_query(query, filters=[]):
         try:
             response = requests.get(link, headers=headers, params=params)
             documents += response.json()['Documents']
+            print('page index : ' + str(page_index) + ' retrieved. Number of documents: ' + len(documents))
         except:
             print(f'RETRIEVAL PAGE ${page_index} FAILED')
 
@@ -151,12 +154,14 @@ df.to_csv('test.csv', index=False)
 df['ecli'] = df['CaseNumber'].apply(get_ecli)
 # drop rows with no valid ecli
 df.dropna(subset=['ecli'], inplace=True)
-# drop irrelevant row and adjust data types
+# drop irrelevant column and adjust data types
 df.drop('UrlWithAutoLogOnToken', axis=1, inplace=True)
-df['LawArea'] = df['LawArea'].astype(str)
-df['Sources'] = df['Sources'].astype(str)
+#df['LawArea'] = df['LawArea'].astype(str)  # redundant
+#df['Sources'] = df['Sources'].astype(str)  # redundant
 # drop duplicate entries
-df.drop_duplicates(set(df.columns) - {'Url'}, inplace=True)
+# convert all columns to type str (in case more attributes are added by LI inthe future)
+df = df.loc[df.astype(str).drop_duplicates(set(df.columns) - {'Url'}).index]
+#df.drop_duplicates(set(df.columns) - {'Url'}, inplace=True)
 
 # group by ecli number, select most relevant entry
 df = df.groupby('ecli').apply(select_entry).reset_index(drop=True)
