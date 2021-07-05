@@ -50,7 +50,8 @@ MAP_LI = {
     'PublicationDate': LI_PUBLICATION_DATE,  # date of document publication (by publisher)
     'EnactmentDate': LI_ENACTMENT_DATE,  # date of court decision
     'DateAdded': LI_DATE_ADDED,  # date of document added to the LI platform
-    'Sources': LI_SOURCES  # alternative publishing institutions
+    'Sources': LI_SOURCES,  # alternative publishing institutions
+    'SearchNumbers': LI_SEARCH_NUMBERS  # @ TODO: what is this?
 }
 
 MAP_CASE_CITATIONS = {

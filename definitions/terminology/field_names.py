@@ -38,9 +38,10 @@ LI_URL = 'url_entry'  # URL to LI entry of document
 LI_PUBLICATION_NUMBER = 'publication_number'  # internal document id of publisher
 LI_ISSUE_NUMBER = 'issue_number'  # collection id of publisher
 LI_DATE_ADDED = 'date_added'  # date of document added to the LI platform
+LI_SEARCH_NUMBERS = 'search_numbers'  # @TODO what is this?
 
 # fields only in LIDO
 LIDO_JURISPRUDENTIE = 'target_ecli'  # @TODO before re run pipeline change to: 'target_ecli'  # cited case ecli
 LIDO_WET = 'Wet'  # @TODO before re run pipeline change to: 'legal_provision_url_lido'  # URL to lido entry of cited legislation
 LIDO_ARTIKEL = 'Artikel'  # @TODO before re run pipeline change to: 'legal_provision_url'  # URL to cited legislation (on wetten.nl)
-LIDO_ARTIKEL_TITLE = 'Artikel Title' # @TODO before re run pipeline change to: 'legal_provision'  # title of cited legislation
+LIDO_ARTIKEL_TITLE = 'legal_provision' # @TODO before re run pipeline change to: 'legal_provision'  # title of cited legislation
