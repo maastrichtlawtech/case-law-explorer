@@ -53,9 +53,8 @@ def create_csv(filename, fieldnames):
 
 def write_incremental_rows(filename, fieldnames, citations):
     with open(filename, 'a') as csvfile:
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        for citation in citations:
-            writer.writerow(dict(zip(fieldnames, citation)))
+        writer = csv.DictWriter(csvfile, extrasaction='ignore', fieldnames=fieldnames)
+        writer.writerows([dict(zip(fieldnames, citation)) for citation in citations])
 
 
 if len(sys.argv) != 6:                                                      # At least 5 arguments should be specified (excluding the script name)
@@ -250,15 +249,18 @@ def find_citations_for_cases(filename, last_ecli, case_citations_output_name, ca
     print()
 
     for i, ecli in enumerate(eclis):
+
         case_law_result_temp = []
         legislation_result_temp = []
-        print(f"Processing {remove_spaces_from_ecli(ecli)} \t\t ({i}/{len(eclis)})")
         current_citations = find_citations_for_case(remove_spaces_from_ecli(ecli))
         #temporary list of citations (stored but not yet written to the csv file)
         case_law_result_temp.extend(current_citations[0])
-        print(f'case citations: {len(case_law_result_temp)}')
         legislation_result_temp.extend(current_citations[1])
-        print(f'leg. citations: {len(legislation_result_temp)}\n')
+
+        if i % 1000 == 0:
+            print(f"Processed {remove_spaces_from_ecli(ecli)} \t\t ({i}/{len(eclis)})\n"
+                  f"case citations: {len(case_law_result_temp)}\n"
+                  f"leg. citations: {len(legislation_result_temp)}\n")
 
         # append case and legislation citations to corresponding csvs:
         write_incremental_rows(filename=case_citations_output_filename,
