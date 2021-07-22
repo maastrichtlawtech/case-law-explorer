@@ -8,6 +8,7 @@ from os.path import dirname, abspath
 sys.path.append(dirname(dirname(dirname(abspath(__file__)))))
 import csv
 import pandas as pd
+from datetime import datetime
 from definitions.file_paths import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
 
 # SCRIPT USAGE:
@@ -51,10 +52,12 @@ def create_csv(filename, fieldnames):
         writer.writeheader()
 
 
-def write_incremental_rows(filename, fieldnames, citations):
-    with open(filename, 'a') as csvfile:
-        writer = csv.DictWriter(csvfile, extrasaction='ignore', fieldnames=fieldnames)
-        writer.writerows([dict(zip(fieldnames, citation)) for citation in citations])
+def write_incremental_rows(filename, citations):
+    with open(filename, 'a') as f:
+        pd.DataFrame(citations).to_csv(f, mode='a', header=not f.tell())
+    #with open(filename, 'a') as csvfile:
+    #    writer = csv.DictWriter(csvfile, extrasaction='ignore', fieldnames=fieldnames)
+    #    writer.writerows([dict(zip(fieldnames, citation)) for citation in citations])
 
 
 if len(sys.argv) != 6:                                                      # At least 5 arguments should be specified (excluding the script name)
@@ -248,31 +251,35 @@ def find_citations_for_cases(filename, last_ecli, case_citations_output_name, ca
         print("Fetching outgoing citations from LIDO...")
     print()
 
-    for i, ecli in enumerate(eclis):
+    case_law_result_temp = {key: [] for key in case_citations_fieldnames}
+    legislation_result_temp = {key: [] for key in legislation_citations_fieldnames}
 
-        case_law_result_temp = []
-        legislation_result_temp = []
-        current_citations = find_citations_for_case(remove_spaces_from_ecli(ecli))
+    for i, ecli in enumerate(eclis):
+        case_citations, legislation_citations = find_citations_for_case(remove_spaces_from_ecli(ecli), case_citations_fieldnames, legislation_citations_fieldnames)
         #temporary list of citations (stored but not yet written to the csv file)
-        case_law_result_temp.extend(current_citations[0])
-        legislation_result_temp.extend(current_citations[1])
+        for key in case_citations.keys():
+            case_law_result_temp[key].extend(case_citations[key])
+        for key in legislation_citations.keys():
+            legislation_result_temp[key].extend(legislation_citations[key])
+
+        print(f"Processed {remove_spaces_from_ecli(ecli)} \t\t ({i}/{len(eclis)})\n"
+              f"case citations: {len(case_citations[case_citations_fieldnames[0]])}\n"
+              f"leg. citations: {len(legislation_citations[legislation_citations_fieldnames[0]])}\n")
 
         if i % 1000 == 0:
-            print(f"Processed {remove_spaces_from_ecli(ecli)} \t\t ({i}/{len(eclis)})\n"
-                  f"case citations: {len(case_law_result_temp)}\n"
-                  f"leg. citations: {len(legislation_result_temp)}\n")
+            write_incremental_rows(filename=case_citations_output_filename, citations=case_law_result_temp)
+            write_incremental_rows(filename=legislation_citations_output_filename, citations=legislation_result_temp)
+            print(f'{datetime.now().isoformat()}: {i}/{len(eclis)}')
+            case_law_result_temp = {key: [] for key in case_citations_fieldnames}
+            legislation_result_temp = {key: [] for key in legislation_citations_fieldnames}
 
-        # append case and legislation citations to corresponding csvs:
-        write_incremental_rows(filename=case_citations_output_filename,
-                               fieldnames=case_citations_fieldnames,
-                               citations=case_law_result_temp)
-        write_incremental_rows(filename=legislation_citations_output_filename,
-                               fieldnames=legislation_citations_fieldnames,
-                               citations=legislation_result_temp)
+    # append case and legislation citations to corresponding csvs:
+    write_incremental_rows(filename=case_citations_output_filename, citations=case_law_result_temp)
+    write_incremental_rows(filename=legislation_citations_output_filename, citations=legislation_result_temp)
 
 
 # Main method to execute LIDO API call on the ECLI code of the input case and extract the citations
-def find_citations_for_case(ecli):
+def find_citations_for_case(ecli, case_citations_fieldnames, legislation_citations_fieldnames):
     global LIDO_API_URL
     global citation_type
     xml_elements = []
@@ -326,33 +333,26 @@ def find_citations_for_case(ecli):
         case_law_citations.remove(remove_spaces_from_ecli(ecli))
 
     result = []
-    case_law_result = []
-    legislation_result = []
+    case_law_result = {key: [] for key in case_citations_fieldnames}
+    legislation_result = {key: [] for key in legislation_citations_fieldnames}
     
     for case_citation in case_law_citations:
-        current_row = []
-        current_row.append(remove_spaces_from_ecli(ecli))    # Source ECLI
+        case_law_result[case_citations_fieldnames[0]].append(remove_spaces_from_ecli(ecli))    # Source ECLI
         #  current_row.append("")                                          # Source paragraph   --> not needed
-        current_row.append(remove_spaces_from_ecli(case_citation))      # Target ECLI
+        case_law_result[case_citations_fieldnames[1]].append(remove_spaces_from_ecli(case_citation))      # Target ECLI
         #  current_row.append("")                                          # Target paragraph  --> not needed
-        case_law_result.append(current_row)
     
     for leg_citation in legislation_citations:
         current_row = []
-        current_row.append(remove_spaces_from_ecli(ecli))    # Source ECLI
+        legislation_result[legislation_citations_fieldnames[0]].append(remove_spaces_from_ecli(ecli))    # Source ECLI
         #  current_row.append("")                                          # Source paragraph  --> not needed
-        current_row.append(leg_citation)                                # Target article
+        legislation_result[legislation_citations_fieldnames[1]].append(leg_citation)                                # Target article
         #  current_row.append("")                                          # Target paragraph  --> not needed
-        current_row.append(get_legislation_webpage(leg_citation))       # Target article webpage
+        legislation_result[legislation_citations_fieldnames[2]].append(get_legislation_webpage(leg_citation))       # Target article webpage
 
-        article_name = get_legislation_name(leg_citation)
-        current_row.append(article_name)                               #pref label == article name
-        legislation_result.append(current_row)
+        legislation_result[legislation_citations_fieldnames[3]].append(get_legislation_name(leg_citation))          #pref label == article name
 
-    result.append(case_law_result)
-    result.append(legislation_result)
-
-    return result
+    return case_law_result, legislation_result
 
 print("START TESTING")
 # Testing the script
