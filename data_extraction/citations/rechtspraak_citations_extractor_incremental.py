@@ -212,7 +212,7 @@ def get_last_ecli_downloaded(downloaded_citations):
 
 # Main method to execute LIDO API call on a list of ECLIs from a CSV file and extract the citations of each
 #Add the implementation of the incremental writing of rows
-def find_citations_for_cases(filename, last_ecli, case_citations_output_name, case_citations_fieldnames, legislation_citation_output_name, legislation_citations_fieldnames):
+def find_citations_for_cases(filename, last_ecli, case_citations_output_filename, case_citations_fieldnames, legislation_citations_output_filename, legislation_citations_fieldnames):
     print(filename)
 
     start= False
@@ -267,7 +267,7 @@ def find_citations_for_cases(filename, last_ecli, case_citations_output_name, ca
             #      f"case citations: {len(case_citations[case_citations_fieldnames[0]])}\n"
             #      f"leg. citations: {len(legislation_citations[legislation_citations_fieldnames[0]])}\n")
 
-            if i % 1000 == 0:
+            if (i+1) % 1000 == 0:
                 write_incremental_rows(filename=case_citations_output_filename, citations=case_law_result_temp)
                 write_incremental_rows(filename=legislation_citations_output_filename, citations=legislation_result_temp)
                 print(f'{datetime.now().isoformat()}: {i+1}/{len(eclis)}')
@@ -385,37 +385,33 @@ else:
         case_citations_output_filename = CSV_CASE_CITATIONS  # outgoing citations
 
     legislation_citations_output_filename = CSV_LEGISLATION_CITATIONS
-
+    case_citations_fieldnames = ['ecli', 'Jurisprudentie']
+    legislation_citations_fieldnames = ['ecli', 'Wet', 'Artikel', 'Artikel Title']
     #default value for the last ecli downloaded
     last_ecli = 0
 
     #if the file already exists, read it
     if os.path.isfile(case_citations_output_filename):
         downloaded_citations = pd.read_csv(case_citations_output_filename)
-        last_ecli = get_last_ecli_downloaded(downloaded_citations)
-        print("citation file already exists, last ecli : " + str(last_ecli))
+        if list(downloaded_citations.columns) != case_citations_fieldnames:
+            case_citations_output_filename = case_citations_output_filename[:-4] + datetime.now().isoformat() + '.csv'
+            create_csv(filename=case_citations_output_filename, fieldnames=case_citations_fieldnames)
+            print("case citations file already exists with different field names, creating new file: " + case_citations_output_filename)
+        else:
+            last_ecli = get_last_ecli_downloaded(downloaded_citations)
+            print("appending to existing case citations file, last ecli : " + str(last_ecli))
     #if it doesnt, create it with the right columns
     else:
-        case_citations_fieldnames = ['ecli', 'Jurisprudentie']
         create_csv(filename=case_citations_output_filename, fieldnames=case_citations_fieldnames)
 
     if os.path.isfile(legislation_citations_output_filename):
         downloaded_legislation_citations = pd.read_csv(legislation_citations_output_filename)
+        if list(downloaded_legislation_citations.columns) != legislation_citations_fieldnames:
+            legislation_citations_output_filename = legislation_citations_output_filename[:-4] + datetime.now().isoformat() + '.csv'
+            create_csv(filename=legislation_citations_output_filename, fieldnames=legislation_citations_fieldnames)
+            print("legislation citations file already exists with different field names, creating new file: " + legislation_citations_output_filename)
     else:
-        legislation_citations_fieldnames = ['ecli', 'Wet', 'Artikel', 'Artikel Title']
         create_csv(filename=legislation_citations_output_filename, fieldnames=legislation_citations_fieldnames)
-
-    #if the file already existed
-    if last_ecli != 0:
-
-        print("pre size : "+str(downloaded_citations.shape))
-        #delte the rows that come from that ecli, so that we dont re-download some of the citations (in case it broke in the middle)
-        #if a later case had legislation citations but no case citations, it will be re-downloaded (because we are taking the last ecli
-        #in the case citation dynamodb_table). This is why we have to drop duplicated from the legislation citation dynamodb_table at the very end of the script.
-        downloaded_citations = downloaded_citations[downloaded_citations["ecli"] != last_ecli]
-        print("post size : " + str(downloaded_citations.shape))
-
-        print('legislation citations downloaded shape : '+str(downloaded_legislation_citations.shape))
 
     #find citations, and save the file incrementally
     find_citations_for_cases(input_eclis, last_ecli, case_citations_output_filename, case_citations_fieldnames, legislation_citations_output_filename, legislation_citations_fieldnames)
