@@ -54,7 +54,7 @@ def create_csv(filename, fieldnames):
 
 def write_incremental_rows(filename, citations):
     with open(filename, 'a') as f:
-        pd.DataFrame(citations).to_csv(f, mode='a', header=not f.tell())
+        pd.DataFrame(citations).to_csv(f, mode='a', header=not f.tell(), index=False)
     #with open(filename, 'a') as csvfile:
     #    writer = csv.DictWriter(csvfile, extrasaction='ignore', fieldnames=fieldnames)
     #    writer.writerows([dict(zip(fieldnames, citation)) for citation in citations])
@@ -255,27 +255,33 @@ def find_citations_for_cases(filename, last_ecli, case_citations_output_name, ca
     legislation_result_temp = {key: [] for key in legislation_citations_fieldnames}
 
     for i, ecli in enumerate(eclis):
-        case_citations, legislation_citations = find_citations_for_case(remove_spaces_from_ecli(ecli), case_citations_fieldnames, legislation_citations_fieldnames)
-        #temporary list of citations (stored but not yet written to the csv file)
-        for key in case_citations.keys():
-            case_law_result_temp[key].extend(case_citations[key])
-        for key in legislation_citations.keys():
-            legislation_result_temp[key].extend(legislation_citations[key])
+        try:
+            case_citations, legislation_citations = find_citations_for_case(remove_spaces_from_ecli(ecli), case_citations_fieldnames, legislation_citations_fieldnames)
+            #temporary list of citations (stored but not yet written to the csv file)
+            for key in case_citations.keys():
+                case_law_result_temp[key].extend(case_citations[key])
+            for key in legislation_citations.keys():
+                legislation_result_temp[key].extend(legislation_citations[key])
 
-        print(f"Processed {remove_spaces_from_ecli(ecli)} \t\t ({i}/{len(eclis)})\n"
-              f"case citations: {len(case_citations[case_citations_fieldnames[0]])}\n"
-              f"leg. citations: {len(legislation_citations[legislation_citations_fieldnames[0]])}\n")
+            #print(f"Processed {remove_spaces_from_ecli(ecli)} \t\t ({i+1}/{len(eclis)})\n"
+            #      f"case citations: {len(case_citations[case_citations_fieldnames[0]])}\n"
+            #      f"leg. citations: {len(legislation_citations[legislation_citations_fieldnames[0]])}\n")
 
-        if i % 1000 == 0:
-            write_incremental_rows(filename=case_citations_output_filename, citations=case_law_result_temp)
-            write_incremental_rows(filename=legislation_citations_output_filename, citations=legislation_result_temp)
-            print(f'{datetime.now().isoformat()}: {i}/{len(eclis)}')
-            case_law_result_temp = {key: [] for key in case_citations_fieldnames}
-            legislation_result_temp = {key: [] for key in legislation_citations_fieldnames}
+            if i % 1000 == 0:
+                write_incremental_rows(filename=case_citations_output_filename, citations=case_law_result_temp)
+                write_incremental_rows(filename=legislation_citations_output_filename, citations=legislation_result_temp)
+                print(f'{datetime.now().isoformat()}: {i+1}/{len(eclis)}')
+                case_law_result_temp = {key: [] for key in case_citations_fieldnames}
+                legislation_result_temp = {key: [] for key in legislation_citations_fieldnames}
+        except Exception as e:
+            print(e)
+            with open('failed.txt', 'a') as f:
+                f.write(ecli)
 
     # append case and legislation citations to corresponding csvs:
     write_incremental_rows(filename=case_citations_output_filename, citations=case_law_result_temp)
     write_incremental_rows(filename=legislation_citations_output_filename, citations=legislation_result_temp)
+    print(f'{datetime.now().isoformat()}: {i + 1}/{len(eclis)}')
 
 
 # Main method to execute LIDO API call on the ECLI code of the input case and extract the citations
@@ -414,6 +420,7 @@ else:
     #find citations, and save the file incrementally
     find_citations_for_cases(input_eclis, last_ecli, case_citations_output_filename, case_citations_fieldnames, legislation_citations_output_filename, legislation_citations_fieldnames)
 
+    print('Dropping duplicate legislation citations...')
     # DROP DUPLICATES from the legislation citation table
     legislation_citations = pd.read_csv(legislation_citations_output_filename)
     #print(legislation_citations.head())
@@ -422,5 +429,4 @@ else:
     #print("size leg after droping duplicates : " + str(legislation_citations.shape))
     legislation_citations.to_csv(legislation_citations_output_filename, index=False)
 
-
-
+    print('Done.')
