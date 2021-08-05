@@ -9,7 +9,7 @@ sys.path.append(dirname(dirname(dirname(abspath(__file__)))))
 import csv
 import pandas as pd
 from datetime import datetime
-from definitions.file_paths import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
+from definitions.storage_handler import CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS
 
 # SCRIPT USAGE:
 # python rechtspraak_citations_extractor.py param1 param2 param3 param4 param5

@@ -1,10 +1,13 @@
+from os.path import dirname, abspath
+import sys
+sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from lxml import etree
 from lxml.etree import tostring
 from itertools import chain
 import os
 import csv
 import time
-from definitions.file_paths import DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_ECLIS
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_ECLIS
 from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION
 from definitions.terminology.field_values import RECHTSPRAAK, NL
 
@@ -16,8 +19,6 @@ opinion_records = []
 global case_counter
 global opinion_counter
 global datarecord
-case_counter = 0
-opinion_counter = 0
 
 # Field names used for output csv. Field names correspond to tags of original data
 IDENTIFIER = 'identifier'
@@ -210,6 +211,7 @@ def parse_metadata_from_xml_file(filename):
         print("\033[94mCASE\033[0m %s" % datarecord[IDENTIFIER])
         datarecord.pop(ECLI_DECISION)
         write_line_csv(CSV_RS_CASES, datarecord)
+        # write case eclis to separate .csv file to later be able to run case citation extractor script
         with open(CSV_RS_ECLIS, 'a') as f:
             f.write(datarecord[IDENTIFIER] + '\n')
     else:
@@ -241,9 +243,7 @@ for (dirpath, dirnames, filenames) in file_tree:
 num_files = len(list_of_files_to_parse)
 
 print("Index successfully built! Number of files in index:" + str(num_files))
-print()
 print("Parsing files...")
-print()
 
 # Initialise csv files:
 initialise_csv_files()

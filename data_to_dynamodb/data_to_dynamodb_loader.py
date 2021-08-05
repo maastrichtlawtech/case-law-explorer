@@ -5,10 +5,11 @@ from csv import DictReader
 import csv
 import sys
 import time
-from definitions.file_paths import CSV_RS_CASES_PROC, CSV_LI_CASES_PROC, CSV_RS_OPINIONS_PROC, CSV_CASE_CITATIONS, \
+from definitions.storage_handler import CSV_RS_CASES_PROC, CSV_LI_CASES_PROC, CSV_RS_OPINIONS_PROC, CSV_CASE_CITATIONS, \
     CSV_LEGISLATION_CITATIONS
-from .utils.row_processors import row_processor_rs_cases, row_processor_rs_opinions, row_processor_li_cases, \
+from data_to_dynamodb.utils.row_processors import row_processor_rs_cases, row_processor_rs_opinions, row_processor_li_cases, \
     row_processor_c_citations, row_processor_l_citations
+from data_to_dynamodb.utils.table_truncator import truncate_dynamodb_table
 
 csv.field_size_limit(sys.maxsize)
 
@@ -76,33 +77,47 @@ def csv_to_dynamo(path_to_csv, table, row_processor):
                         except botocore.exceptions.ClientError:
                             print('could not reschedule', old_item[pk], 'trying again')
 
+
                     # update item attributes
                     for item in update_set_items:
-                        val_pk, val_sk, expression_att_names, expression_att_values = extract_attributes(item, pk, sk)
-                        update_expression = f'ADD {list(expression_att_names.keys())[0]} {list(expression_att_values.keys())[0]}'
-                        table.update_item(
-                            Key={pk: val_pk, sk: val_sk},
-                            UpdateExpression=update_expression,
-                            ExpressionAttributeNames=expression_att_names,
-                            ExpressionAttributeValues={
-                                list(expression_att_values.keys())[0]: list(expression_att_values.values())[0]
-                            }
-                        )
-                        item_counter += 1
+                        try:
+                            val_pk, val_sk, expression_att_names, expression_att_values = extract_attributes(item, pk, sk)
+                            update_expression = f'ADD {list(expression_att_names.keys())[0]} {list(expression_att_values.keys())[0]}'
+                            table.update_item(
+                                Key={pk: val_pk, sk: val_sk},
+                                UpdateExpression=update_expression,
+                                ExpressionAttributeNames=expression_att_names,
+                                ExpressionAttributeValues={
+                                    list(expression_att_values.keys())[0]: list(expression_att_values.values())[0]
+                                }
+                            )
+                            item_counter += 1
+                        except Exception as e:
+                            print(e, val_pk, val_sk)
+                            with open('reschedule.txt', 'a') as f:
+                                f.write(val_pk + val_sk + '\n')
 
                     # update item set attributes
                     for item in update_items:
-                        val_pk, val_sk, expression_att_names, expression_att_values = extract_attributes(item, pk, sk)
-                        update_expression = 'SET ' + ', '.join(list(expression_att_names.keys())[i] + '=' +
-                                                               list(expression_att_values.keys())[i]
-                                                               for i in range(len(expression_att_names)))
-                        table.update_item(
-                            Key={pk: val_pk, sk: val_sk},
-                            UpdateExpression=update_expression,
-                            ExpressionAttributeNames=expression_att_names,
-                            ExpressionAttributeValues=expression_att_values
-                        )
-                        item_counter += 1
+                        try:
+                            val_pk, val_sk, expression_att_names, expression_att_values = extract_attributes(item, pk, sk)
+                            update_expression = 'SET ' + ', '.join(list(expression_att_names.keys())[i] + '=' +
+                                                                   list(expression_att_values.keys())[i]
+                                                                   for i in range(len(expression_att_names)))
+                            table.update_item(
+                                Key={pk: val_pk, sk: val_sk},
+                                UpdateExpression=update_expression,
+                                ExpressionAttributeNames=expression_att_names,
+                                ExpressionAttributeValues=expression_att_values
+                            )
+                            item_counter += 1
+                        except Exception as e:
+                            print(e, val_pk, val_sk)
+                            with open('reschedule.txt', 'a') as f:
+                                f.write(val_pk + val_sk + '\n')
+
+                if case_counter % 1000 == 0:
+                    print(case_counter, 'rows processed.')
 
     print(f'{case_counter} cases ({item_counter} items) added.')
 
@@ -130,6 +145,8 @@ else:
     TABLE = boto3.resource('dynamodb').Table('CaselawV6-hmq6fy5a6fcg7isx5lar3yewdy-dev')
 
 
+#truncate_dynamodb_table(TABLE)
+
 #print('Uploading RS cases...')
 #csv_to_dynamo(CSV_RS_CASES_PROC, TABLE, row_processor_rs_cases)
 
@@ -147,7 +164,6 @@ csv_to_dynamo(CSV_CASE_CITATIONS, TABLE, row_processor_c_citations)
 
 end = time.time()
 print("\n\nTime taken: ", (end - start), "s")
-
 
 
 

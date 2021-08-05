@@ -1,29 +1,68 @@
+from os.path import dirname, abspath, splitext
+import sys
+sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import zipfile
-from definitions.file_paths import DIR_RECHTSPRAAK, join
-import os
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, join
+from os import makedirs
 import io
 import time
+import argparse
+import datetime
+from dotenv import load_dotenv
+load_dotenv()
+
+parser = argparse.ArgumentParser()
+parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+parser.add_argument('-d', '--date', type=datetime.date.fromisoformat, help='start decision date to fetch data from')
+parser.add_argument('-u', '--update', action='store_true', help='update data from most recent decision date on storage')
+args = parser.parse_args()
+storage = Storage(args.storage)
+print('Input/Output data storage:', args.storage)
+
+input_path = DIR_RECHTSPRAAK + '.zip'
+output_path = DIR_RECHTSPRAAK
+
+if args.update:
+    from_date = storage.last_updated(output_path)
+elif args.date:
+    from_date = args.date
+else:
+    from_date = datetime.date(1900, 1, 1)
+
+print('Data will be processed from:', from_date.isoformat())
 
 start_script = time.time()
+
+
+
+print(f"Fetching data from {args.storage} storage...")
+storage.fetch(input_path)
 # extract all files in directory "filename" and all subdirectories:
 print('Extracting directories...')
-new_path = DIR_RECHTSPRAAK
-os.makedirs(new_path)
-z = zipfile.ZipFile(DIR_RECHTSPRAAK + '.zip')
-for f in z.namelist():
-    if f.endswith('.zip'):
-        # get directory name from file
-        dirname = os.path.dirname(f)
-        if not os.path.exists(join(new_path, dirname)):
-            os.mkdir(join(new_path, dirname))
-        new_dir = os.path.splitext(f)[0]
+outer_zip = zipfile.ZipFile(input_path)
+# for each year directory in dataset create folder structure
+for year_dir in outer_zip.namelist():
+    if year_dir.endswith('.zip'):
+        year = splitext(year_dir)[0]
+        if int(year) < from_date.year:
+            continue
         # create new directory
-        os.mkdir(join(new_path, new_dir))
+        makedirs(join(output_path, year), exist_ok=True)
         # read inner zip file into bytes buffer
-        content = io.BytesIO(z.read(f))
-        zip_file = zipfile.ZipFile(content)
-        for i in zip_file.namelist():
-            zip_file.extract(i, join(new_path, new_dir))
-print('All files extracted.')
+        content = io.BytesIO(outer_zip.read(year_dir))
+        inner_zip = zipfile.ZipFile(content)
+        # for each month directory in year folder extract content
+        for month_dir in inner_zip.namelist():
+            if month_dir.endswith('.xml'):
+                month = dirname(month_dir)[-2:]
+                if int(year) == from_date.year and int(month) < from_date.month:
+                    continue
+                inner_zip.extract(month_dir, join(output_path, year))
+
+print(f"Updating {args.storage} storage ...")
+storage.update(output_path)
+
+print('Done.')
+
 end_script = time.time()
 print("Time taken: ", (end_script - start_script), "s")

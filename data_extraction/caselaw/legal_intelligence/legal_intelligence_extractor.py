@@ -3,7 +3,7 @@ import os
 import pandas as pd
 import math
 import time
-from definitions.file_paths import CSV_LI_CASES, URL_LI_ENDPOINT
+from definitions.storage_handler import CSV_LI_CASES, URL_LI_ENDPOINT
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -11,8 +11,8 @@ load_dotenv()
 start_script = time.time()
 
 # Legal intelligence credentials
-CLIENT_ID = os.getenv("CLIENT_ID")
-CLIENT_SECRET = os.getenv("CLIENT_SECRET")
+LI_CLIENT_ID = os.getenv("LI_CLIENT_ID")
+LI_CLIENT_SECRET = os.getenv("LI_CLIENT_SECRET")
 
 # Debug var
 TEST = os.getenv('SAMPLE_TEST')
@@ -21,8 +21,8 @@ TEST = os.getenv('SAMPLE_TEST')
 def get_access_token():
     data = {
      "grant_type": "client_credentials",
-     "client_id": CLIENT_ID,
-     "client_secret": CLIENT_SECRET
+     "client_id": LI_CLIENT_ID,
+     "client_secret": LI_CLIENT_SECRET
     }
 
     headers = {

@@ -4,7 +4,7 @@ from os.path import dirname, abspath
 #sys.path.append(DIR_ROOT)
 
 from definitions.mappings.field_names_maps import *
-from definitions.file_paths import *
+from definitions.storage_handler import *
 from data_transformation.utils import *
 import time
 
@@ -43,13 +43,13 @@ Transform csvs
 """
 start = time.time()
 
-print('Processing RS cases...')
-process_csv(CSV_RS_CASES, CSV_RS_CASES_PROC, tool_map_rs, MAP_RS)
-print('Completed processing RS cases.')
+#print('Processing RS cases...')
+#process_csv(CSV_RS_CASES, CSV_RS_CASES_PROC, tool_map_rs, MAP_RS)
+#print('Completed processing RS cases.')
 
-print('Processing RS opinions...')
-process_csv(CSV_RS_OPINIONS, CSV_RS_OPINIONS_PROC, tool_map_rs, MAP_RS_OPINION)
-print('Completed processing RS opinions.')
+#print('Processing RS opinions...')
+#process_csv(CSV_RS_OPINIONS, CSV_RS_OPINIONS_PROC, tool_map_rs, MAP_RS_OPINION)
+#print('Completed processing RS opinions.')
 
 print('Processing LI cases...')
 process_csv(CSV_LI_CASES, CSV_LI_CASES_PROC, tool_map_li, MAP_LI)

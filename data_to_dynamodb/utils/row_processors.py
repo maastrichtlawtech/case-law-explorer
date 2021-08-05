@@ -1,4 +1,5 @@
-from definitions.terminology.field_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, RS_RELATION, LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE, LI_ENACTMENT_DATE, RS_CREATOR
+from definitions.terminology.field_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, RS_RELATION, \
+    LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE
 from .types import Source, DocType, ItemType
 
 
@@ -107,7 +108,7 @@ def row_processor_li_cases(row, pk, sk):
     })
     return put_items, update_items, update_set_items
 
-
+# @TODO: replace attribute names with global definition
 def row_processor_c_citations(row, pk, sk):
     put_items = []
     update_items = []
@@ -129,6 +130,6 @@ def row_processor_l_citations(row, pk, sk):
     update_set_items = [{
         pk: row[ECLI],
         sk: ItemType.DATA.value,
-        'legal_provisions': {row['legal_provision']}
+        'legal_provisions': {row[LIDO_ARTIKEL_TITLE]}
     }]
     return put_items, update_items, update_set_items
