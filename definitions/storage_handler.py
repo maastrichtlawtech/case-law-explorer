@@ -130,7 +130,7 @@ class Storage:
                 import pandas as pd
                 try:
                     df = pd.read_csv(path, usecols=[date_attribute_name])
-                    return date.fromisoformat(sorted(list(df[date_attribute_name]))[-1])
+                    return max(df[date_attribute_name].apply(date.fromisoformat))
                 except ValueError:
                     print(f'Attribute {date_attribute_name} not in {path}. Choose valid decision date attribute name.')
                 except FileNotFoundError:
