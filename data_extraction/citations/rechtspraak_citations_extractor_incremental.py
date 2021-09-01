@@ -223,7 +223,6 @@ def find_citations_for_cases(filename, last_ecli, case_citations_output_filename
     eclis = []
     csv_reader = None
     try:
-
         with open(filename) as csv_file:
             csv_reader = csv.reader(csv_file, delimiter=',')
             for row in csv_reader:
@@ -274,9 +273,10 @@ def find_citations_for_cases(filename, last_ecli, case_citations_output_filename
                 case_law_result_temp = {key: [] for key in case_citations_fieldnames}
                 legislation_result_temp = {key: [] for key in legislation_citations_fieldnames}
         except Exception as e:
-            print(e)
-            with open('failed.txt', 'a') as f:
-                f.write(ecli)
+            print(f'{ecli} failed: {e}')
+            with open('failed.csv', 'a', newline='') as csvfile:
+                writer = csv.writer(csvfile)
+                writer.writerow(ecli)
 
     # append case and legislation citations to corresponding csvs:
     write_incremental_rows(filename=case_citations_output_filename, citations=case_law_result_temp)
