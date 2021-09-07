@@ -1,11 +1,12 @@
 from os.path import basename, dirname, abspath, join, exists, relpath, isfile
-from os import makedirs, getenv, remove, listdir
+from os import makedirs, getenv, listdir
 import boto3
 from botocore.exceptions import ClientError
 import logging
 from dotenv import load_dotenv
 load_dotenv()
 import sys
+from datetime import date
 
 """
 Purpose of script:
@@ -19,68 +20,154 @@ b)  Define the terminology to be used throughout all data processing steps.
 
 # URL DEFINITIONS:
 URL_LI_ENDPOINT = 'https://api.legalintelligence.com'
+URL_LIDO_ENDPOINT = 'http://linkeddata.overheid.nl/service/get-links'
 URL_RS_ARCHIVE = 'http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip'
 URL_RS_ARCHIVE_SAMPLE = 'https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0/download'
+
+
 
 # local data folder structure
 DIR_ROOT = dirname(dirname(abspath(__file__)))
 DIR_DATA = join(DIR_ROOT, 'data')
 DIR_DATA_RAW = join(DIR_DATA, 'raw')
 DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
-DIR_RECHTSPRAAK = join(DIR_DATA, 'OpenDataUitspraken')
+DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
+CSV_RECHTSPRAAK_INDEX = DIR_RECHTSPRAAK + '_index.csv'
+
+S3_BUCKET_NAME = basename(DIR_ROOT)+'2021'
 
 # raw data
+CSV_RS_CASE_INDEX = join(DIR_DATA_RAW, 'RS_cases_index.csv')
 CSV_RS_CASES = join(DIR_DATA_RAW, 'RS_cases.csv')
 CSV_RS_OPINIONS = join(DIR_DATA_RAW, 'RS_opinions.csv')
 CSV_LI_CASES = join(DIR_DATA_RAW, 'LI_cases.csv')
 CSV_CASE_CITATIONS = join(DIR_DATA_RAW, 'caselaw_citations.csv')
 CSV_LEGISLATION_CITATIONS = join(DIR_DATA_RAW, 'legislation_citations.csv')
+CSV_LIDO_CASE_ECLIS_FAILED = join(DIR_DATA_RAW, 'LIDO_case_eclis_failed.csv')
 
 # processed data
 CSV_RS_CASES_PROC = join(DIR_DATA_PROCESSED, 'RS_cases_clean.csv')
 CSV_RS_OPINIONS_PROC = join(DIR_DATA_PROCESSED, 'RS_opinions_clean.csv')
 CSV_LI_CASES_PROC = join(DIR_DATA_PROCESSED, 'LI_cases_clean.csv')
-CSV_CASE_CITATIONS_PROC = join(DIR_DATA_PROCESSED, 'caselaw_citations_clean.csv')
-CSV_LEGISLATION_CITATIONS_PROC = join(DIR_DATA_PROCESSED, 'legislation_citations_clean.csv')
-
-# list of ECLIs (output of RS extractor, input to LIDO extractor)
-CSV_RS_ECLIS = join(DIR_DATA, 'RS_eclis.csv')
 
 
 class Storage:
-    def __init__(self, location):
+    def __init__(self, location, output_paths, input_path=''):
         if location not in ('local', 'aws'):
             print('Storage location must be either "local" or "aws". Setting to "local".')
             location = 'local'
         self.location = location
         self.s3_bucket = None
         self.s3_client = None
-        self.setup()
+        self.input_path = input_path
+        self.output_paths = output_paths
 
-    def setup(self):
-        if self.location == 'local':
-            # create local data folder structure, if it doesn't exist yet
-            for d in [DIR_DATA, DIR_DATA_RAW, DIR_DATA_PROCESSED]:
-                makedirs(d, exist_ok=True)
+        print(f'Setting up {self.location} storage ...')
+        self._setup()
+        print(f'Fetching data from {self.location} storage ...')
+        self._fetch_data()
+        print(f'Retrieving date of last update ...')
+        self.last_updated = self._fetch_last_updated()
 
-        elif self.location == 'aws':
+    def _setup(self):
+        # create local data folder structure, if it doesn't exist yet
+        for d in [DIR_RECHTSPRAAK, DIR_DATA_RAW, DIR_DATA_PROCESSED]:
+            makedirs(d, exist_ok=True)
+
+        if self.location == 'aws':
             # create an S3 bucket in the region of the configured AWS IAM user account
             try:
                 region = getenv('AWS_REGION')
                 s3_client = boto3.client('s3', region_name=region)
                 aws_location = {'LocationConstraint': region}
-                s3_client.create_bucket(Bucket=basename(DIR_ROOT), CreateBucketConfiguration=aws_location)
+                s3_client.create_bucket(Bucket=S3_BUCKET_NAME, CreateBucketConfiguration=aws_location)
             except ClientError as e:
                 if e.response['Error']['Code'] == 'BucketAlreadyOwnedByYou' or \
                         e.response['Error']['Code'] == 'BucketAlreadyExists':
-                    logging.warning(f'S3 bucket "{basename(DIR_ROOT)}" already exists. Content might be overwritten.')
+                    logging.warning(f'S3 bucket "{S3_BUCKET_NAME}" already exists. Content might be overwritten.')
                 else:
                     logging.error(e)
-            self.s3_bucket = boto3.resource('s3').Bucket(basename(DIR_ROOT))
+                    sys.exit(2)
+            self.s3_bucket = boto3.resource('s3').Bucket(S3_BUCKET_NAME)
             self.s3_client = boto3.client('s3')
 
-    def update(self, path):
-        # @TODO: upload by date
+    def _fetch_data(self):
+        msg = self.input_path + ' does not exist! ' \
+                     'Consider switching input storage location or re-running earlier steps of the pipeline.'
+
+        def fetch_data_local():
+            if self.input_path != '' and not exists(self.input_path):
+                logging.error(msg)
+                sys.exit(2)
+
+        def fetch_data_aws(path):
+            if exists(path):
+                logging.warning(f'{path} exists locally. Local content will be overwritten by aws content.')
+            paginator = self.s3_client.get_paginator('list_objects_v2')
+            pages = paginator.paginate(Bucket=self.s3_bucket.name, Prefix=relpath(path, DIR_ROOT))
+            for page in pages:
+                if 'Contents' in page:
+                    for obj in page['Contents']:
+                        self.s3_bucket.download_file(obj['Key'], path)
+                elif path == self.input_path:
+                    logging.error(msg)
+                    sys.exit(2)
+
+        if self.location == 'local':
+            fetch_data_local()
+
+        elif self.location == 'aws':
+            if self.input_path != '':
+                fetch_data_aws(self.input_path)
+            if self.input_path == DIR_RECHTSPRAAK:
+                fetch_data_aws(CSV_RECHTSPRAAK_INDEX)
+            for output_path in self.output_paths:
+                if output_path.endswith('.csv'):
+                    fetch_data_aws(output_path)
+
+    def _fetch_last_updated(self):
+        date_name = 'date_decision'
+
+        def default(path):
+            print(f'Setting start date of {path} to 1900-01-01.')
+            return date(1900, 1, 1)
+
+        def last_updated(path):
+            if path == DIR_RECHTSPRAAK:
+                path = CSV_RECHTSPRAAK_INDEX
+            if path.endswith('.csv'):
+                import pandas as pd
+                try:
+                    df = pd.read_csv(path, usecols=[date_name])
+                    return max(df[date_name].apply(date.fromisoformat))
+                except FileNotFoundError:
+                    logging.warning(path + ' not found.')
+                    return default(path)
+
+            logging.warning(path + ' is not a .csv file.')
+            return default(path)
+
+        # if input exists, check date of last update
+        last_updated_input = None
+        if self.input_path not in ['', DIR_RECHTSPRAAK + '.zip']:
+            last_updated_input = last_updated(self.input_path)
+            print(f'last updated input {self.input_path}: {last_updated_input}')
+
+        # for each output, check date of last update
+        last_updated_outputs = []
+        for output_path in self.output_paths:
+            this_last_updated_output = last_updated(output_path)
+            print(f'last updated output {output_path}: {this_last_updated_output}')
+            # if output date of last update after input date of last update: need to update input first
+            if last_updated_input and last_updated_input < this_last_updated_output:
+                logging.error(f'Input data {self.input_path} is older than output data {output_path}. '
+                              f'Please update input data first.')
+                sys.exit(2)
+            last_updated_outputs.append(this_last_updated_output)
+
+        return min(last_updated_outputs)
+
+    def update_data(self):
         def upload_to_aws(data_path):
             if isfile(data_path):
                 try:
@@ -92,97 +179,5 @@ class Storage:
                     upload_to_aws(join(data_path, sub_path))
 
         if self.location == 'aws':
-            upload_to_aws(path)
-            #remove(path)
-
-    def fetch(self, path):
-        msg = path + ' does not exist! ' \
-                     'Consider switching input storage location or re-running earlier steps of the pipeline.'
-
-        if self.location == 'local':
-            if not exists(path):
-                logging.error(msg)
-                sys.exit(2)
-
-        elif self.location == 'aws':
-            if exists(path):
-                logging.warning(f'{path} already exists. Local content will be overwritten by aws content.')
-            paginator = self.s3_client.get_paginator('list_objects_v2')
-            pages = paginator.paginate(Bucket=self.s3_bucket.name, Prefix=relpath(path, DIR_ROOT))
-            for page in pages:
-                if 'Contents' in page:
-                    for obj in page['Contents']:
-
-                        self.s3_bucket.download_file(obj['Key'], path)
-                else:
-                    logging.error(msg)
-                    sys.exit(2)
-
-    def last_updated(self, path, date_attribute_name=''):
-        from datetime import date
-
-        def default():
-            logging.error('Could not retrieve most recent decision date. Setting start date to 1900-01-01.')
-            return date(1900, 1, 1)
-
-        def last_updated_local():
-            if path.endswith('.csv'):
-                import pandas as pd
-                try:
-                    df = pd.read_csv(path, usecols=[date_attribute_name])
-                    return max(df[date_attribute_name].apply(date.fromisoformat))
-                except ValueError:
-                    print(f'Attribute {date_attribute_name} not in {path}. Choose valid decision date attribute name.')
-                except FileNotFoundError:
-                    return default()
-            elif path == DIR_RECHTSPRAAK:
-                try:
-                    last_year = max(list(map(int, listdir(DIR_RECHTSPRAAK))))
-                    last_month = int(str(max(list(map(int, listdir(join(DIR_RECHTSPRAAK, str(last_year)))))))[-2:])
-                    return date(last_year, last_month, 1)
-                except FileNotFoundError:
-                    return default()
-            return default()
-
-        def last_updated_aws():
-            if path.endswith('.csv'):
-                self.fetch(path)
-                return last_updated_local()
-            elif path == DIR_RECHTSPRAAK:
-                last_year = 1900
-                for year in range(date.today().year, 1899, -1):
-                    no_results = self.s3_client.list_objects_v2(
-                        Bucket=basename(DIR_ROOT), MaxKeys=1,
-                        Prefix=join(relpath(DIR_RECHTSPRAAK, DIR_ROOT), str(year)))['KeyCount']
-                    if no_results > 0:
-                        last_year = year
-                        break
-                for month in range(1, 13):
-                    yearmonth = f'{str(last_year)}{month:02d}'
-                    no_results = self.s3_client.list_objects_v2(
-                        Bucket=basename(DIR_ROOT), MaxKeys=1,
-                        Prefix=join(relpath(DIR_RECHTSPRAAK, DIR_ROOT), str(last_year), yearmonth))['KeyCount']
-                    if no_results > 0:
-                        return date(last_year, month, 1)
-            return default()
-
-        if not (path.endswith('.csv') or path == DIR_RECHTSPRAAK):
-            logging.error(f'Not a valid data path. '
-                          f'Choose "{DIR_RECHTSPRAAK}" or path to csv file with decision date attribute name.')
-            return default()
-
-        if self.location == 'local':
-            return last_updated_local()
-
-        elif self.location == 'aws':
-            return last_updated_aws()
-
-        return default()
-
-
-
-
-
-
-
-
+            for output_path in self.output_paths:
+                upload_to_aws(output_path)

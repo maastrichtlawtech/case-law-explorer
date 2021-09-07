@@ -3,12 +3,12 @@ from definitions.terminology.field_names import *
 # maps to rename original field names of raw data to terminology defined in definitions.py
 # (no need to change: changes automatically if definitions.py changes):
 MAP_RS = {
-    'identifier': RS_IDENTIFIER,  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
+    'ecli': RS_IDENTIFIER,  # originally: 'identifier'. ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
     'issued': RS_ISSUED,  # date of document publication (on Rechtspraak.nl)
     'language': RS_LANGUAGE,  # language of jurisdiction to which case belongs
     'creator': RS_CREATOR,  # name of instance (court)
-    'date': RS_DATE,  # date of court decision
-    'zaaknummer': RS_ZAAKNUMMER,  # case number, for internal use by courts -- main identifier prior to introduction of ECLI
+    'date_decision': RS_DATE,  # originally: 'date'. Date of court decision
+    'zaaknummer': RS_ZAAKNUMMER,  # case number, for iternal use by courts -- main identifier prior to introduction of ECLI
     'type': RS_TYPE,  # 'uitspraak' (decision) or 'conclusie' (opinion)
     'procedure': RS_PROCEDURE,  # procedure type (e.g. summary proceedings)
     'spatial': RS_SPATIAL,  # court location (municipality)

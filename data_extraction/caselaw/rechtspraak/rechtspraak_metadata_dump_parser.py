@@ -7,39 +7,21 @@ from itertools import chain
 import os
 import csv
 import time
-from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_ECLIS
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_CASE_INDEX
 from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION
 from definitions.terminology.field_values import RECHTSPRAAK, NL
 import argparse
-import datetime
+
+input_path = DIR_RECHTSPRAAK
+output_paths = [CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_CASE_INDEX]
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-parser.add_argument('-d', '--date', type=datetime.date.fromisoformat, help='start decision date to fetch data from')
-parser.add_argument('-u', '--update', action='store_true', help='update data from most recent decision date on storage')
 args = parser.parse_args()
-storage = Storage(args.storage)
+storage = Storage(location=args.storage, output_paths=output_paths, input_path=input_path)
 print('Input/Output data storage:', args.storage)
-
-input_path = DIR_RECHTSPRAAK
-output_path_cases = CSV_RS_CASES
-output_path_opinions = CSV_RS_OPINIONS
-output_path_eclis = CSV_RS_ECLIS
-
-if args.update:
-    from_date_cases = storage.last_updated(output_path_cases, 'date')
-    from_date_opinions = storage.last_updated(output_path_opinions, 'date')
-    from_date_eclis = storage.last_updated(output_path_eclis, 'date')
-    print(from_date_cases)
-    print(from_date_opinions)
-    print(from_date_eclis)
-    from_date = min(from_date_cases, from_date_opinions, from_date_opinions)
-elif args.date:
-    from_date = args.date
-else:
-    from_date = datetime.date(1900, 1, 1)
-
-print('Data will be processed from:', from_date.isoformat())
+last_updated = storage.last_updated
+print('Data will be processed from:', last_updated.isoformat())
 
 is_case = False
 
@@ -47,13 +29,12 @@ case_counter = 0
 opinion_counter = 0
 datarecord = dict()
 
-
 # Field names used for output csv. Field names correspond to tags of original data
-IDENTIFIER = 'identifier'
+IDENTIFIER = 'ecli'
 ISSUED = 'issued'
 LANGUAGE = 'language'
 CREATOR = 'creator'
-DATE = 'date'
+DATE = 'date_decision'
 ZAAKNUMMER = 'zaaknummer'
 TYPE = 'type'
 PROCEDURE = 'procedure'
@@ -106,9 +87,6 @@ def stringify_children(node):
             (node.text,),
             chain(*((tostring(child, with_tail=False, encoding=str), child.tail) for child in node.getchildren())),
             (node.tail,)) if chunk)
-
-# to get only text without tags:
-# ''.join(tag.itertext())
 
 
 def processtag(cleantagname, tag):
@@ -203,9 +181,9 @@ def initialise_csv_files():
             datarecord.pop(ECLI_DECISION)
             writer = csv.DictWriter(f, datarecord.keys())
             writer.writeheader()
-    if not exists(CSV_RS_ECLIS):
-        with open(CSV_RS_ECLIS, 'w') as f:
-            writer = csv.DictWriter(f, ['ecli', 'date'])
+    if not exists(CSV_RS_CASE_INDEX):
+        with open(CSV_RS_CASE_INDEX, 'w') as f:
+            writer = csv.DictWriter(f, ['ecli', 'date_decision', 'relations'])
             writer.writeheader()
 
 
@@ -245,18 +223,17 @@ def parse_metadata_from_xml_file(filename):
         print("\033[94mCASE\033[0m %s" % datarecord[IDENTIFIER])
         datarecord.pop(ECLI_DECISION)
         write_line_csv(CSV_RS_CASES, datarecord)
-        # write case eclis to separate .csv file to later be able to run case citation extractor script
-        write_line_csv(CSV_RS_ECLIS, {'ecli': datarecord[IDENTIFIER], 'date': datarecord[DATE]})
+        write_line_csv(CSV_RS_CASE_INDEX, {'ecli': datarecord[IDENTIFIER],
+                                           'date_decision': datarecord[DATE],
+                                           'relations': datarecord[RELATION]})
     else:
         opinion_counter += 1
         print("\033[95mOPINION\033[0m %s" % datarecord[IDENTIFIER])
         write_line_csv(CSV_RS_OPINIONS, datarecord)
 
+
 # Start script timer
 start = time.time()
-
-print(f"Fetching data from {args.storage} storage...")
-storage.fetch(input_path)
 
 print("Building index of XML files...\n")
 
@@ -270,7 +247,7 @@ for (dirpath, dirnames, filenames) in file_tree:
     if filenames:
         year, month = int(basename(dirpath)[:4]), int(basename(dirpath)[4:])
         # skip files before from date
-        if year < from_date.year or year == from_date.year and month < from_date.month:
+        if year < last_updated.year or year == last_updated.year and month < last_updated.month:
             continue
         for file in filenames:
             # Append only the xml files
@@ -278,8 +255,6 @@ for (dirpath, dirnames, filenames) in file_tree:
                 list_of_files_to_parse.append(os.path.join(dirpath, file))
             else:
                 print(file)
-
-    # list_of_files_to_parse.extend([os.path.join(dirpath, file) for file in filenames])
 
 num_files = len(list_of_files_to_parse)
 
@@ -303,9 +278,8 @@ print("Parsing successfully completed!")
 
 
 print(f"Updating {args.storage} storage ...")
-storage.update(output_path_cases)
-storage.update(output_path_opinions)
-storage.update(output_path_eclis)
+storage.update_data()
+
 # Stop the script timer
 end = time.time()
 

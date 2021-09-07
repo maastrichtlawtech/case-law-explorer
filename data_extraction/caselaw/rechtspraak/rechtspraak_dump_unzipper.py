@@ -1,42 +1,29 @@
-from os.path import dirname, abspath, splitext
+from os.path import dirname, abspath, splitext, basename
 import sys
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import zipfile
-from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, join
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, join, CSV_RECHTSPRAAK_INDEX
 from os import makedirs
 import io
 import time
 import argparse
-import datetime
-from dotenv import load_dotenv
-load_dotenv()
+import pandas as pd
+from datetime import date
+
+input_path = DIR_RECHTSPRAAK + '.zip'
+output_path_dir = DIR_RECHTSPRAAK
+output_path_index = CSV_RECHTSPRAAK_INDEX
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-parser.add_argument('-d', '--date', type=datetime.date.fromisoformat, help='start decision date to fetch data from')
-parser.add_argument('-u', '--update', action='store_true', help='update data from most recent decision date on storage')
 args = parser.parse_args()
-storage = Storage(args.storage)
+storage = Storage(location=args.storage, output_paths=[output_path_dir, output_path_index], input_path=input_path)
 print('Input/Output data storage:', args.storage)
-
-input_path = DIR_RECHTSPRAAK + '.zip'
-output_path = DIR_RECHTSPRAAK
-
-if args.update:
-    from_date = storage.last_updated(output_path)
-elif args.date:
-    from_date = args.date
-else:
-    from_date = datetime.date(1900, 1, 1)
-
-print('Data will be processed from:', from_date.isoformat())
+last_updated = storage.last_updated
+print('Data will be processed from:', last_updated.isoformat())
 
 start_script = time.time()
 
-
-
-print(f"Fetching data from {args.storage} storage...")
-storage.fetch(input_path)
 # extract all files in directory "filename" and all subdirectories:
 print('Extracting directories...')
 outer_zip = zipfile.ZipFile(input_path)
@@ -44,23 +31,28 @@ outer_zip = zipfile.ZipFile(input_path)
 for year_dir in outer_zip.namelist():
     if year_dir.endswith('.zip'):
         year = splitext(year_dir)[0]
-        if int(year) < from_date.year:
+        if int(year) < last_updated.year:
             continue
         # create new directory
-        makedirs(join(output_path, year), exist_ok=True)
+        makedirs(join(output_path_dir, year), exist_ok=True)
         # read inner zip file into bytes buffer
         content = io.BytesIO(outer_zip.read(year_dir))
         inner_zip = zipfile.ZipFile(content)
         # for each month directory in year folder extract content
-        for month_dir in inner_zip.namelist():
-            if month_dir.endswith('.xml'):
-                month = dirname(month_dir)[-2:]
-                if int(year) == from_date.year and int(month) < from_date.month:
+        for file in inner_zip.namelist():
+            if file.endswith('.xml'):
+                month = dirname(file)[-2:]
+                if int(year) == last_updated.year and int(month) < last_updated.month:
                     continue
-                inner_zip.extract(month_dir, join(output_path, year))
+                inner_zip.extract(file, join(output_path_dir, year))
+                ecli = basename(file).split('.xml')[0].replace('_', ':')
+                date_decision = date(int(year), int(month), 1)
+                with open(output_path_index, 'a') as f:
+                    pd.DataFrame({'ecli': [ecli],
+                                  'date_decision': [date_decision]}).to_csv(f, mode='a', header=not f.tell(), index=False)
 
 print(f"Updating {args.storage} storage ...")
-storage.update(output_path)
+storage.update_data()
 
 print('Done.')
 
