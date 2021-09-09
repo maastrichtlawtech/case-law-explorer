@@ -41,7 +41,9 @@ LI_DATE_ADDED = 'date_added'  # date of document added to the LI platform
 LI_SEARCH_NUMBERS = 'search_numbers'  # @TODO what is this?
 
 # fields only in LIDO
-LIDO_JURISPRUDENTIE = 'Jurisprudentie'  # @TODO before re run pipeline change to: 'target_ecli'  # cited case ecli
-LIDO_WET = 'Wet'  # @TODO before re run pipeline change to: 'legal_provision_url_lido'  # URL to lido entry of cited legislation
-LIDO_ARTIKEL = 'Artikel'  # @TODO before re run pipeline change to: 'legal_provision_url'  # URL to cited legislation (on wetten.nl)
-LIDO_ARTIKEL_TITLE = 'Artikel Title' # @TODO before re run pipeline change to: 'legal_provision'  # title of cited legislation
+LIDO_JURISPRUDENTIE = 'target_ecli'  # cited case ecli
+LIDO_LABEL = 'label'  # descriptive type of citation (conclusie, appeal, cassatie, ...)
+LIDO_TYPE = 'type'  # type id of citation as given in the linktype URL
+LIDO_WET = 'legal_provision_url_lido'  # URL to lido entry of cited legislation
+LIDO_ARTIKEL = 'legal_provision_url'  # URL to cited legislation (on wetten.nl)
+LIDO_ARTIKEL_TITLE = 'legal_provision'  # title of cited legislation

@@ -7,47 +7,10 @@ from itertools import chain
 import os
 import csv
 import time
-from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_CASE_INDEX
-from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_CASE_INDEX, get_path_raw
+from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION, ECLI, RS_DATE, RS_RELATION
 from definitions.terminology.field_values import RECHTSPRAAK, NL
 import argparse
-
-input_path = DIR_RECHTSPRAAK
-output_paths = [CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_CASE_INDEX]
-
-parser = argparse.ArgumentParser()
-parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-args = parser.parse_args()
-storage = Storage(location=args.storage, output_paths=output_paths, input_path=input_path)
-print('Input/Output data storage:', args.storage)
-last_updated = storage.last_updated
-print('Data will be processed from:', last_updated.isoformat())
-
-is_case = False
-
-case_counter = 0
-opinion_counter = 0
-datarecord = dict()
-
-# Field names used for output csv. Field names correspond to tags of original data
-IDENTIFIER = 'ecli'
-ISSUED = 'issued'
-LANGUAGE = 'language'
-CREATOR = 'creator'
-DATE = 'date_decision'
-ZAAKNUMMER = 'zaaknummer'
-TYPE = 'type'
-PROCEDURE = 'procedure'
-SPATIAL = 'spatial'
-SUBJECT = 'subject'
-RELATION = 'relation'
-REFERENCES = 'references'
-HAS_VERSION = 'hasVersion'
-IDENTIFIER2 = 'identifier2'
-TITLE = 'title'
-INHOUDSINDICATIE = 'inhoudsindicatie'
-INFO = 'info'
-FULL_TEXT = 'full_text'
 
 
 # Initialize the datarecord with the default fields and inital values
@@ -154,16 +117,6 @@ def processtag(cleantagname, tag):
         if datarecord[INFO] is None:
             datarecord[INFO] = stringify_children(tag)
     if cleantagname == 'uitspraak' or cleantagname == 'conclusie':
-        # file_name = tag.attrib['id']
-        # # ECLI_NL_RBROT_1913_22
-        # reg_post = re.search(
-        #     'ECLI:(?P<country>.*):(?P<jur>.*):(?P<year>.*):(?P<no>.*):(?P<doc>.*)',
-        #     file_name)
-        # file_name = PATH + reg_post.group('year') + '/' + file_name.replace(":", "_") + '.html'
-        #
-        # file = open(file_name, "w")
-        # file.write(stringify_children(tag))
-
         if datarecord[FULL_TEXT] is None:
             datarecord[FULL_TEXT] = stringify_children(tag)
 
@@ -171,19 +124,19 @@ def processtag(cleantagname, tag):
 # write column names to csv
 def initialise_csv_files():
     initialise_data_record()
-    if not exists(CSV_RS_OPINIONS):
-        with open(CSV_RS_OPINIONS, 'w') as f:
+    if not exists(output_path_opinions):
+        with open(output_path_opinions, 'w') as f:
             writer = csv.DictWriter(f, datarecord.keys())
             writer.writeheader()
-    if not exists(CSV_RS_CASES):
-        with open(CSV_RS_CASES, 'w') as f:
+    if not exists(output_path_cases):
+        with open(output_path_cases, 'w') as f:
             # Using dictionary keys as fieldnames for the CSV file header
             datarecord.pop(ECLI_DECISION)
             writer = csv.DictWriter(f, datarecord.keys())
             writer.writeheader()
-    if not exists(CSV_RS_CASE_INDEX):
-        with open(CSV_RS_CASE_INDEX, 'w') as f:
-            writer = csv.DictWriter(f, ['ecli', 'date_decision', 'relations'])
+    if not exists(output_path_index):
+        with open(output_path_index, 'w') as f:
+            writer = csv.DictWriter(f, [ECLI, RS_DATE, RS_RELATION])
             writer.writeheader()
 
 
@@ -220,20 +173,63 @@ def parse_metadata_from_xml_file(filename):
 
     if is_case:
         case_counter += 1
-        print("\033[94mCASE\033[0m %s" % datarecord[IDENTIFIER])
+        # print("\033[94mCASE\033[0m %s" % datarecord[IDENTIFIER])
         datarecord.pop(ECLI_DECISION)
-        write_line_csv(CSV_RS_CASES, datarecord)
-        write_line_csv(CSV_RS_CASE_INDEX, {'ecli': datarecord[IDENTIFIER],
-                                           'date_decision': datarecord[DATE],
-                                           'relations': datarecord[RELATION]})
+        write_line_csv(output_path_cases, datarecord)
+        write_line_csv(output_path_index, {ECLI: datarecord[IDENTIFIER],
+                                           RS_DATE: datarecord[DATE],
+                                           RS_RELATION: datarecord[RELATION]})
     else:
         opinion_counter += 1
-        print("\033[95mOPINION\033[0m %s" % datarecord[IDENTIFIER])
-        write_line_csv(CSV_RS_OPINIONS, datarecord)
+        # print("\033[95mOPINION\033[0m %s" % datarecord[IDENTIFIER])
+        write_line_csv(output_path_opinions, datarecord)
 
 
-# Start script timer
 start = time.time()
+
+input_path = DIR_RECHTSPRAAK
+output_path_cases = get_path_raw(CSV_RS_CASES)
+output_path_opinions = get_path_raw(CSV_RS_OPINIONS)
+output_path_index = get_path_raw(CSV_RS_CASE_INDEX)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+args = parser.parse_args()
+print('\n--- PREPARATION ---\n')
+print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
+print('INPUT:\t\t\t\t', basename(input_path))
+print('OUTPUTS:\t\t\t', f'{basename(output_path_cases)}, {basename(output_path_opinions)}, {basename(output_path_index)}\n')
+storage = Storage(location=args.storage, output_paths=[output_path_cases, output_path_opinions, output_path_index], input_path=input_path)
+last_updated = storage.last_updated
+print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+
+print('\n--- START ---\n')
+
+is_case = False
+
+case_counter = 0
+opinion_counter = 0
+datarecord = dict()
+
+# Field names used for output csv. Field names correspond to tags of original data
+IDENTIFIER = 'ecli'
+ISSUED = 'issued'
+LANGUAGE = 'language'
+CREATOR = 'creator'
+DATE = 'date_decision'
+ZAAKNUMMER = 'zaaknummer'
+TYPE = 'type'
+PROCEDURE = 'procedure'
+SPATIAL = 'spatial'
+SUBJECT = 'subject'
+RELATION = 'relation'
+REFERENCES = 'references'
+HAS_VERSION = 'hasVersion'
+IDENTIFIER2 = 'identifier2'
+TITLE = 'title'
+INHOUDSINDICATIE = 'inhoudsindicatie'
+INFO = 'info'
+FULL_TEXT = 'full_text'
 
 print("Building index of XML files...\n")
 
@@ -267,7 +263,7 @@ initialise_csv_files()
 # Parse files to obtain list of tags in them
 index = 1
 for file in list_of_files_to_parse:
-    print("\033[1m%i/%i\033[0m %s" % (index, num_files, file))
+    # print("\033[1m%i/%i\033[0m %s" % (index, num_files, file))
     parse_metadata_from_xml_file(file)
     index += 1
 
@@ -275,17 +271,14 @@ print("Number of files: %i %i+%i" % (num_files, case_counter, opinion_counter))
 
 print()
 print("Parsing successfully completed!")
-
-
-print(f"Updating {args.storage} storage ...")
-storage.update_data()
-
-# Stop the script timer
-end = time.time()
-
-print("Done!")
-print()
 print('Number of cases: ', case_counter)
 print('Number of opinions: ', opinion_counter)
+
+print(f"\nUpdating {args.storage} storage ...")
+storage.update_data()
+
+end = time.time()
+print("\n--- DONE ---")
 print("Time taken: ", (end - start), "s")
+
 
