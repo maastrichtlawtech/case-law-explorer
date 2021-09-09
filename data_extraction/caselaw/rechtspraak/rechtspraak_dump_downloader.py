@@ -35,12 +35,12 @@ date = str(dateTimeObj.year) + '-' + str(dateTimeObj.month) + '-' + str(dateTime
 
 print("Downloading Rechtspraak.nl dump - " + date + " - " + rs_url + " ...")
 # for testing:
-urllib.request.urlretrieve('https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0/download', output_path)
-# urllib.request.urlretrieve(rs_url, output_path)
+#urllib.request.urlretrieve('https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0/download', output_path)
+urllib.request.urlretrieve(rs_url, output_path)
 
 print(f"\nUpdating {args.storage} storage ...")
 storage.update_data()
 
 end = time.time()
 print("\n--- DONE ---")
-print("Time taken: ", (end - start), "s")
+print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

@@ -34,24 +34,23 @@ print('\n--- START ---\n')
 print('Extracting directories...')
 outer_zip = zipfile.ZipFile(input_path)
 # for each year directory in dataset create folder structure
-for year_dir in outer_zip.namelist():
-    if year_dir.endswith('.zip'):
-        year = splitext(year_dir)[0]
+for outer_file in outer_zip.namelist():
+    if outer_file.endswith('.zip'):
+        year, month = splitext(outer_file)[0][:4], splitext(outer_file)[0][-2:]
         if int(year) < last_updated.year:
             continue
         # create new directory
-        makedirs(join(output_path_dir, year), exist_ok=True)
+        makedirs(join(output_path_dir, splitext(outer_file)[0]), exist_ok=True)
         # read inner zip file into bytes buffer
-        content = io.BytesIO(outer_zip.read(year_dir))
+        content = io.BytesIO(outer_zip.read(outer_file))
         inner_zip = zipfile.ZipFile(content)
         # for each month directory in year folder extract content
-        for file in inner_zip.namelist():
-            if file.endswith('.xml'):
-                month = dirname(file)[-2:]
+        for inner_file in inner_zip.namelist():
+            if inner_file.endswith('.xml'):
                 if int(year) == last_updated.year and int(month) < last_updated.month:
                     continue
-                inner_zip.extract(file, join(output_path_dir, year))
-                ecli = basename(file).split('.xml')[0].replace('_', ':')
+                inner_zip.extract(inner_file, join(output_path_dir, year, year + month))
+                ecli = basename(inner_file).split('.xml')[0].replace('_', ':')
                 date_decision = date(int(year), int(month), 1)
                 with open(output_path_index, 'a') as f:
                     pd.DataFrame({ECLI: [ecli],
@@ -62,4 +61,5 @@ storage.update_data()
 
 end = time.time()
 print("\n--- DONE ---")
-print("Time taken: ", (end - start), "s")
+print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+

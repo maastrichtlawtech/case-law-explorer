@@ -279,6 +279,4 @@ storage.update_data()
 
 end = time.time()
 print("\n--- DONE ---")
-print("Time taken: ", (end - start), "s")
-
-
+print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
