@@ -251,9 +251,10 @@ print('\n--- PREPARATION ---\n')
 print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
 print('INPUT:\t\t\t\t', basename(input_path))
 print('OUTPUTS:\t\t\t', f'{basename(output_path_c_citations)}, {basename(output_path_l_citations)}\n')
-storage = Storage(location=args.storage, output_paths=[output_path_c_citations, output_path_l_citations], input_path=input_path)
+storage = Storage(location=args.storage)
+storage.setup_pipeline(output_paths=[output_path_c_citations, output_path_l_citations], input_path=input_path)
 citation_type = "inkomende-links" if args.incoming else "uitgaande-links"
-last_updated = storage.last_updated
+last_updated = storage.pipeline_last_updated
 print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
 print('\n--- START ---\n')
@@ -278,7 +279,7 @@ legislation_citations = legislation_citations.drop_duplicates()
 legislation_citations.to_csv(output_path_l_citations, index=False)
 
 print(f"\nUpdating {args.storage} storage ...")
-storage.update_data()
+storage.finish_pipeline()
 
 end = time.time()
 print("\n--- DONE ---")

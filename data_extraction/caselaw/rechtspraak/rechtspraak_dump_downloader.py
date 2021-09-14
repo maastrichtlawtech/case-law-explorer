@@ -19,8 +19,9 @@ args = parser.parse_args()
 print('\n--- PREPARATION ---\n')
 print('OUTPUT DATA STORAGE:\t', args.storage)
 print('OUTPUT:\t\t\t', basename(output_path))
-storage = Storage(location=args.storage, output_paths=[output_path])
-last_updated = storage.last_updated
+storage = Storage(location=args.storage)
+storage.setup_pipeline(output_paths=[output_path])
+last_updated = storage.pipeline_last_updated
 print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
 print('\n--- START ---\n')
@@ -39,7 +40,7 @@ print("Downloading Rechtspraak.nl dump - " + date + " - " + rs_url + " ...")
 urllib.request.urlretrieve(rs_url, output_path)
 
 print(f"\nUpdating {args.storage} storage ...")
-storage.update_data()
+storage.finish_pipeline()
 
 end = time.time()
 print("\n--- DONE ---")

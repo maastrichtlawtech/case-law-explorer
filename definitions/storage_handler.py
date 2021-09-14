@@ -56,28 +56,23 @@ def get_path_processed(file_name):
 
 
 class Storage:
-    def __init__(self, location, output_paths, input_path=None):
+    def __init__(self, location):
         if location not in ('local', 'aws'):
             print('Storage location must be either "local" or "aws". Setting to "local".')
             location = 'local'
         self.location = location
         self.s3_bucket = None
         self.s3_client = None
-        self.input_path = input_path
-        self.output_paths = output_paths
-        self.last_updated = None
+        self.pipeline_input_path = None
+        self.pipeline_output_paths = None
+        self.pipeline_last_updated = date(1900, 1, 1)
 
         print(f'\nSetting up {self.location} storage ...')
         self._setup()
-        print(f'\nFetching data from {self.location} storage ...')
-        self._fetch_data()
-        print(f'\nRetrieving date of last update ...')
-        if not self.last_updated:
-            self.last_updated = self._fetch_last_updated()
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [DIR_RECHTSPRAAK, DIR_DATA_RAW, DIR_DATA_PROCESSED]:
+        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED]:
             makedirs(d, exist_ok=True)
 
         if self.location == 'aws':
@@ -97,121 +92,141 @@ class Storage:
             self.s3_client = boto3.client('s3')
         print('Storage set up.')
 
-    def _fetch_data(self):
-        def not_found(path):
-            logging.error(path + ' does not exist! Consider switching storage location'
-                                 ' or re-running earlier steps of the pipeline.')
-            sys.exit(2)
+    def setup_pipeline(self, output_paths, input_path=None):
+        self.pipeline_input_path = input_path
+        self.pipeline_output_paths = output_paths
 
-        def fetch_data_local():
-            # exit if input does not exist
-            if self.input_path and not exists(self.input_path):
-                not_found(self.input_path)
-            print('Local data ready.')
-
-        def fetch_data_aws(path):
-            import shutil
-
+        # fetch output data
+        print(f'\nFetching output data from {self.location} storage ...')
+        for path in self.pipeline_output_paths:
             if exists(path):
-                logging.warning(f'{path} exists locally. Local content will be overwritten by aws content.')
-                remove(path) if isfile(path) else shutil.rmtree(path)
+                logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
+                sys.exit(2)
+            if path.endswith('.csv'):
+                self.fetch_data([path])
 
-            if path == DIR_RECHTSPRAAK:
-                # fetch index additional to files
-                fetch_data_aws(CSV_RECHTSPRAAK_INDEX)
-                # fetch date of last update to only download relevant parts of the data
-                self.last_updated = self._fetch_last_updated()
+        # retrieve output date of last update
+        self.pipeline_last_updated = self.fetch_last_updated(self.pipeline_output_paths)
+
+        # fetch input data, if exists
+        if self.pipeline_input_path:
+            print(f'\nFetching input data from {self.location} storage ...')
+            self.fetch_data([self.pipeline_input_path])
+            # retrieve input date of last update
+            last_updated_input = self.fetch_last_updated([self.pipeline_input_path])
+
+            # if output date of last update after input date of last update: need to update input first
+            if last_updated_input < self.pipeline_last_updated:
+                logging.error(f'Input data {basename(self.pipeline_input_path)} is older than output data. '
+                              f'Please update input data first.')
+                sys.exit(2)
+
+    def finish_pipeline(self):
+        self.upload_data(self.pipeline_output_paths)
+
+    def fetch_data(self, paths):
+        def not_found(file_path):
+            msg = file_path + ' does not exist! Consider switching storage location' \
+                         ' or re-running earlier steps of the pipeline.'
+            if file_path == self.pipeline_input_path:
+                logging.error(msg)
+                sys.exit(2)
+            else:
+                logging.warning(msg)
+
+        def fetch_data_local(file_path):
+            # exit if input does not exist
+            if not exists(file_path):
+                not_found(file_path)
+            else:
+                print('Local data ready.')
+
+        def fetch_data_aws(file_path):
+            if exists(file_path):
+                logging.error(f'{file_path} exists locally! Move/rename local file before fetching data from aws.')
+                sys.exit(2)
+
+            if file_path == DIR_RECHTSPRAAK:
                 # paginate through all items listed in folder
                 paginator = self.s3_client.get_paginator('list_objects_v2')
-                folder_name = relpath(path, DIR_ROOT) + '/'
+                folder_name = relpath(file_path, DIR_ROOT) + '/'
                 pages = paginator.paginate(Bucket=self.s3_bucket.name, Prefix=folder_name)
+                empty = True
                 for page in pages:
+                    empty = False
                     if 'Contents' in page:
                         for obj in page['Contents']:
                             yearmonth = dirname(relpath(obj['Key'], folder_name)).split('/')[1]
-                            if self.last_updated < date(int(yearmonth[:4]), int(yearmonth[4:]), 1):
+                            if date(int(yearmonth[:4]), int(yearmonth[4:]), 1) > self.pipeline_last_updated:
                                 key = obj['Key']
                                 makedirs(dirname(join(DIR_ROOT, key)), exist_ok=True)
                                 self.s3_bucket.download_file(key, join(DIR_ROOT, key))
+                if empty:
+                    not_found(file_path)
 
             else:
                 try:
-                    makedirs(dirname(path), exist_ok=True)
-                    self.s3_bucket.download_file(relpath(path, DIR_ROOT), path)
+                    makedirs(dirname(file_path), exist_ok=True)
+                    self.s3_bucket.download_file(relpath(file_path, DIR_ROOT), file_path)
                 except ClientError as e:
-                    if path == self.input_path and e.response['Error']['Code'] == '404':
-                        not_found(path)
+                    if e.response['Error']['Code'] == '404':
+                        not_found(file_path)
 
-            print(f'{basename(path)} fetched.')
+            print(f'{basename(file_path)} fetched.')
 
         if self.location == 'local':
-            fetch_data_local()
+            fetch = fetch_data_local
+        else:
+            fetch = fetch_data_aws
 
-        elif self.location == 'aws':
-            for output_path in self.output_paths:
-                if output_path.endswith('.csv'):
-                    fetch_data_aws(output_path)
-            if self.input_path:
-                fetch_data_aws(self.input_path)
+        for path in paths:
+            fetch(path)
 
-    def _fetch_last_updated(self):
-        date_name = 'date_decision'
-
-        def default(path):
-            print(f'Setting start date of {basename(path)} to 1900-01-01.')
-            return date(1900, 1, 1)
-
-        def last_updated(path):
-            if path == DIR_RECHTSPRAAK:
-                path = CSV_RECHTSPRAAK_INDEX
-            if path.endswith('.csv'):
-                import pandas as pd
+    def upload_data(self, paths):
+        def upload_to_aws(file_path):
+            if isfile(file_path):
                 try:
-                    df = pd.read_csv(path, usecols=[date_name])
-                    return max(df[date_name].apply(date.fromisoformat))
-                except FileNotFoundError:
-                    logging.warning(path + ' not found.')
-                    return default(path)
-
-            logging.warning(basename(path) + ' is not a .csv file.')
-            return default(path)
-
-        # if input exists, check date of last update
-        last_updated_input = None
-        if self.input_path:
-            last_updated_input = last_updated(self.input_path)
-            print(f'- Last updated input:\t {last_updated_input}\t ({basename(self.input_path)})')
-
-        # for each output, check date of last update
-        last_updated_outputs = []
-        for output_path in self.output_paths:
-            this_last_updated_output = last_updated(output_path)
-            print(f'- Last updated output:\t {this_last_updated_output}\t ({basename(output_path)})')
-            # if output date of last update after input date of last update: need to update input first
-            if last_updated_input and last_updated_input < this_last_updated_output:
-                logging.error(f'Input data {basename(self.input_path)} is older than output data {basename(output_path)}. '
-                              f'Please update input data first.')
-                sys.exit(2)
-            last_updated_outputs.append(this_last_updated_output)
-
-        return min(last_updated_outputs)
-
-    def update_data(self):
-        def upload_to_aws(path):
-            if isfile(path):
-                try:
-                    self.s3_bucket.upload_file(path, relpath(path, DIR_ROOT))
+                    self.s3_bucket.upload_file(file_path, relpath(file_path, DIR_ROOT))
                 except ClientError as e:
                     logging.error(e)
             else:
-                for sub_path in listdir(path):
-                    upload_to_aws(join(path, sub_path))
+                for sub_path in listdir(file_path):
+                    upload_to_aws(join(file_path, sub_path))
 
         if self.location == 'aws':
-            for output_path in self.output_paths:
-                upload_to_aws(output_path)
-                print(basename(output_path), 'updated.')
-
+            for path in paths:
+                upload_to_aws(path)
+                print(basename(path), 'loaded to aws.')
         else:
             print('Local data updated.')
 
+    def fetch_last_updated(self, paths):
+        date_name = 'date_decision'
+
+        def default(file_path):
+            print(f'Setting start date of {basename(file_path)} to 1900-01-01.')
+            return date(1900, 1, 1)
+
+        def last_updated(file_path):
+            if file_path == DIR_RECHTSPRAAK:
+                self.fetch_data([CSV_RECHTSPRAAK_INDEX])
+                file_path = CSV_RECHTSPRAAK_INDEX
+            if file_path.endswith('.csv'):
+                import pandas as pd
+                try:
+                    df = pd.read_csv(file_path, usecols=[date_name])
+                    return max(df[date_name].apply(date.fromisoformat))
+                except FileNotFoundError:
+                    logging.warning(file_path + ' not found.')
+                    return default(file_path)
+
+            logging.warning(basename(file_path) + ' is not a .csv file.')
+            return default(file_path)
+
+        last_updated_dates = []
+        for path in paths:
+            this_last_updated = last_updated(path)
+            print(f'- Last updated {basename(path)}:\t {this_last_updated}')
+            last_updated_dates.append(this_last_updated)
+
+        return min(last_updated_dates)

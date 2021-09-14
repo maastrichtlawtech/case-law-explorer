@@ -199,8 +199,9 @@ print('\n--- PREPARATION ---\n')
 print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
 print('INPUT:\t\t\t\t', basename(input_path))
 print('OUTPUTS:\t\t\t', f'{basename(output_path_cases)}, {basename(output_path_opinions)}, {basename(output_path_index)}\n')
-storage = Storage(location=args.storage, output_paths=[output_path_cases, output_path_opinions, output_path_index], input_path=input_path)
-last_updated = storage.last_updated
+storage = Storage(location=args.storage)
+storage.setup_pipeline(output_paths=[output_path_cases, output_path_opinions, output_path_index], input_path=input_path)
+last_updated = storage.pipeline_last_updated
 print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
 print('\n--- START ---\n')
@@ -275,7 +276,7 @@ print('Number of cases: ', case_counter)
 print('Number of opinions: ', opinion_counter)
 
 print(f"\nUpdating {args.storage} storage ...")
-storage.update_data()
+storage.finish_pipeline()
 
 end = time.time()
 print("\n--- DONE ---")

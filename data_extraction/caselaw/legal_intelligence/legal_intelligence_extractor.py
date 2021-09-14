@@ -1,14 +1,16 @@
+from os.path import dirname, abspath
+import sys
+sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import requests
 import os
 import pandas as pd
 import math
 import time
-from definitions.storage_handler import CSV_LI_CASES, URL_LI_ENDPOINT
+from definitions.storage_handler import Storage, CSV_LI_CASES, URL_LI_ENDPOINT, get_path_raw, basename
 from dotenv import load_dotenv
+import argparse
 
 load_dotenv()
-
-start_script = time.time()
 
 # Legal intelligence credentials
 LI_CLIENT_ID = os.getenv("LI_CLIENT_ID")
@@ -16,6 +18,7 @@ LI_CLIENT_SECRET = os.getenv("LI_CLIENT_SECRET")
 
 # Debug var
 TEST = os.getenv('SAMPLE_TEST')
+
 
 # # Methods needed for using the LI API
 def get_access_token():
@@ -40,7 +43,9 @@ def get_access_token():
     return None
 
 
-def get_search_query(query, filters=[]):
+def get_search_query(query, filters=None):
+    if filters is None:
+        filters = []
     start_minute = time.time()
     n_requests = 0
     headers = {    
@@ -52,17 +57,16 @@ def get_search_query(query, filters=[]):
         "start": 0,
         "rows": 40
     }
-   
     link = f'{URL_LI_ENDPOINT}/search?q=%s' % query
-    for filter in filters:
-        link += '&fq=%s' % filter
+    for f in filters:
+        link += '&fq=%s' % f
 
     documents = []
 
-    try:
-        initial_response = requests.get(link, headers=headers, params=params)
-    except:
-        print(f'RETRIEVAL PAGE ${1} FAILED')
+    #try:
+    initial_response = requests.get(link, headers=headers, params=params)
+    #except:
+    #    print(f'RETRIEVAL PAGE ${1} FAILED')
 
     n_requests += 1
     print(initial_response)
@@ -94,12 +98,12 @@ def get_search_query(query, filters=[]):
             start_minute = time.time()
 
         # here I am unsure what the error exactly is... so for now I just exclude it as an exception
-        try:
-            response = requests.get(link, headers=headers, params=params)
-            documents += response.json()['Documents']
-            print('page index : ' + str(page_index) + ' retrieved. Number of documents: ' + len(documents))
-        except:
-            print(f'RETRIEVAL PAGE ${page_index} FAILED')
+        #try:
+        response = requests.get(link, headers=headers, params=params)
+        documents += response.json()['Documents']
+        print(f'{page_index+1}/{nb_pages} pages retrieved. ({len(documents)}/{count} documents)')
+        #except:
+        #    print(f'RETRIEVAL PAGE ${page_index} FAILED')
 
     total_search_results = initial_response.json()
     total_search_results['Documents'] = documents
@@ -138,9 +142,23 @@ def get_ecli(case_number):
 
 # # Main Method
 
-# In[30]:
-#eclis = pd.read_csv('data/case.csv', usecols=['ecli'])['ecli'].tolist()
-#print(f"Processing {len(eclis)} eclis...")
+start = time.time()
+
+output_path_cases = get_path_raw(CSV_LI_CASES)
+
+parser = argparse.ArgumentParser()
+parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+args = parser.parse_args()
+print('\n--- PREPARATION ---\n')
+print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
+print('OUTPUTS:\t\t\t', f'{basename(output_path_cases)}\n')
+storage = Storage(location=args.storage)
+storage.setup_pipeline(output_paths=[output_path_cases])
+last_updated = storage.pipeline_last_updated
+print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+
+print('\n--- START ---\n')
+
 counter = 0
 large_summaries = 0
 
@@ -156,8 +174,6 @@ df['ecli'] = df['CaseNumber'].apply(get_ecli)
 df.dropna(subset=['ecli'], inplace=True)
 # drop irrelevant column and adjust data types
 df.drop('UrlWithAutoLogOnToken', axis=1, inplace=True)
-#df['LawArea'] = df['LawArea'].astype(str)  # redundant
-#df['Sources'] = df['Sources'].astype(str)  # redundant
 # drop duplicate entries
 # convert all columns to type str (in case more attributes are added by LI inthe future)
 df = df.loc[df.astype(str).drop_duplicates(set(df.columns) - {'Url'}).index]
@@ -169,32 +185,18 @@ df['PublicationDate'] = df['PublicationDate'].astype(int)
 df['EnactmentDate'] = df['EnactmentDate'].astype(int)
 df['DateAdded'] = df['DateAdded'].astype(int)
 
-    # # select correct return document: "NJ" is first choice, "RvdW" is second choice
-    # document = None
-    # if search_results['Count'] != 0:  # check if results found on LI for ecli
-    #     for doc in search_results["Documents"]:
-    #         if doc['PublicationNumber'].startswith('NJ') or (document is None and doc['PublicationNumber'].startswith('RvdW')):
-    #             document = doc
-    #
-    # # append selected document to dataframe
-    # if document is not None:
-    #     if len(document['Summary']) > 252:  # check if summaries not truncated (can be removed)
-    #         large_summaries += 1
-    #     document['ecli'] = ecli
-    #     df = df.append(document, ignore_index=True)
-    #
-    # counter += 1
-    # if counter % 500 == 0:
-    #     print(f"{counter}/{len(eclis)} eclis processed.")
+# save dataframe to csv (append to existing if applicable):
+if not os.path.exists(output_path_cases):
+    header = True
+else:
+    header = False
+df.to_csv(output_path_cases, mode='a', index=False, header=header)
 
-# save dataframe to csv:
-df.to_csv(CSV_LI_CASES, index=False)
-
-#print(f'All {len(eclis)} eclis processed and saved to dataframe.')
 print(f'LI dataframe shape: {df.shape}')
 
-end_script = time.time()
+print(f"\nUpdating {args.storage} storage ...")
+storage.finish_pipeline()
 
-print("Done!")
-print("Time taken: ", (end_script - start_script), "s")
-
+end = time.time()
+print("\n--- DONE ---")
+print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
