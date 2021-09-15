@@ -152,6 +152,7 @@ input_paths = [get_path_processed(CSV_RS_CASES), get_path_processed(CSV_RS_OPINI
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+parser.add_argument('-delete', '--delete', action='store_true', help='remove all files from dynamodb table without deleting table')
 args = parser.parse_args()
 
 print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
@@ -173,22 +174,20 @@ elif args.storage == 'aws':
     TABLE = boto3.resource('dynamodb').Table(DDB_TABLE_NAME)
 
 # remove all items from table without deleting table itself
-#truncate_dynamodb_table(TABLE)
+if args.delete:
+    truncate_dynamodb_table(TABLE)
+else:
+    for input_path in input_paths:
+        print(f'\n--- PREPARATION {basename(input_path)} ---\n')
+        storage = Storage(location=args.storage)
+        storage.fetch_data([input_path])
+        last_updated = storage.fetch_last_updated([input_path])
+        print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
+        print(f'\n--- START {basename(input_path)} ---\n')
 
-for input_path in input_paths:
-    print(f'\n--- PREPARATION {basename(input_path)} ---\n')
-    storage = Storage(location=args.storage)
-    storage.fetch_data([input_path])
-    last_updated = storage.fetch_last_updated([input_path])
-    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
-
-    print(f'\n--- START {basename(input_path)} ---\n')
-    
-    print(f'Processing {basename(input_path)} ...')
-    csv_to_dynamo(input_path, TABLE, processor_map.get(input_path))
-
-
+        print(f'Processing {basename(input_path)} ...')
+        csv_to_dynamo(input_path, TABLE, processor_map.get(input_path))
 
 end = time.time()
 print("\n--- DONE ---")
