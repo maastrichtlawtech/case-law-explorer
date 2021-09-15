@@ -112,15 +112,17 @@ def row_processor_li_cases(row, pk, sk):
 def row_processor_c_citations(row, pk, sk):
     put_items = []
     update_items = []
-    update_set_items = [{
-        pk: row[ECLI],
-        sk: ItemType.DATA.value,
-        'cites': {row[LIDO_JURISPRUDENTIE]}
-    }, {
-        pk: row[LIDO_JURISPRUDENTIE],
-        sk: ItemType.DATA.value,
-        'cited_by': {row[ECLI]}
-    }]
+    update_set_items = []
+    if row['keep1']:
+        update_set_items = [{
+            pk: row[ECLI],
+            sk: ItemType.DATA.value,
+            'cites': {row[LIDO_JURISPRUDENTIE]}
+        }, {
+            pk: row[LIDO_JURISPRUDENTIE],
+            sk: ItemType.DATA.value,
+            'cited_by': {row[ECLI]}
+        }]
     return put_items, update_items, update_set_items
 
 

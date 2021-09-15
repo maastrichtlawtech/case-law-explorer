@@ -1,12 +1,13 @@
 from os.path import basename, dirname, abspath, join, exists, relpath, isfile
-from os import makedirs, getenv, listdir, remove
+from os import makedirs, getenv, listdir
 import boto3
 from botocore.exceptions import ClientError
 import logging
 from dotenv import load_dotenv
 load_dotenv()
 import sys
-from datetime import date
+from datetime import date, datetime
+import os
 
 """
 Purpose of script:
@@ -32,8 +33,9 @@ DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
 CSV_RECHTSPRAAK_INDEX = DIR_RECHTSPRAAK + '_index.csv'
 
-# remote bucket name
-S3_BUCKET_NAME = basename(DIR_ROOT)+'2021'
+# remote resources
+S3_BUCKET_NAME = os.getenv('S3_BUCKET_NAME')
+DDB_TABLE_NAME = os.getenv('DDB_TABLE_NAME')
 
 # data file names
 CSV_RS_CASES = 'RS_cases.csv'
@@ -92,23 +94,24 @@ class Storage:
             self.s3_client = boto3.client('s3')
         print('Storage set up.')
 
-    def setup_pipeline(self, output_paths, input_path=None):
+    def setup_pipeline(self, output_paths=None, input_path=None):
         self.pipeline_input_path = input_path
         self.pipeline_output_paths = output_paths
 
         # fetch output data
-        print(f'\nFetching output data from {self.location} storage ...')
-        for path in self.pipeline_output_paths:
-            if exists(path):
-                logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
-                sys.exit(2)
-            if path.endswith('.csv'):
-                self.fetch_data([path])
+        if self.pipeline_output_paths:
+            print(f'\nFetching output data from {self.location} storage ...')
+            for path in self.pipeline_output_paths:
+                if exists(path):
+                    logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
+                    sys.exit(2)
+                if path.endswith('.csv'):
+                    self.fetch_data([path])
 
-        # retrieve output date of last update
-        self.pipeline_last_updated = self.fetch_last_updated(self.pipeline_output_paths)
+            # retrieve output date of last update
+            self.pipeline_last_updated = self.fetch_last_updated(self.pipeline_output_paths)
 
-        # fetch input data, if exists
+        # fetch input data
         if self.pipeline_input_path:
             print(f'\nFetching input data from {self.location} storage ...')
             self.fetch_data([self.pipeline_input_path])
@@ -122,7 +125,8 @@ class Storage:
                 sys.exit(2)
 
     def finish_pipeline(self):
-        self.upload_data(self.pipeline_output_paths)
+        if self.pipeline_output_paths:
+            self.upload_data(self.pipeline_output_paths)
 
     def fetch_data(self, paths):
         def not_found(file_path):
@@ -175,12 +179,11 @@ class Storage:
             print(f'{basename(file_path)} fetched.')
 
         if self.location == 'local':
-            fetch = fetch_data_local
-        else:
-            fetch = fetch_data_aws
-
-        for path in paths:
-            fetch(path)
+            for path in paths:
+                fetch_data_local(path)
+        elif self.location == 'aws':
+            for path in paths:
+                fetch_data_aws(path)
 
     def upload_data(self, paths):
         def upload_to_aws(file_path):
@@ -201,9 +204,14 @@ class Storage:
             print('Local data updated.')
 
     def fetch_last_updated(self, paths):
-        date_name = 'date_decision'
+        def date_map(file_path):
+            default = ('date_decision', lambda x: date.fromisoformat(x))
+            d_map = {
+                get_path_raw(CSV_LI_CASES): ('EnactmentDate', lambda x: datetime.strptime(x, "%Y%m%d").date())
+            }
+            return d_map.get(file_path, default)
 
-        def default(file_path):
+        def default_date(file_path):
             print(f'Setting start date of {basename(file_path)} to 1900-01-01.')
             return date(1900, 1, 1)
 
@@ -214,14 +222,15 @@ class Storage:
             if file_path.endswith('.csv'):
                 import pandas as pd
                 try:
-                    df = pd.read_csv(file_path, usecols=[date_name])
-                    return max(df[date_name].apply(date.fromisoformat))
+                    date_name, date_function = date_map(file_path)
+                    df = pd.read_csv(file_path, usecols=[date_name], dtype=str)
+                    return max(df[date_name].apply(date_function))
                 except FileNotFoundError:
                     logging.warning(file_path + ' not found.')
-                    return default(file_path)
+                    return default_date(file_path)
 
             logging.warning(basename(file_path) + ' is not a .csv file.')
-            return default(file_path)
+            return default_date(file_path)
 
         last_updated_dates = []
         for path in paths:

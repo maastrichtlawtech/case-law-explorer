@@ -1,18 +1,20 @@
 # %%
+from os.path import dirname, abspath, basename
+import sys
+sys.path.append(dirname(dirname(abspath(__file__))))
 import boto3
 import botocore.exceptions
 from csv import DictReader
 import csv
-import sys
-import time
-from definitions.storage_handler import CSV_RS_CASES_PROC, CSV_LI_CASES_PROC, CSV_RS_OPINIONS_PROC, CSV_CASE_CITATIONS, \
-    CSV_LEGISLATION_CITATIONS
 from data_to_dynamodb.utils.row_processors import row_processor_rs_cases, row_processor_rs_opinions, row_processor_li_cases, \
     row_processor_c_citations, row_processor_l_citations
 from data_to_dynamodb.utils.table_truncator import truncate_dynamodb_table
+from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
+    CSV_LEGISLATION_CITATIONS, get_path_processed, DDB_TABLE_NAME, get_path_raw
+import time
+import argparse
 
 csv.field_size_limit(sys.maxsize)
-
 
 
 def csv_to_dynamo(path_to_csv, table, row_processor):
@@ -135,36 +137,59 @@ def extract_attributes(item, pk, sk):
     return pk_value, sk_value, expression_att_names, expression_att_values
 
 
+processor_map = {
+    get_path_processed(CSV_RS_CASES): row_processor_rs_cases,
+    get_path_processed(CSV_RS_OPINIONS): row_processor_rs_opinions,
+    get_path_processed(CSV_LI_CASES): row_processor_li_cases,
+    get_path_raw(CSV_CASE_CITATIONS): row_processor_c_citations,
+    get_path_raw(CSV_LEGISLATION_CITATIONS): row_processor_l_citations
+}
+
 start = time.time()
 
-local = False
+input_paths = [get_path_processed(CSV_RS_CASES), get_path_processed(CSV_RS_OPINIONS), get_path_processed(CSV_LI_CASES),
+               get_path_raw(CSV_CASE_CITATIONS), get_path_raw(CSV_LEGISLATION_CITATIONS)]
 
-if local:
-    TABLE = boto3.resource('dynamodb', endpoint_url="http://localhost:8000").Table('CaselawV6-hmq6fy5a6fcg7isx5lar3yewdy-dev')
-else:
-    TABLE = boto3.resource('dynamodb').Table('CaselawV6-hmq6fy5a6fcg7isx5lar3yewdy-dev')
+parser = argparse.ArgumentParser()
+parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+args = parser.parse_args()
 
+print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
+print('INPUT:\t\t\t\t', basename(input_paths[0]), basename(input_paths[1]), basename(input_paths[2]),
+      basename(input_paths[3]), basename(input_paths[4]))
 
+if args.storage == 'local':
+    # https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html
+    online_table = boto3.resource('dynamodb').Table(DDB_TABLE_NAME)
+    ddb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
+    ddb.create_table(
+        AttributeDefinitions=online_table.attribute_definitions,
+        TableName=DDB_TABLE_NAME,
+        KeySchema=online_table.key_schema,
+        GlobalSecondaryIndexes=online_table.global_secondary_indexes
+    )
+    TABLE = ddb.Table(DDB_TABLE_NAME)
+elif args.storage == 'aws':
+    TABLE = boto3.resource('dynamodb').Table(DDB_TABLE_NAME)
+
+# remove all items from table without deleting table itself
 #truncate_dynamodb_table(TABLE)
 
-#print('Uploading RS cases...')
-#csv_to_dynamo(CSV_RS_CASES_PROC, TABLE, row_processor_rs_cases)
 
-#print('\nProcessing RS opinions...')
-#csv_to_dynamo(CSV_RS_OPINIONS_PROC, TABLE, row_processor_rs_opinions)
+for input_path in input_paths:
+    print(f'\n--- PREPARATION {basename(input_path)} ---\n')
+    storage = Storage(location=args.storage)
+    storage.fetch_data([input_path])
+    last_updated = storage.fetch_last_updated([input_path])
+    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
-#print('\nProcessing LI cases...')
-#csv_to_dynamo(CSV_LI_CASES_PROC, TABLE, row_processor_li_cases)
+    print(f'\n--- START {basename(input_path)} ---\n')
+    
+    print(f'Processing {basename(input_path)} ...')
+    csv_to_dynamo(input_path, TABLE, processor_map.get(input_path))
 
-print('\nProcessing legislation citations...')
-csv_to_dynamo(CSV_LEGISLATION_CITATIONS, TABLE, row_processor_l_citations)
 
-print('\nProcessing case citations...')
-csv_to_dynamo(CSV_CASE_CITATIONS, TABLE, row_processor_c_citations)
 
 end = time.time()
-print("\n\nTime taken: ", (end - start), "s")
-
-
-
-
+print("\n--- DONE ---")
+print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

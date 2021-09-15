@@ -94,29 +94,6 @@ def format_jurisdiction(text):
 
 """ DF OPERATIONS (READ, WRITE, PRINT, SELECT): """
 
-
-def process_row(row, tool_map, fieldname_map):
-    row_clean = dict.fromkeys(fieldname_map.values())
-    for col, value in row.items():
-        if value:
-            if col in tool_map:
-                row_clean[fieldname_map[col]] = tool_map[col](value.strip())
-            else:
-                row_clean[fieldname_map[col]] = value.strip()
-
-    return row_clean
-
-
-def process_csv(in_path, out_path, tool_map, fieldname_map):
-    with open(out_path, 'w', newline='') as out_file:
-        writer = DictWriter(out_file, fieldnames=list(fieldname_map.values()))
-        writer.writeheader()
-
-        with open(in_path, 'r', newline='') as in_file:
-            reader = DictReader(in_file)
-            writer.writerows(process_row(row, tool_map, fieldname_map) for row in reader)
-
-
 # make sure all csvs are read in the same way
 def read_csv(path, cols=None):
     return pd.read_csv(path, dtype=str, usecols=cols).replace({np.nan: None})

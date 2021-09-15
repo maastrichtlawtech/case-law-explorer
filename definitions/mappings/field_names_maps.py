@@ -53,14 +53,3 @@ MAP_LI = {
     'Sources': LI_SOURCES,  # alternative publishing institutions
     'SearchNumbers': LI_SEARCH_NUMBERS  # @ TODO: what is this?
 }
-
-MAP_CASE_CITATIONS = {
-    'ecli': ECLI,  # citing case ecli
-    'Jurisprudentie': LIDO_JURISPRUDENTIE,  # cited case ecli
-}
-
-MAP_LEGISLATION_CITATIONS = {
-    'ecli': ECLI,  # citing case ecli
-    'Wet': LIDO_WET,  # URL to cited legislation
-    'Artikel': LIDO_ARTIKEL  # URL to cited legislation article
-}

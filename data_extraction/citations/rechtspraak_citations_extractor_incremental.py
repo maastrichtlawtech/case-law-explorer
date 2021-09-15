@@ -135,7 +135,8 @@ def find_citations_for_cases(filename, case_citations_output_filename, case_cita
                 write_incremental_rows(filename=legislation_citations_output_filename, data=legislation_citations)
             except Exception as e:
                 print(f'{ecli} failed: {e}')
-                write_incremental_rows(filename=get_path_raw(CSV_LIDO_CASE_ECLIS_FAILED), data={ECLI: [ecli], RS_DATE: [date]})
+                write_incremental_rows(filename=get_path_raw(CSV_LIDO_CASE_ECLIS_FAILED),
+                                       data={ECLI: [ecli], RS_DATE: [date], RS_RELATION: [relation]})
         if (i + 1) % 100 == 0:
             print(f'{datetime.datetime.now().isoformat()}: {i + 1}/{len(eclis)} eclis processed.')
 
@@ -239,14 +240,16 @@ def find_citations_for_case(ecli, date, relation, case_citations_fieldnames, leg
 
 start = time.time()
 
-input_path = get_path_raw(CSV_RS_CASE_INDEX)
+parser = argparse.ArgumentParser()
+parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+parser.add_argument('-f', '--failed', action='store_true', help='parse list of failed eclis instead of full list of eclis')
+parser.add_argument('-i', '--incoming', action='store_true', help='fetch incoming citations instead of outgoing')
+args = parser.parse_args()
+
+input_path = get_path_raw(CSV_LIDO_CASE_ECLIS_FAILED) if args.failed else get_path_raw(CSV_RS_CASE_INDEX)
 output_path_c_citations = get_path_raw(CSV_CASE_CITATIONS)
 output_path_l_citations = get_path_raw(CSV_LEGISLATION_CITATIONS)
 
-parser = argparse.ArgumentParser()
-parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-parser.add_argument('-i', '--incoming', action='store_true', help='fetch incoming citations instead of outgoing')
-args = parser.parse_args()
 print('\n--- PREPARATION ---\n')
 print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
 print('INPUT:\t\t\t\t', basename(input_path))
