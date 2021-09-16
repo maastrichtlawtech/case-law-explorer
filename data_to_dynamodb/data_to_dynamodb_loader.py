@@ -10,7 +10,7 @@ from data_to_dynamodb.utils.row_processors import row_processor_rs_cases, row_pr
     row_processor_c_citations, row_processor_l_citations
 from data_to_dynamodb.utils.table_truncator import truncate_dynamodb_table
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
-    CSV_LEGISLATION_CITATIONS, get_path_processed, DDB_TABLE_NAME, get_path_raw
+    CSV_LEGISLATION_CITATIONS, get_path_processed, DDB_TABLE_NAME, get_path_raw, CSV_DDB_ECLIS_FAILED
 import time
 import argparse
 
@@ -96,8 +96,8 @@ def csv_to_dynamo(path_to_csv, table, row_processor):
                             item_counter += 1
                         except Exception as e:
                             print(e, val_pk, val_sk)
-                            with open('reschedule.txt', 'a') as f:
-                                f.write(val_pk + val_sk + '\n')
+                            with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
+                                f.write(val_pk + '\n')
 
                     # update item set attributes
                     for item in update_items:
@@ -115,8 +115,8 @@ def csv_to_dynamo(path_to_csv, table, row_processor):
                             item_counter += 1
                         except Exception as e:
                             print(e, val_pk, val_sk)
-                            with open('reschedule.txt', 'a') as f:
-                                f.write(val_pk + val_sk + '\n')
+                            with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
+                                f.write(val_pk + '\n')
 
                 if case_counter % 1000 == 0:
                     print(case_counter, 'rows processed.')

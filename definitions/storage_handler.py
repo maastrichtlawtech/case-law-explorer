@@ -44,8 +44,8 @@ CSV_RS_OPINIONS = 'RS_opinions.csv'
 CSV_LI_CASES = 'LI_cases.csv'
 CSV_CASE_CITATIONS = 'caselaw_citations.csv'
 CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'
-CSV_LIDO_CASE_ECLIS_FAILED = 'LIDO_case_eclis_failed.csv'
-
+CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
+CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 
 # raw data:
 def get_path_raw(file_name):

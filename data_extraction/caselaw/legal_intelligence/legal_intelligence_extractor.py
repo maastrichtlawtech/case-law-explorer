@@ -112,20 +112,23 @@ def get_search_query(query, filters=None):
 
 
 def select_entry(group):
+    group_tmp = group[group['PublicationNumber'].notna()]
     # 1. priority: case published by "NJ":
-    entry = group.loc[group['PublicationNumber'].str.startswith('NJ ')]
+    entry = group_tmp.loc[group_tmp['PublicationNumber'].str.startswith('NJ ')]
 
     # 2. priority (if no entry published by NJ): case published by "RvdW":
     if len(entry) == 0:
-        entry = group.loc[group['PublicationNumber'].str.startswith('RvdW')]
+        entry = group_tmp.loc[group_tmp['PublicationNumber'].str.startswith('RvdW')]
 
+    group_tmp = group[group['PublicationDate'].notna()]
     # 3. priority (if no entry published by RvDW): latest publication date
     if len(entry) == 0:
-        entry = group.loc[group['PublicationDate'] == group['PublicationDate'].max()]
+        entry = group_tmp.loc[group_tmp['PublicationDate'] == group_tmp['PublicationDate'].max()]
 
+    group_tmp = group[group['DateAdded'].notna()]
     # 4. priority (if multiple entries have same publication date): latest date added to li
     if len(entry) > 1:
-        entry = group.loc[group['DateAdded'] == group['DateAdded'].max()]
+        entry = group_tmp.loc[group_tmp['DateAdded'] == group_tmp['DateAdded'].max()]
 
     # else (if multiple entries have same date added): take first entry
     if len(entry) > 1:
@@ -135,25 +138,26 @@ def select_entry(group):
 
 
 def get_ecli(case_number):
-    if 'ECLI:' in case_number:
-        return 'ECLI:' + case_number.split('ECLI:')[1]
-    else:
-        return None
+    elements = case_number.split(' ')
+    for e in elements:
+        if 'ECLI:' in e:
+            return e
+    return None
 
 # # Main Method
 
 start = time.time()
 
-output_path_cases = get_path_raw(CSV_LI_CASES)
+output_path = get_path_raw(CSV_LI_CASES)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
 args = parser.parse_args()
 print('\n--- PREPARATION ---\n')
 print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
-print('OUTPUTS:\t\t\t', f'{basename(output_path_cases)}\n')
+print('OUTPUTS:\t\t\t', f'{basename(output_path)}\n')
 storage = Storage(location=args.storage)
-storage.setup_pipeline(output_paths=[output_path_cases])
+storage.setup_pipeline(output_paths=[output_path])
 last_updated = storage.pipeline_last_updated
 print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
@@ -166,7 +170,7 @@ large_summaries = 0
 search_results = get_search_query('*', ['Jurisdiction_HF%3A2|010_Nederland|010_Rechtspraak|250_Uitspraak'])
 
 df = pd.DataFrame(search_results['Documents'])
-df.to_csv('test.csv', index=False)
+df.to_csv(output_path.split('.csv')[0] + '_unfiltered.csv', index=False)
 
 # add ecli number for each document
 df['ecli'] = df['CaseNumber'].apply(get_ecli)
@@ -186,11 +190,11 @@ df['EnactmentDate'] = df['EnactmentDate'].astype(int)
 df['DateAdded'] = df['DateAdded'].astype(int)
 
 # save dataframe to csv (append to existing if applicable):
-if not os.path.exists(output_path_cases):
+if not os.path.exists(output_path):
     header = True
 else:
     header = False
-df.to_csv(output_path_cases, mode='a', index=False, header=header)
+df.to_csv(output_path, mode='a', index=False, header=header)
 
 print(f'LI dataframe shape: {df.shape}')
 
