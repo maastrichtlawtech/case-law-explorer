@@ -15,7 +15,7 @@ start = time.time()
 
 input_path = DIR_RECHTSPRAAK + '.zip'
 output_path_dir = DIR_RECHTSPRAAK
-output_path_index = get_path_raw(CSV_RECHTSPRAAK_INDEX)
+output_path_index = CSV_RECHTSPRAAK_INDEX
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
