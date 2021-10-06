@@ -17,13 +17,13 @@ Docker needs to access files from the root and `data_extraction` during the buil
    ```bash
    docker run \
        -e SAMPLE_TEST="TRUE" \
-       -e CLIENT_ID="email" \
-       -e CLIENT_SECRET="secret" \
+       -e LI_CLIENT_ID="email" \
+       -e LI_CLIENT_SECRET="secret" \
        test  
    ``` 
    Use the following environment variables: 
-    - `CLIENT_ID` is the Legal Intelligence API email address
-    - `CLIENT_SECRET` is the Legal Intelligence API generated secret token
+    - `LI_CLIENT_ID` is the Legal Intelligence API email address
+    - `LI_CLIENT_SECRET` is the Legal Intelligence API generated secret token
     - `SAMPLE_TEST` to extract only a Rechtspraak sample dataset (~ 1k cases).
 
 ### Citations
