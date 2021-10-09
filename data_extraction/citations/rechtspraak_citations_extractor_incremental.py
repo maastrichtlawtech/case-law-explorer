@@ -8,7 +8,7 @@ from os.path import dirname, abspath, basename
 sys.path.append(dirname(dirname(dirname(abspath(__file__)))))
 import pandas as pd
 from definitions.storage_handler import Storage, CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS, CSV_RS_CASE_INDEX, \
-    CSV_LIDO_ECLIS_FAILED, URL_LIDO_ENDPOINT, get_path_raw
+    CSV_LIDO_ECLIS_FAILED, get_path_raw
 from definitions.terminology.field_names import ECLI, LIDO_JURISPRUDENTIE, LIDO_WET, LIDO_ARTIKEL, LIDO_ARTIKEL_TITLE, \
     RS_RELATION, RS_DATE, LIDO_TYPE, LIDO_LABEL
 from dotenv import load_dotenv
@@ -154,7 +154,7 @@ def find_citations_for_case(ecli, date, relation, case_citations_fieldnames, leg
     end_of_pages = False
     while not end_of_pages:
         num_citations_before_api_call = len(case_law_citations)
-        url = "{}?id={}&start={}&rows={}&output=xml".format(URL_LIDO_ENDPOINT, get_lido_id(ecli), start_page, 100)
+        url = "{}?id={}&start={}&rows={}&output=xml".format(LIDO_ENDPOINT, get_lido_id(ecli), start_page, 100)
         start_page += 1
         xml_text = get_lido_response(url)
         xml_elements.append(etree.fromstring(xml_text.encode('utf8')))
@@ -262,6 +262,7 @@ print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
 print('\n--- START ---\n')
 
+LIDO_ENDPOINT = os.getenv('LIDO_ENDPOINT')
 LIDO_USERNAME = os.getenv('LIDO_USERNAME')
 LIDO_PASSWORD = os.getenv('LIDO_PASSWORD')
 

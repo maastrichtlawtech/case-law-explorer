@@ -5,7 +5,7 @@ sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import urllib.request
 import time
 from datetime import datetime
-from definitions.storage_handler import Storage, URL_RS_ARCHIVE, URL_RS_ARCHIVE_SAMPLE, DIR_RECHTSPRAAK
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK
 import argparse
 
 start = time.time()
@@ -27,9 +27,9 @@ print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 print('\n--- START ---\n')
 
 if getenv('SAMPLE_TEST') == 'TRUE':
-    rs_url = URL_RS_ARCHIVE_SAMPLE
+    rs_url = getenv('URL_RS_ARCHIVE_SAMPLE')
 else:
-    rs_url = URL_RS_ARCHIVE
+    rs_url = getenv('URL_RS_ARCHIVE')
 
 dateTimeObj = datetime.now()
 date = str(dateTimeObj.year) + '-' + str(dateTimeObj.month) + '-' + str(dateTimeObj.day)

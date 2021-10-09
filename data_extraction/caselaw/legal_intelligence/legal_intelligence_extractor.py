@@ -6,13 +6,14 @@ import os
 import pandas as pd
 import math
 import time
-from definitions.storage_handler import Storage, CSV_LI_CASES, URL_LI_ENDPOINT, get_path_raw, basename
+from definitions.storage_handler import Storage, CSV_LI_CASES, get_path_raw, basename
 from dotenv import load_dotenv
 import argparse
 
 load_dotenv()
 
 # Legal intelligence credentials
+LI_ENDPOINT = os.getenv("LI_ENDPOINT")
 LI_CLIENT_ID = os.getenv("LI_CLIENT_ID")
 LI_CLIENT_SECRET = os.getenv("LI_CLIENT_SECRET")
 
@@ -57,7 +58,7 @@ def get_search_query(query, filters=None):
         "start": 0,
         "rows": 40
     }
-    link = f'{URL_LI_ENDPOINT}/search?q=%s' % query
+    link = f'{LI_ENDPOINT}/search?q=%s' % query
     for f in filters:
         link += '&fq=%s' % f
 
