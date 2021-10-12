@@ -110,12 +110,14 @@ class OpenSearchClient(OpenSearchServiceClient):
         self.es = OpenSearch(
             hosts=[{
                 'host': self.oss.describe_domain(DomainName=self.domain_name)['DomainStatus']['Endpoint'],
-                'port': 443
+                'port': 443,
+                'use_ssl': True
             }],
             http_auth=aws_auth,
             use_ssl=True,
             verify_certs=True,
-            connection_class=RequestsHttpConnection
+            connection_class=RequestsHttpConnection,
+            timeout=30
         )
 
         # create index, if it doesn't exist
@@ -129,8 +131,8 @@ class OpenSearchClient(OpenSearchServiceClient):
                             'SourceDocDate': {'type': 'keyword'},
                             'ItemType': {'type': 'keyword'},
                             'document_type': {'type': 'keyword'},
-                            'domain': {'type': 'keyword'},
-                            'domain_li': {'type': 'keyword'},
+                            'domains': {'type': 'keyword'},
+                            'domains_li': {'type': 'keyword'},
                             'ecli_decision': {'type': 'keyword'},
                             'ecli_opinion': {'type': 'keyword'},
                             'instance': {'type': 'keyword'},

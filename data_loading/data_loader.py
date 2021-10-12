@@ -19,10 +19,10 @@ start = time.time()
 
 input_paths = [
     get_path_processed(CSV_RS_CASES),
-    get_path_processed(CSV_RS_OPINIONS),
-    get_path_processed(CSV_LI_CASES),
-    get_path_raw(CSV_CASE_CITATIONS),
-    get_path_raw(CSV_LEGISLATION_CITATIONS)
+    #get_path_processed(CSV_RS_OPINIONS),
+    #get_path_processed(CSV_LI_CASES),
+    #get_path_raw(CSV_CASE_CITATIONS),
+    #get_path_raw(CSV_LEGISLATION_CITATIONS)
 ]
 
 # parse input arguments
@@ -94,7 +94,7 @@ else:
             reader = DictReader(in_file)
             for row in reader:
                 # skip empty rows and remove empty attributes
-                if row != '':
+                if row != '' and case_counter >= 2871000:
                     atts = list(row.items())
                     for att in atts:
                         if att[1] == '':
@@ -106,8 +106,8 @@ else:
                     if args.partial != 'ddb':
                         os_item_counter += os_rp.upload_row(row)
 
-                    # log progress
-                    case_counter += 1
+                # log progress
+                case_counter += 1
                 if case_counter % 1000 == 0:
                     print(case_counter, 'rows processed.')
         if args.partial != 'ddb':
