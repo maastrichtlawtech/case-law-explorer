@@ -1,26 +1,8 @@
-from definitions.terminology.field_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, RS_RELATION, \
+from definitions.terminology.attribute_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, RS_RELATION, \
     LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE
 from definitions.storage_handler import CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, CSV_CASE_CITATIONS, \
     CSV_LEGISLATION_CITATIONS, CSV_DDB_ECLIS_FAILED, get_path_raw, get_path_processed
-from enum import Enum
-
-
-class Source(Enum):
-    RS = 'RS'               # Rechtspraak
-    CJEU = 'CJEU'           # Court of Justice of the European Union
-    ECHR = 'ECHR'           # European Court of Human Rights
-
-
-class ItemType(Enum):
-    DATA = 'DATA'
-    DOM = 'DOM'             # associated domain
-    DOM_LI = 'DOM-LI'
-
-
-class DocType(Enum):
-    DEC = 'DEC'             # case decision
-    OPI = 'OPI'             # case opinion
-
+from definitions.terminology.attribute_values import ItemType, DocType, DataSource
 
 KEY_SEP = '_'               # used to separate compound key values
 key_sdd = 'SourceDocDate'   # name of secondary sort key
@@ -57,7 +39,7 @@ class DynamoDBRowProcessor:
                     put_items.append({
                         self.pk: row[ECLI],
                         self.sk: ItemType.DOM.value + KEY_SEP + val,
-                        key_sdd: Source.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
+                        key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
                         RS_SUBJECT[:-1]: val
                     })
             for attribute in [RS_RELATION, RS_REFERENCES, RS_SUBJECT]:
@@ -70,7 +52,7 @@ class DynamoDBRowProcessor:
                     row.pop(attribute)
             put_items.append({
                 self.sk: ItemType.DATA.value,
-                key_sdd: Source.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
+                key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
                 **row
             })
             return put_items, update_items, update_set_items
@@ -84,7 +66,7 @@ class DynamoDBRowProcessor:
                     put_items.append({
                         self.pk: row[ECLI],
                         self.sk: ItemType.DOM.value + KEY_SEP + val,
-                        key_sdd: Source.RS.value + KEY_SEP + DocType.OPI.value + KEY_SEP + row[RS_DATE],
+                        key_sdd: DataSource.RS.value + KEY_SEP + DocType.OPI.value + KEY_SEP + row[RS_DATE],
                         RS_SUBJECT[:-1]: val
                     })
             # split set attributes (domain, case citations, legislation citations)
@@ -98,7 +80,7 @@ class DynamoDBRowProcessor:
                     row.pop(attribute)
             put_items.append({
                 self.sk: ItemType.DATA.value,
-                key_sdd: Source.RS.value + KEY_SEP + DocType.OPI.value + KEY_SEP + row[RS_DATE],
+                key_sdd: DataSource.RS.value + KEY_SEP + DocType.OPI.value + KEY_SEP + row[RS_DATE],
                 **row
             })
             if ECLI_DECISION in row:
@@ -121,7 +103,7 @@ class DynamoDBRowProcessor:
                     put_items.append({
                         self.pk: row[ECLI],
                         self.sk: ItemType.DOM_LI.value + KEY_SEP + val,
-                        key_sdd: Source.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
+                        key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
                         LI_LAW_AREA[:-1] + LI: val
                     })
                 update_set_items.append({
@@ -133,7 +115,7 @@ class DynamoDBRowProcessor:
             update_items.append({
                 self.pk: row[ECLI],
                 self.sk: ItemType.DATA.value,
-                key_sdd: Source.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
+                key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
                 **row_li
             })
             return put_items, update_items, update_set_items

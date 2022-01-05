@@ -1,4 +1,4 @@
-from definitions.terminology.field_names import *
+from definitions.terminology.attribute_names import *
 
 # maps to rename original field names of raw data to terminology defined in definitions.py
 # (no need to change: changes automatically if definitions.py changes):

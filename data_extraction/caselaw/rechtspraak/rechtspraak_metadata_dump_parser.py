@@ -8,8 +8,8 @@ import os
 import csv
 import time
 from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_CASE_INDEX, get_path_raw
-from definitions.terminology.field_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION, ECLI, RS_DATE, RS_RELATION
-from definitions.terminology.field_values import RECHTSPRAAK, NL
+from definitions.terminology.attribute_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION, ECLI, RS_DATE, RS_RELATION
+from definitions.terminology.attribute_values import Source, Jurisdiction
 import argparse
 
 
@@ -38,8 +38,8 @@ def initialise_data_record():
         INHOUDSINDICATIE: None,
         INFO: None,
         FULL_TEXT: None,
-        SOURCE: RECHTSPRAAK,
-        JURISDICTION_COUNTRY: NL,
+        SOURCE: Source.RECHTSPRAAK.value,
+        JURISDICTION_COUNTRY: Jurisdiction.NL.value,
     }
 
 

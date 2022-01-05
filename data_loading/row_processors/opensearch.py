@@ -1,6 +1,6 @@
 from definitions.storage_handler import CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, CSV_CASE_CITATIONS, \
     CSV_LEGISLATION_CITATIONS, CSV_OS_ECLIS_FAILED, get_path_raw, get_path_processed
-from definitions.terminology.field_names import RS_SUBJECT, RS_RELATION, RS_REFERENCES, RS_HASVERSION, ECLI_DECISION, \
+from definitions.terminology.attribute_names import RS_SUBJECT, RS_RELATION, RS_REFERENCES, RS_HASVERSION, ECLI_DECISION, \
     ECLI, ECLI_OPINION, LI_LAW_AREA, LIDO_JURISPRUDENTIE, LIDO_ARTIKEL_TITLE
 
 SET_SEP = '; '              # used to separate set items in string

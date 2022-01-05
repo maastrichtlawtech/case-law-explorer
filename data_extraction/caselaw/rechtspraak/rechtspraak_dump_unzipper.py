@@ -3,7 +3,7 @@ import sys
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import zipfile
 from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RECHTSPRAAK_INDEX, get_path_raw
-from definitions.terminology.field_names import ECLI, RS_DATE
+from definitions.terminology.attribute_names import ECLI, RS_DATE
 from os import makedirs
 import io
 import time

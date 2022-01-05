@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-from definitions.terminology.field_names import ECLI
-from definitions.mappings.field_value_maps import *
+from definitions.terminology.attribute_names import ECLI
+from definitions.mappings.attribute_value_maps import *
+from definitions.terminology.attribute_values import Domain
 from lxml import etree
 import dateutil.parser
 import re
@@ -59,7 +60,7 @@ def format_li_date(text):
 
 def format_domains(text):
     if len(text.split('; ')) == 1:
-        text += '; ' + text + '-' + ALGEMEEN_OVERIG_NIED_GELABELD
+        text += '; ' + text + '-' + Domain.ALGEMEEN_OVERIG_NIED_GELABELD.value
     return text
 
 

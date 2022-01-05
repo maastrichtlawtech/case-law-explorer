@@ -9,7 +9,7 @@ sys.path.append(dirname(dirname(dirname(abspath(__file__)))))
 import pandas as pd
 from definitions.storage_handler import Storage, CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS, CSV_RS_CASE_INDEX, \
     CSV_LIDO_ECLIS_FAILED, get_path_raw
-from definitions.terminology.field_names import ECLI, LIDO_JURISPRUDENTIE, LIDO_WET, LIDO_ARTIKEL, LIDO_ARTIKEL_TITLE, \
+from definitions.terminology.attribute_names import ECLI, LIDO_JURISPRUDENTIE, LIDO_WET, LIDO_ARTIKEL, LIDO_ARTIKEL_TITLE, \
     RS_RELATION, RS_DATE, LIDO_TYPE, LIDO_LABEL
 from dotenv import load_dotenv
 load_dotenv()

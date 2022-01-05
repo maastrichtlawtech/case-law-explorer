@@ -2,7 +2,7 @@ from os.path import dirname, abspath, basename
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 
-from definitions.mappings.field_names_maps import *
+from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
     get_path_raw, get_path_processed
