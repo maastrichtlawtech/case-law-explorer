@@ -97,6 +97,24 @@ class Instance(Enum):
     ANDERE = [CH_SM, GHJ_ACSMBSES, GA_ACSMBSES, GEA_A, GEA_BSES, GEA_C, GEA_SM, RBA_ACSMBSES, RBB_ACSMBSES]
 
 
+class InstanceComponent(Enum):
+    GERECHTSHOF = 'Gerechtshof'
+    RECHTBANK = 'Rechtbank'
+    S_GRAVENHAGE = "'s-Gravenhage"
+    AMSTERDAM = 'Amsterdam'
+    S_HERTOGENBOSCH = "'s-Hertogenbosch"
+    ARNHEM_LEEUWARDEN = 'Arnhem-Leeuwarden'
+    GELDERLAND = 'Gelderland'
+    LIMBURG = 'Limburg'
+    MIDDEN_NEDERLAND = 'Midden-Nederland'
+    NOORD_HOLLAND = 'Noord-Holland'
+    NOORD_NEDERLAND = 'Noord-Nederland'
+    OOST_BRABANT = 'Oost-Brabant'
+    OVERIJSSEL = 'Overijssel'
+    ROTTERDAM = 'Rotterdam'
+    ZEELAND = 'Zeeland-West-Brabant'
+
+
 class Jurisdiction(Enum):
     NL = 'NL'  # used for country and language
     # to be extended
