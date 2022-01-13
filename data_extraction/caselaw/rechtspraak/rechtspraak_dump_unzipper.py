@@ -2,7 +2,7 @@ from os.path import dirname, abspath, splitext, basename, join
 import sys
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import zipfile
-from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RECHTSPRAAK_INDEX, get_path_raw
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_OPENDATA_INDEX, get_path_raw
 from definitions.terminology.attribute_names import ECLI, RS_DATE
 from os import makedirs
 import io
@@ -15,7 +15,7 @@ start = time.time()
 
 input_path = DIR_RECHTSPRAAK + '.zip'
 output_path_dir = DIR_RECHTSPRAAK
-output_path_index = CSV_RECHTSPRAAK_INDEX
+output_path_index = CSV_OPENDATA_INDEX
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')

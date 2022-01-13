@@ -26,10 +26,10 @@ DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 
 # data file names
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
-CSV_RECHTSPRAAK_INDEX = DIR_RECHTSPRAAK + '_index.csv'
+CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'
 CSV_RS_CASES = 'RS_cases.csv'
-CSV_RS_CASE_INDEX = 'RS_cases_index.csv'
 CSV_RS_OPINIONS = 'RS_opinions.csv'
+CSV_RS_INDEX = 'RS_index.csv'       # eclis of all RS cases and opinions
 CSV_LI_CASES = 'LI_cases.csv'
 CSV_CASE_CITATIONS = 'caselaw_citations.csv'
 CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'
@@ -209,8 +209,8 @@ class Storage:
 
         def last_updated(file_path):
             if file_path == DIR_RECHTSPRAAK:
-                self.fetch_data([CSV_RECHTSPRAAK_INDEX])
-                file_path = CSV_RECHTSPRAAK_INDEX
+                self.fetch_data([CSV_OPENDATA_INDEX])
+                file_path = CSV_OPENDATA_INDEX
             if file_path.endswith('.csv'):
                 import pandas as pd
                 try:

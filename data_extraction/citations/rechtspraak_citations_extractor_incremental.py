@@ -7,7 +7,7 @@ import sys
 from os.path import dirname, abspath, basename
 sys.path.append(dirname(dirname(dirname(abspath(__file__)))))
 import pandas as pd
-from definitions.storage_handler import Storage, CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS, CSV_RS_CASE_INDEX, \
+from definitions.storage_handler import Storage, CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS, CSV_RS_INDEX, \
     CSV_LIDO_ECLIS_FAILED, get_path_raw
 from definitions.terminology.attribute_names import ECLI, LIDO_JURISPRUDENTIE, LIDO_WET, LIDO_ARTIKEL, LIDO_ARTIKEL_TITLE, \
     RS_RELATION, RS_DATE, LIDO_TYPE, LIDO_LABEL
@@ -246,7 +246,7 @@ parser.add_argument('-f', '--failed', action='store_true', help='parse list of f
 parser.add_argument('-i', '--incoming', action='store_true', help='fetch incoming citations instead of outgoing')
 args = parser.parse_args()
 
-input_path = get_path_raw(CSV_LIDO_ECLIS_FAILED) if args.failed else get_path_raw(CSV_RS_CASE_INDEX)
+input_path = get_path_raw(CSV_LIDO_ECLIS_FAILED) if args.failed else get_path_raw(CSV_RS_INDEX)
 output_path_c_citations = get_path_raw(CSV_CASE_CITATIONS)
 output_path_l_citations = get_path_raw(CSV_LEGISLATION_CITATIONS)
 

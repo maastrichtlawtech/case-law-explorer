@@ -7,7 +7,7 @@ from itertools import chain
 import os
 import csv
 import time
-from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_CASE_INDEX, get_path_raw
+from definitions.storage_handler import Storage, DIR_RECHTSPRAAK, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_RS_INDEX, get_path_raw
 from definitions.terminology.attribute_names import SOURCE, JURISDICTION_COUNTRY, ECLI_DECISION, ECLI, RS_DATE, RS_RELATION
 from definitions.terminology.attribute_values import Source, Jurisdiction
 import argparse
@@ -176,13 +176,15 @@ def parse_metadata_from_xml_file(filename):
         # print("\033[94mCASE\033[0m %s" % datarecord[IDENTIFIER])
         datarecord.pop(ECLI_DECISION)
         write_line_csv(output_path_cases, datarecord)
-        write_line_csv(output_path_index, {ECLI: datarecord[IDENTIFIER],
-                                           RS_DATE: datarecord[DATE],
-                                           RS_RELATION: datarecord[RELATION]})
+
     else:
         opinion_counter += 1
         # print("\033[95mOPINION\033[0m %s" % datarecord[IDENTIFIER])
         write_line_csv(output_path_opinions, datarecord)
+
+    write_line_csv(output_path_index, {ECLI: datarecord[IDENTIFIER],
+                                       RS_DATE: datarecord[DATE],
+                                       RS_RELATION: datarecord[RELATION]})
 
 
 start = time.time()
@@ -190,7 +192,7 @@ start = time.time()
 input_path = DIR_RECHTSPRAAK
 output_path_cases = get_path_raw(CSV_RS_CASES)
 output_path_opinions = get_path_raw(CSV_RS_OPINIONS)
-output_path_index = get_path_raw(CSV_RS_CASE_INDEX)
+output_path_index = get_path_raw(CSV_RS_INDEX)
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
