@@ -4,7 +4,6 @@ import time
 from opensearchpy import OpenSearch, RequestsHttpConnection
 from requests_aws4auth import AWS4Auth
 import os
-import sys
 
 
 class OpenSearchServiceClient:

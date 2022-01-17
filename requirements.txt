@@ -1,0 +1,10 @@
+python-dotenv
+requests
+pandas
+urllib3
+lxml
+rdflib
+boto3
+botocore
+opensearch-py
+requests_aws4auth

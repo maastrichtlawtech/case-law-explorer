@@ -6,7 +6,6 @@ from definitions.terminology.attribute_values import Domain
 from lxml import etree
 import dateutil.parser
 import re
-from csv import DictReader, DictWriter
 import sys
 import csv
 csv.field_size_limit(sys.maxsize)

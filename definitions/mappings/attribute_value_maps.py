@@ -67,7 +67,7 @@ MAP_INSTANCE = {
     'Groenlo': InstanceComponent.GELDERLAND.value,
     'Groningen': InstanceComponent.NOORD_NEDERLAND.value,
     'Gulpen': InstanceComponent.LIMBURG.value,
-    'Haarlem': InstanceComponent.NOORD_HOLLAND,
+    'Haarlem': InstanceComponent.NOORD_HOLLAND.value,
     'Haarlemmermeer': InstanceComponent.NOORD_HOLLAND.value,
     'Harderwijk': InstanceComponent.GELDERLAND.value,
     'Heerenveen': InstanceComponent.NOORD_NEDERLAND.value,

@@ -8,6 +8,7 @@ from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, 
     get_path_raw, get_path_processed
 import time
 import argparse
+from csv import DictReader, DictWriter
 
 
 """

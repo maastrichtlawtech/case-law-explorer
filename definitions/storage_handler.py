@@ -26,13 +26,13 @@ DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 
 # data file names
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
-CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'
-CSV_RS_CASES = 'RS_cases.csv'
-CSV_RS_OPINIONS = 'RS_opinions.csv'
-CSV_RS_INDEX = 'RS_index.csv'       # eclis of all RS cases and opinions
-CSV_LI_CASES = 'LI_cases.csv'
-CSV_CASE_CITATIONS = 'caselaw_citations.csv'
-CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'
+CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'         # eclis and decision dates of OpenDataUitspraken files
+CSV_RS_CASES = 'RS_cases.csv'                               # metadata of RS cases
+CSV_RS_OPINIONS = 'RS_opinions.csv'                         # metadata of RS opinions
+CSV_RS_INDEX = 'RS_index.csv'                               # eclis, decision dates and relations of RS cases and opinions
+CSV_LI_CASES = 'LI_cases.csv'                               # metadata of LI cases
+CSV_CASE_CITATIONS = 'caselaw_citations.csv'                # citations of RS cases and opinions
+CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'     # cited legislation of RS cases and opinions
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'

@@ -94,7 +94,7 @@ else:
             reader = DictReader(in_file)
             for row in reader:
                 # skip empty rows and remove empty attributes
-                if row != '' and case_counter >= 2871000:
+                if row != '':
                     atts = list(row.items())
                     for att in atts:
                         if att[1] == '':
