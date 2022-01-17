@@ -124,7 +124,8 @@ MAP_INSTANCE = {
     f'{InstanceComponent.RECHTBANK.value} Arnhem': f'{InstanceComponent.RECHTBANK.value} {InstanceComponent.GELDERLAND.value}',
     f'{InstanceComponent.GERECHTSHOF.value} Arnhem': f'{InstanceComponent.GERECHTSHOF.value} {InstanceComponent.ARNHEM_LEEUWARDEN.value}',
     f'{InstanceComponent.RECHTBANK.value} Leeuwarden': f'{InstanceComponent.RECHTBANK.value} {InstanceComponent.NOORD_NEDERLAND.value}',
-    f'{InstanceComponent.GERECHTSHOF.value} Leeuwarden': f'{InstanceComponent.GERECHTSHOF.value} {InstanceComponent.ARNHEM_LEEUWARDEN.value}'
+    f'{InstanceComponent.GERECHTSHOF.value} Leeuwarden': f'{InstanceComponent.GERECHTSHOF.value} {InstanceComponent.ARNHEM_LEEUWARDEN.value}',
+    'Arnhem-Leeuwarden-Leeuwarden': InstanceComponent.ARNHEM_LEEUWARDEN.value
 }
 
 MAP_JURISDICTION = {
