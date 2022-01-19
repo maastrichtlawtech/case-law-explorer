@@ -16,26 +16,6 @@ start = time.time()
 
 output_path = CELLAR_METADATA
 
-# def get_all_eclis(max_eclis=1000000):
-#     all_eclis = set()
-#     new_eclis = get_million_eclis()
-#
-#     while len(new_eclis) >= max_eclis:
-#         starting_point = new_eclis[-1]
-#
-#         before = len(all_eclis)
-#         all_eclis = all_eclis.union(set(new_eclis))
-#         after = len(all_eclis)
-#
-#         if (after - before) < max_eclis:
-#             print('Potential problem detected - subsequent sets of ECLIs contain duplicates')
-#
-#         new_eclis = get_million_eclis(starting_point)
-#
-#     all_eclis = all_eclis.union(set(new_eclis))
-#
-#     return list(all_eclis)
-
 
 def get_all_eclis(starting_point=None):
     sparql = SPARQLWrapper('https://publications.europa.eu/webapi/rdf/sparql')
