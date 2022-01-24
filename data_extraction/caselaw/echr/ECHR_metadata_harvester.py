@@ -1,8 +1,10 @@
 import requests
 import time
+import argparse
 
 import pandas as pd
 
+from definitions.storage_handler import Storage, CSV_ECHR_CASES
 
 def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     """
@@ -114,11 +116,26 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     return pd.DataFrame.from_records(data), resultcount
 
 
+# set up script arguments
+parser = argparse.ArgumentParser()
+parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
+parser.add_argument('--count', help='number of documents to retrieve', type=int, required=False)
+args = parser.parse_args()
+
+# set up locations
+print('\n--- PREPARATION ---\n')
+print('OUTPUT DATA STORAGE:\t', args.storage)
+print('OUTPUT:\t\t\t', CSV_ECHR_CASES)
+storage = Storage(location=args.storage)
+storage.setup_pipeline(output_paths=[CSV_ECHR_CASES])
+last_updated = storage.pipeline_last_updated
+print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+
 print('\n--- START ---')
 start = time.time()
 
 print("--- Extract ECHR data")
-df, resultcount = read_echr_metadata(end_id=103, fields=['itemid', 'documentcollectionid2', 'languageisocode'], verbose=False)
+df, resultcount = read_echr_metadata(end_id=103, fields=['itemid', 'documentcollectionid2', 'languageisocode'], verbose=True)
 
 print(df)
 print(f'ECHR data shape: {df.shape}')
@@ -129,6 +146,13 @@ df_eng = df.loc[df['languageisocode'] == 'ENG']
 
 print(f'df before: {df.shape}')
 print(f'df after: {df_eng.shape}')
+
+print("--- Load ECHR data")
+
+df.to_csv(CSV_ECHR_CASES)
+
+print(f"\nUpdating {args.storage} storage ...")
+storage.finish_pipeline()
 
 end = time.time()
 print("\n--- DONE ---")
