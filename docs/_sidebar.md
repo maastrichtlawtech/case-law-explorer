@@ -1,6 +1,7 @@
 <!-- docs/_sidebar.md -->
 
-* [**Getting started**](/)
+* **Getting started**
+    * [Quickstart](/?id=quickstart)
 * **Setup**
     * [New data source extraction](/setup/?id=extraction)
 * **Caselaw extraction**
@@ -9,6 +10,6 @@
     * [Load](/elt/?id=load)
 * **Deployment**
     * [Extraction](/deploy/?id=extraction)
-* [**API Reference**](/api)
+* **API Reference**
     * [`Storage` reference](/api/storage)
     
