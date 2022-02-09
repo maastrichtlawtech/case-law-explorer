@@ -5,7 +5,7 @@
 * **Setup**
     * [New data source extraction](/setup/?id=extraction)
 * **Datasets**
-    * [Rechtspraak](/datasets/?id=rechtspraak-archive)
+    * [Rechtspraak](/datasets/?id=dutch-courts)
     * [European Court of Human Rights](/datasets/?id=european-court-of-human-rights-echr)
     * [Court of Justice of the European Union](/datasets/?id=court-of-justice-of-the-european-union-cjeu)
 * **Caselaw extraction**

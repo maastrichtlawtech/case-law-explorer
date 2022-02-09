@@ -12,22 +12,7 @@ Vel pharetra vel turpis nunc. Malesuada nunc vel risus commodo. Nisi vitae susci
 See [Data extraction](/elt/)
 
 ## Datasets
-Let's describe the current datasets, the reasons we use them and maybe future plans?
-
-### Rechtspraak Archive
-Description of Rechtspraak Archive
-
-Current sources: 
-- Original archive: http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip ~5GB
-- Sample _small_ (~125k cases): https://surfdrive.surf.nl/files/index.php/s/4qETcxSDuybc4SC ~300MB
-- Sample _xsmall_ (~1k cases): https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0 ~2MB
-
-### Legal Intelligence API
-Description of Legal Intelligence API
-
-Current endpoints:
-- Original endpoint: https://api.legalintelligence.com/
-- Documentation: https://www.legalintelligence.com/handleidingen/api-technical-information/
+See [Datasets](/datasets/)
 
 ## Taxonomy
 |                 Term                |                                         Definition                                        |

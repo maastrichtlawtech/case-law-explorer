@@ -4,6 +4,7 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 Paths to store data as well as field names and mappings can be defined in `definitions.py`
 
 ## Extract
+
 1. Rechtspraak data (contains all decisions and opinions of Dutch case law)
     - Go to: `data_extraction/Rechtspraak`
     - Run `rechtspraak_dump_downloader.py`: Creates zipped folder with Rechtspraak data in `data`. (~25min)
@@ -24,5 +25,10 @@ Paths to store data as well as field names and mappings can be defined in `defin
 ## Transform
 Transform raw data to uniform format
 
+### 
+
 ## Load
 Load data
+
+### Database schema
+
