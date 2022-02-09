@@ -1,5 +1,6 @@
 from os.path import basename, dirname, abspath, join, exists, relpath, isfile
 from os import makedirs, getenv, listdir
+import re
 import boto3
 from botocore.exceptions import ClientError
 import logging
@@ -38,6 +39,7 @@ CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
+CELLAR_DIR = join(DIR_DATA, 'cellar')
 
 # raw data:
 def get_path_raw(file_name):
@@ -67,7 +69,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED]:
+        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR]:
             makedirs(d, exist_ok=True)
 
         if self.location == 'aws':
@@ -212,6 +214,29 @@ class Storage:
             if file_path == DIR_RECHTSPRAAK:
                 self.fetch_data([CSV_OPENDATA_INDEX])
                 file_path = CSV_OPENDATA_INDEX
+
+            if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path):
+                if self.location == 'local':
+                    # Go through existing JSON files and use their filename to determine when the last 
+                    # update was.
+                    # Alternatively, this could be switched to loading all the JSONs and checking the
+                    # max last modification date.
+                    new_date = datetime(1900, 1, 1)
+                    for filename in listdir(CELLAR_DIR):
+                        match = re.match(
+                            r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
+                        if not match:
+                            continue
+
+                        new_date = max(
+                            new_date,
+                            datetime(
+                                int(match[1]), int(match[2]), int(match[3]),
+                                int(match[4]), int(match[5]), int(match[6])
+                            )
+                        )
+                    return new_date
+
             if file_path.endswith('.csv'):
                 import pandas as pd
                 try:
