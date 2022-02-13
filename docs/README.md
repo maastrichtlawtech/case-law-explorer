@@ -32,8 +32,8 @@ See [Datasets](/datasets/)
 | Inhoudsindicatie                    | Case summary                                                                              |
 
 ## License 
-This work is licensed under a [Creative Commons Attribution-NonCommercial 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/legalcode.en) 
+This work is licensed under a [MIT License](https://opensource.org/licenses/MIT) since 13/02/2022 (before: [Creative Commons Attribution-NonCommercial 4.0 International](https://creativecommons.org/licenses/by-nc/4.0/legalcode.en)). 
 
-[![License Image: CC BY-NC 4.0](https://licensebuttons.net/l/by-sa/4.0/88x31.png)](https://creativecommons.org/licenses/by-nc/4.0/legalcode.en)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 
