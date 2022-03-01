@@ -6,6 +6,9 @@ Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor i
 
 hey
 
+> [!TIP]
+> An alert of type 'tip' using global style 'callout'.
+
 ## Load
 
 Transform raw data to uniform format
