@@ -8,7 +8,7 @@
     * [Load](/etl/?id=load)
 * **GraphQL Infrastructure**
     * [Load](/graphql/?id=load)
-    * [Deploy](/graphql/?id=deploy)
+    * [Usage](/graphql/?id=usage)
 * **Datasets**
     * [Add data source extraction](/setup/?id=extraction)
     * [Datasets](/datasets/)
