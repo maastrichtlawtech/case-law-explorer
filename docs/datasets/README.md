@@ -90,6 +90,15 @@ The following fields are currently extracted from the JSON objects:
 - API Endpoint: http://linkeddata.overheid.nl/service/get-links
 - Documentation: https://linkeddata.overheid.nl/front/portal/services
 
+#### Data format
+
+The following fields are expected to be in the CSV files storing the citations:
+
+| Name        | Format | Definition                           |
+|-------------|--------|--------------------------------------|
+| Source ECLI | String | ECLI of the case that cites          |
+| Target ECLI | String | ECLI of the case that is being cited |
+
 ## European Court of Human Rights (ECHR)
 
 hey
