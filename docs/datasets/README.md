@@ -17,6 +17,7 @@ The Dutch case law is collected from different sources.
 
 #### Sources
 
+- Documentation: https://www.rechtspraak.nl/Uitspraken/paginas/open-data.aspx
 - Original archive: http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip ~5GB
 - Sample _small_ (~125k cases): https://surfdrive.surf.nl/files/index.php/s/4qETcxSDuybc4SC ~300MB
 - Sample _xsmall_ (~1k cases): https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0 ~2MB
@@ -86,7 +87,8 @@ The following fields are currently extracted from the JSON objects:
 
 #### Sources
 
-- Documentation: https://linkeddata.overheid.nl/service/get-links
+- API Endpoint: http://linkeddata.overheid.nl/service/get-links
+- Documentation: https://linkeddata.overheid.nl/front/portal/services
 
 ## European Court of Human Rights (ECHR)
 
