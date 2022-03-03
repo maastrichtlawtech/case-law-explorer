@@ -42,6 +42,58 @@ Proceeding into this documentation, there will be multiple legal or structural t
 ## Contributors
 
 <!-- readme: contributors,gijsvd -start -->
+<table>
+<tr>
+    <td align="center">
+        <a href="https://github.com/BogDAAAMN">
+            <img src="https://avatars.githubusercontent.com/u/22895284?v=4" width="100;" alt="BogDAAAMN"/>
+            <br />
+            <sub><b>Bogdan Covrig</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/maxin-e">
+            <img src="https://avatars.githubusercontent.com/u/15159137?v=4" width="100;" alt="maxin-e"/>
+            <br />
+            <sub><b>maxin-e</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/pedrohserrano">
+            <img src="https://avatars.githubusercontent.com/u/12054964?v=4" width="100;" alt="pedrohserrano"/>
+            <br />
+            <sub><b>Pedro V</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/MarionMeyers">
+            <img src="https://avatars.githubusercontent.com/u/23552499?v=4" width="100;" alt="MarionMeyers"/>
+            <br />
+            <sub><b>MarionMeyers</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/kodymoodley">
+            <img src="https://avatars.githubusercontent.com/u/13569029?v=4" width="100;" alt="kodymoodley"/>
+            <br />
+            <sub><b>Kody Moodley</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/jaspersnel">
+            <img src="https://avatars.githubusercontent.com/u/7067980?v=4" width="100;" alt="jaspersnel"/>
+            <br />
+            <sub><b>Jasper Snel</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/gijsvd">
+            <img src="https://avatars.githubusercontent.com/u/31765316?v=4" width="100;" alt="gijsvd"/>
+            <br />
+            <sub><b>gijsvd</b></sub>
+        </a>
+    </td></tr>
+</table>
 <!-- readme: contributors,gijsvd -end -->
 
 ## License 
