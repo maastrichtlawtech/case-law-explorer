@@ -25,25 +25,25 @@ The Dutch case law is collected from different sources.
 
 The following tags are currently extracted from the XML files:
 
-| Name                | Format        | Definition                                                                                |
-|:--------------------|:--------------|:------------------------------------------------------------------------------------------|
-| identifier          | [see definition](https://e-justice.europa.eu/content_european_case_law_identifier_ecli-175-en.do)     | ECLI (European Case Law Identifier): unique identifier for court decisions in Europe      |
-| identifier          |               | URL to original document by publisher                                                     |
-| issued              | yyyy-mm-dd    | Date of document publication                                                              |
-| language            | "nl"          | Language of jurisdiction to which case belongs                                            |
-| creator             |               | Name of instance (court)                                                                  |
-| spatial             |               | Court location (municipality)                                                             |
-| date                | yyyy-mm-dd    | Date of court decision                                              |
-| zaaknummer          |               | Case number, for internal use by courts (main identifier prior to introduction of ECLI)   |
-| type                | "uitspraak"/"conclusie" | Document type: decision/opinion                            |
-| procedure           | multiple tags | Procedure type (e.g. summary proceedings)                                                 |
-| subject             | "domain; subdomain" | Domain (area of the law) applicable to case                                               |
-| relation            | multiple tags | Predecessor and successor cases (in case of appeal, cassation, preliminary decisions etc) |
-| references          | multiple tags | Title of applicable legislation                                                           |
-| hasVersion          | rdf:list      | References to other publications                                                          |
-| title               |               | Title of case                                                                             |
-| inhoudsindicatie    | XML           | Case summary                                                                              |
-| uitspraak/conclusie | XML           | Full text of case decision/opinion                                                        |
+| Name                | Format                             | Definition                                                                                |
+|---------------------|------------------------------------|-------------------------------------------------------------------------------------------|
+| ecli                | String                             | ECLI (European Case Law Identifier): unique identifier for court decisions in Europe      |
+| identifier          | String                             | URL to original document by publisher                                                     |
+| issued              | String / yyyy-mm-dd                | Date of document publication                                                              |
+| language            | String / "nl"                      | Language of jurisdiction to which case belongs                                            |
+| creator             | String                             | Name of instance (court)                                                                  |
+| spatial             | String                             | Court location (municipality)                                                             |
+| date                | String / yyyy-mm-dd                | Date of court decision                                                                    |
+| zaaknummer          | String                             | Case number, for internal use by courts (main identifier prior to introduction of ECLI)   |
+| type                | String / "uitspraak" / "conclusie" | Document type: decision/opinion                                                           |
+| procedure           | String[]                           | Procedure type (e.g. summary proceedings)                                                 |
+| subject             | String / "domain; subdomain"       | Domain (area of the law) applicable to case                                               |
+| relation            | String[]                           | Predecessor and successor cases (in case of appeal, cassation, preliminary decisions etc) |
+| references          | String[]                           | Title of applicable legislation                                                           |
+| hasVersion          | String[]                           | References to other publications                                                          |
+| title               | String                             | Title of case                                                                             |
+| inhoudsindicatie    | XML                                | Case summary                                                                              |
+| uitspraak/conclusie | XML                                | Full text of case decision/opinion                                                        |
 
 ### Legal Intelligence API
 
