@@ -7,7 +7,7 @@ The Case Law Explorer holds two types of data:
 
 Currently, the Case Law Explorer comprises the case law of the Netherlands and that of two European courts. We plan to extend the data to other international courts.
 
-## Dutch Courts
+## Dutch courts
 
 The Dutch case law is collected from different sources.
 
@@ -21,6 +21,14 @@ The Dutch case law is collected from different sources.
 - Original archive: http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip ~5GB
 - Sample _small_ (~125k cases): https://surfdrive.surf.nl/files/index.php/s/4qETcxSDuybc4SC ~300MB
 - Sample _xsmall_ (~1k cases): https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0 ~2MB
+
+#### Extraction 
+
+The Rechtspraak extraction scripts (found under [`data_extraction/caselaw/rechtspraak/`](https://github.com/maastrichtlawtech/case-law-explorer/tree/master/data_extraction/caselaw/rechtspraak)) are executing as it follows: 
+
+- [`rechtspraak_dump_downloader.py`](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_dump_downloader.py) downloads the latest available archive found on the Rechtspraak website at https://www.rechtspraak.nl/Uitspraken/paginas/open-data.aspx.
+- [`rechtspraak_dump_unzipper.py`](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_dump_unzipper.py) unzips the downloaded `OpenDataUitspraken.zip` archive and all the archives found in its sub-directories (_i.e._ years and months).
+- [`rechtspraak_metadata_dump_parser.py`](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_metadata_dump_parser.py) parses the data from the unzipped XML files, and saves them in CSV files under the structure defined in the **Data format** section.
 
 #### Data format
 
@@ -55,6 +63,13 @@ The following tags are currently extracted from the XML files:
 - API endpoint: https://api.legalintelligence.com/
 - Documentation: https://www.legalintelligence.com/handleidingen/api-technical-information/
 
+#### Extraction 
+
+The Legal Intelligence extraction script ([`legal_intelligence_extractor.py`](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/legal_intelligence/legal_intelligence_extractor.py)) operates as it follows:
+
+- Builds the query URL using the endpoint https://api.legalintelligence.com/, the query string, and the filters (*e.g.* jurisdiction, court, country).
+- Retrieves the data from the URL, cleans it based on a few rules (*e.g.* court duplicates, dates), and stores it a `DataFrame`. It repeats this step for each page returned by the API.
+- Finally, it stores the data using the [`Storage` object](/api/storage). 
 
 #### Data format
 
@@ -90,6 +105,15 @@ The following fields are currently extracted from the JSON objects:
 - API Endpoint: http://linkeddata.overheid.nl/service/get-links
 - Documentation: https://linkeddata.overheid.nl/front/portal/services
 
+#### Extraction 
+
+The LIDO extraction script ([`rechtspraak_citations_extractor_incremental.py`](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/citations/rechtspraak_citations_extractor_incremental.py)) it follows the following steps:
+
+- Builds the query URL using the API endpoint http://linkeddata.overheid.nl/service/get-links and a few filters such as `start`, `rows`, `output`.
+- The responses from the API are being cleaned and stored in a `DataFrame`. This is repeated from all the pages returned by the API. 
+- The returned data is being divided into `caselaw` and `legislation` citations.
+- Finally, the data is stored using the [`Storage` object](/api/storage). 
+
 #### Data format
 
 The following fields are expected to be in the CSV files storing the citations:
@@ -99,11 +123,18 @@ The following fields are expected to be in the CSV files storing the citations:
 | Source ECLI | String | ECLI of the case that cites          |
 | Target ECLI | String | ECLI of the case that is being cited |
 
-## European Court of Human Rights (ECHR)
+## European courts
+
+We are making efforts to include in our project European and international courts as well. So far we are working to add this European courts to our codebase.
+
+### European Court of Human Rights (ECHR)
+
+> [!ATTENTION|label:WORK IN PROGRESS]
+> The ECHR extraction, transformation, and loading script are still **work in progress**! This is an overview of the current data format and legacy extraction methods.
 
 The [ECHR](https://www.echr.coe.int/Pages/home.aspx?p=home) is dealing with cases alleging that a state has breached human rights agreed in the European Convention on Human Rights. The [HUDOC database](https://www.echr.coe.int/Pages/home.aspx?p=caselaw/HUDOC&c=) provides access to the caselaw of the ECHR.  
 
-### Sources
+#### Sources
 
 - Documentation: https://www.echr.coe.int/Documents/HUDOC_Manual_ENG.PDF
 - HUDOC UI: https://hudoc.echr.coe.int/
@@ -112,7 +143,16 @@ The [ECHR](https://www.echr.coe.int/Pages/home.aspx?p=home) is dealing with case
  https://hudoc.echr.coe.int/app/query/results?query=(contentsitename=ECHR) AND (documentcollectionid2:"JUDGMENTS" OR documentcollectionid2:"COMMUNICATEDCASES")&select=itemid,applicability,application,appno,article,conclusion,decisiondate,docname,documentcollectionid, documentcollectionid2,doctype,doctypebranch,ecli,externalsources,extractedappno,importance,introductiondate, isplaceholder,issue,judgementdate,kpdate,kpdateAsText,kpthesaurus,languageisocode,meetingnumber, originatingbody,publishedby,Rank,referencedate,reportdate,representedby,resolutiondate, resolutionnumber,respondent,respondentOrderEng,rulesofcourt,separateopinion,scl,sharepointid,typedescription, nonviolation,violation&sort=itemid Ascending&start=0&length=2
  ```
 
-### Data format
+#### Extraction
+
+The ECHR extraction script ([`ECHR_metadata_harvester.py`](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/echr/ECHR_metadata_harvester.py)) operates the following steps:
+
+- Builds the query URL with the endpoint http://hudoc.echr.coe.int/app/query/, filters such as `contentsitename` or `documentcollectionid2`, and arguments such as `start` and `length`.
+- Fetches the data from the API and stores it in a `DataFrame` for each page returned.
+- Filters only the cases that are in English.
+- Finally, the data is stored using the [`Storage` object](/api/storage). 
+
+#### Data format
 
 The following fileds are expected to be found in the CSV files storing ECHR data:
 
@@ -147,16 +187,27 @@ The following fileds are expected to be found in the CSV files storing ECHR data
 | typedescription     | Number   |                                                  |
 | violation           | String   |                                                  |
 
-## Court of Justice of the European Union (CJEU)
+### Court of Justice of the European Union (CJEU)
+
+> [!ATTENTION|label:WORK IN PROGRESS]
+> The CJEU extraction, transformation, and loading script are still **work in progress**! This is an overview of the current data format and legacy extraction methods.
 
 The [CJEU](https://european-union.europa.eu/institutions-law-budget/institutions-and-bodies/institutions-and-bodies-profiles/court-justice-european-union-cjeu_en) is an European court that makes sure the law is applied in the same way in all EU countries. CJEU cases' metadata and content can be retrieved from [CELLAR](https://data.europa.eu/data/datasets/sparql-cellar-of-the-publications-office?locale=en), an European service that provides data through a SPARQL API. 
 
-### Sources
+#### Sources
 
 - API Endpoint: https://publications.europa.eu/webapi/rdf/sparql
 - Documentation: https://op.europa.eu/documents/10530/676542/ao10463_annex_17_cellar_dissemination_interface_en.pdf
 
-### Data format
+#### Extraction
+
+The CJEU extraction script ([`cellar_extraction.py`](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/cellar/cellar_extraction.py)) follows the methodology:
+
+- It queries SPARQL endpoint https://publications.europa.eu/webapi/rdf/sparql for all the ECLIs available in the CELLAR that are related to the CJEU. 
+- For each ECLI returned, it queries the API for the metadata of each case, and stores it in a `DataFrame`. 
+- The `DataFrame`'s data is exported as a JSON file using the [`Storage` object](/api/storage).
+
+#### Data format
 
 These fields are expected to be found in the JSON files that store the CJEU data: 
 
