@@ -28,7 +28,7 @@ The following tags are currently extracted from the XML files:
 
 | Name                | Format                             | Definition                                                                                |
 |:--------------------|:----------------------------------|:------------------------------------------------------------------------------------------|
-| ecli                | String                             | ECLI (European Case Law Identifier): unique identifier for court decisions in Europe      |
+| identifier          | String                             | ECLI (European Case Law Identifier): unique identifier for court decisions in Europe      |
 | identifier          | String                             | URL to original document by publisher                                                     |
 | issued              | String / yyyy-mm-dd                | Date of document publication                                                              |
 | language            | String / "nl"                      | Language of jurisdiction to which case belongs                                            |
