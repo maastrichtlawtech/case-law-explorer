@@ -27,7 +27,7 @@ The Dutch case law is collected from different sources.
 The following tags are currently extracted from the XML files:
 
 | Name                | Format                             | Definition                                                                                |
-|---------------------|------------------------------------|-------------------------------------------------------------------------------------------|
+|:--------------------|:----------------------------------|:------------------------------------------------------------------------------------------|
 | ecli                | String                             | ECLI (European Case Law Identifier): unique identifier for court decisions in Europe      |
 | identifier          | String                             | URL to original document by publisher                                                     |
 | issued              | String / yyyy-mm-dd                | Date of document publication                                                              |
@@ -95,7 +95,7 @@ The following fields are currently extracted from the JSON objects:
 The following fields are expected to be in the CSV files storing the citations:
 
 | Name        | Format | Definition                           |
-|-------------|--------|--------------------------------------|
+|:------------|:-------|:-------------------------------------|
 | Source ECLI | String | ECLI of the case that cites          |
 | Target ECLI | String | ECLI of the case that is being cited |
 
@@ -117,7 +117,7 @@ The [ECHR](https://www.echr.coe.int/Pages/home.aspx?p=home) is dealing with case
 The following fileds are expected to be found in the CSV files storing ECHR data:
 
 | Name                | Format   | Definition                                       |
-|---------------------|----------|--------------------------------------------------|
+|:--------------------|:---------|:-------------------------------------------------|
 | itemid              | String   | Unique identifier                                |
 | applicability       | String   |                                                  |
 | application         | String   |                                                  |
@@ -160,8 +160,8 @@ The [CJEU](https://european-union.europa.eu/institutions-law-budget/institutions
 
 These fields are expected to be found in the JSON files that store the CJEU data: 
 
-| Name                                     | Type  | Definition                        |
-|------------------------------------------|---------|---------------------------------|
+| Name                                     | Type    | Definition                      |
+|:-----------------------------------------|:--------|:--------------------------------|
 | _key                                     | String  | Unique identifier               |
 | Legal resource has type of act           | String  | Type of document                |
 | Case law originates in country           | String  | Country of decision             |
