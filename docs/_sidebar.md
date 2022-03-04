@@ -7,10 +7,10 @@
     * [Transform](/etl/?id=transform)
     * [Load](/etl/?id=load)
 * **GraphQL Infrastructure**
-    * [Load](/graphql/?id=load)
+    * [Loading](/graphql/?id=loading)
     * [Usage](/graphql/?id=usage)
 * **Datasets**
-    * [Add data source extraction](/setup/?id=extraction)
+    * [Add data source extraction](/setup/)
     * [Datasets](/datasets/)
 * **API Reference**
     * [`Attribute` reference](/api/attribute)

@@ -1,4 +1,4 @@
-# GraphQL Infrastructure
+# GraphQL API 
 
 This walkthrough will teach you how to setup your AWS account to run, load, and serve the from the defined sources (see [Datasets](/datasets/)). You will setup a GraphQL endpoint for your data using AWS AppSync. 
 
@@ -91,7 +91,7 @@ The [`.env.example` file](https://raw.githubusercontent.com/maastrichtlawtech/ca
 - `OS_DOMAIN_NAME` and `OS_INDEX_NAME` are the names of the OpenSearch domain that will be generated for you. If you already have an existent domain, be sure you set it here.
 - `APPSYNC_ENDPOINT` and `COGNITO_` variables are used in the developer API demos available in the published [notebooks](https://github.com/maastrichtlawtech/case-law-explorer/tree/master/notebooks/api).
 
-## Load
+## Loading
 
 If you don't have the processed data stored in the AWS S3 buckets yet (as described in the [Caselaw extraction](/etl/) walkthrough), be sure you extract it and transform it first. 
 
