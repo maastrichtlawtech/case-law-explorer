@@ -93,15 +93,7 @@ The [`.env.example` file](https://raw.githubusercontent.com/maastrichtlawtech/ca
 
 ## Loading
 
-If you don't have the processed data stored in the AWS S3 buckets yet (as described in the [Caselaw extraction](/etl/) walkthrough), be sure you extract it and transform it first. 
-
-```bash
-$ python3 data_extraction/caselaw/rechtspraak/rechtspraak_dump_downloader.py aws
-$ python3 data_extraction/caselaw/rechtspraak/rechtspraak_dump_unzipper.py aws
-$ python3 data_extraction/caselaw/rechtspraak/rechtspraak_metadata_dump_parser.py aws
-
-$ python3 data_transformation/data_transformer.py aws
-```
+If you don't have the processed data stored in the AWS S3 buckets yet, be sure you extract and transform it first. To do so, follow the [Caselaw extraction > Extract](etl/?id=extract) and [Transform](etl/?id=transform) sections, but run the scripts with the `location` argument set to **`aws`**.
 
 Load the data into the AWS services. This script will store the data files in the S3 bucket, load the data into the DynamoDB table, and index the OpenSearch domain with the fresh data.
 

@@ -58,6 +58,9 @@ The [`.env.example` file](https://raw.githubusercontent.com/maastrichtlawtech/ca
 
 ## Extract
 
+> [!NOTE]
+> All the scripts are using the `location` argument. Pass `local` or `aws` as location to store the data extracted by the script. Read more about the [`Storage` object](/api/storage). 
+
 This scripts will extract data from the defined [datasets](/datasets/) into the local storage.
 
 ### Rechtspraak data
