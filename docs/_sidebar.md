@@ -1,18 +1,18 @@
 <!-- docs/_sidebar.md -->
 
-* **Getting started**
+* [**Getting started**](/)
     * [Quickstart](/?id=quickstart)
-* **Caselaw extraction**
+* [**Caselaw extraction**](/etl/)
     * [Extract](/etl/?id=extract)
     * [Transform](/etl/?id=transform)
     * [Load](/etl/?id=load)
-* **GraphQL Infrastructure**
+* [**GraphQL Infrastructure**](/graphql/)
     * [Loading](/graphql/?id=loading)
     * [Usage](/graphql/?id=usage)
-* **Datasets**
+* [**Datasets**](#)
     * [Add data source extraction](/setup/)
     * [Datasets](/datasets/)
-* **API Reference**
+* [**API Reference**](/api/)
     * [`Attribute` reference](/api/attribute)
     * [`Storage` reference](/api/storage)
     
