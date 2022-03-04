@@ -101,8 +101,87 @@ The following fields are expected to be in the CSV files storing the citations:
 
 ## European Court of Human Rights (ECHR)
 
-hey
+The [ECHR](https://www.echr.coe.int/Pages/home.aspx?p=home) is dealing with cases alleging that a state has breached human rights agreed in the European Convention on Human Rights. The [HUDOC database](https://www.echr.coe.int/Pages/home.aspx?p=caselaw/HUDOC&c=) provides access to the caselaw of the ECHR.  
+
+### Sources
+
+- Documentation: https://www.echr.coe.int/Documents/HUDOC_Manual_ENG.PDF
+- HUDOC UI: https://hudoc.echr.coe.int/
+- HUDOC Endpoint: 
+ ```
+ https://hudoc.echr.coe.int/app/query/results?query=(contentsitename=ECHR) AND (documentcollectionid2:"JUDGMENTS" OR documentcollectionid2:"COMMUNICATEDCASES")&select=itemid,applicability,application,appno,article,conclusion,decisiondate,docname,documentcollectionid, documentcollectionid2,doctype,doctypebranch,ecli,externalsources,extractedappno,importance,introductiondate, isplaceholder,issue,judgementdate,kpdate,kpdateAsText,kpthesaurus,languageisocode,meetingnumber, originatingbody,publishedby,Rank,referencedate,reportdate,representedby,resolutiondate, resolutionnumber,respondent,respondentOrderEng,rulesofcourt,separateopinion,scl,sharepointid,typedescription, nonviolation,violation&sort=itemid Ascending&start=0&length=2
+ ```
+
+### Data format
+
+The following fileds are expected to be found in the CSV files storing ECHR data:
+
+| Name                | Format   | Definition                                       |
+|---------------------|----------|--------------------------------------------------|
+| itemid              | String   | Unique identifier                                |
+| applicability       | String   |                                                  |
+| application         | String   |                                                  |
+| appno               | String   | Application number                               |
+| article             | String   | Alleged violated articles                        |
+| conclusion          | String   | Violated/Non-violated articles                   |
+| docname             | String   | Name of the case                                 |
+| doctype             | String   | Type of document                                 |
+| doctypebranch       | String   |                                                  |
+| ecli                | String   | Unique identifier for court decisions in Europe  |
+| importance          | Number   |                                                  |
+| isplaceholder       | Boolean  |                                                  |
+| judgementdate       | Date     | Date of judgement                                |
+| kpdate              | Date     | Date of judgement in 12-hours format             |
+| kpdateAsText        | String   | Date of judgement as string                      |
+| kpthesaurus         | String   |                                                  |
+| languageisocode     | String   | Language of case                                 |
+| originatingbody     | Number   |                                                  |
+| Rank                | Number   |                                                  |
+| representedby       | String   | Representation of the case                       |
+| respondent          | String   | Defender of the case                             |
+| respondentOrderEng  | Number   | Defender unique identifier                       |
+| separateopinion     | Boolean  |                                                  |
+| sharepointid        | Number   | Internal identifier                              |
+| typedescription     | Number   |                                                  |
+| violation           | String   | Violated articles                                |
+| typedescription     | Number   |                                                  |
+| violation           | String   |                                                  |
 
 ## Court of Justice of the European Union (CJEU)
 
-hey 
+The [CJEU](https://european-union.europa.eu/institutions-law-budget/institutions-and-bodies/institutions-and-bodies-profiles/court-justice-european-union-cjeu_en) is an European court that makes sure the law is applied in the same way in all EU countries. CJEU cases' metadata and content can be retrieved from [CELLAR](https://data.europa.eu/data/datasets/sparql-cellar-of-the-publications-office?locale=en), an European service that provides data through a SPARQL API. 
+
+### Sources
+
+- API Endpoint: https://publications.europa.eu/webapi/rdf/sparql
+- Documentation: https://op.europa.eu/documents/10530/676542/ao10463_annex_17_cellar_dissemination_interface_en.pdf
+
+### Data format
+
+These fields are expected to be found in the JSON files that store the CJEU data: 
+
+| Name                                     | Type  | Definition                        |
+|------------------------------------------|---------|---------------------------------|
+| _key                                     | String  | Unique identifier               |
+| Legal resource has type of act           | String  | Type of document                |
+| Case law originates in country           | String  | Country of decision             |
+| Legal resource is about subject matter   | String  | Subject of case                 |
+| ECLI                                     | String  |                                 |
+| Reference to provisions of national law  | RDF     | Reference to the the judgement  |
+| Publication reference of Court decision  | RDF     | Reference to the decision       |
+| Celex identifier                         | String  | Celex identifier                |
+| Local identifier                         | String  | Local identifier                |
+| Sector identifier                        | Number  | Sector identifier               |
+| Type of legal resource                   | String  | Legal resource type             |
+| Year of the legal resource               | Number  | Legal resource year             |
+| Work is created by agent (AU)            | URL     | Link to the legal agent         |
+| Legacy date of creation of work          | Date    | System date                     |
+| Date of document                         | Date    | Document date                   |
+| Identifier of document                   | String  | Celex unique identifier         |
+| Work title                               | String  | Case title                      |
+| CMR creation date                        | Date    | Creation date                   |
+| last CMR modification date               | Date    | Last updated date               |
+| Case law delivered by national court     | URL     | Link to the court               |
+| Case law based on a legal instrument     | URL     | Link to the legal instrument    |
+| Parties of the case law                  | RDF     | Reference to the parties        |
+
