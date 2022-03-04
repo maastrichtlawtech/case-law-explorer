@@ -4,7 +4,7 @@ This walkthrough will teach you how to setup your AWS account to run, load, and 
 
 ## Setup
 
-Make sure your AWS account and local environment is ready. 
+Make sure your [AWS account](https://aws.amazon.com/console/) and local environment is ready. 
 
 ### AWS services
 
