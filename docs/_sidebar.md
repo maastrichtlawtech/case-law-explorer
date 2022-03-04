@@ -6,7 +6,7 @@
     * [Extract](/etl/?id=extract)
     * [Transform](/etl/?id=transform)
     * [Load](/etl/?id=load)
-* [**GraphQL Infrastructure**](/graphql/)
+* [**GraphQL API**](/graphql/)
     * [Loading](/graphql/?id=loading)
     * [Usage](/graphql/?id=usage)
 * [**Datasets**](#)
