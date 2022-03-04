@@ -19,26 +19,6 @@ See [Datasets](/datasets/). Currently, we gather the case law of the Netherlands
 
 We plan to extend the data to other international courts.
 
-## Taxonomy
-
-Proceeding into this documentation, there will be multiple legal or structural terms used. They are defined over here.
-
-|                 Term                |                                         Definition                                        |
-|:-----------------------------------:|:-----------------------------------------------------------------------------------------:|
-| ECLI (European Case Law Identifier) | Unique identifier for court decisions in Europe                                           |
-| Issued date                         | Date of document publication                                                              |
-| Enactment Date                      | Date of court decision                                                                    |
-| Language                            | Language of jurisdiction to which case belongs                                            |
-| Creator                             | Name of instance (court)                                                                  |
-| Zaaknummer                          | Case number, for internal use by courts                                                   |
-| Case type                           | 'uitspraak' (decision) or 'conclusie' (opinion)                                           |
-| Procedure type                      | e.g. summary proceedings                                                                  |
-| Spatial                             | Court location (municipality)                                                             |
-| Subject                             | Domain (area of the law) applicable to case                                               |
-| Relation                            | Predecessor and successor cases (in case of appeal, cassation, preliminary decisions etc) |
-| References                          | Title of applicable legislation                                                           |
-| Inhoudsindicatie                    | Case summary                                                                              |
-
 ## License 
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
