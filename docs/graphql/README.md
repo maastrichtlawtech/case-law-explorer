@@ -106,7 +106,9 @@ python3 data_loading/data_loader.py aws
 
 ## Usage
 
-Now that you have data in your DynamoDB table, the AppSync service will make it available to the GraphQL endpoint that you generated before.
+Now that you have data in your DynamoDB table, the AppSync service will make it available to the GraphQL endpoint that you generated before. Using a combination of multiple other AWS services, the endpoint can be used in all types of applications/interfaces. 
+
+### Query data
 
 Once you get access to the GraphQL endpoint through the AppSync console, you can query it, mutate it or subscribe to it. If you navigate to the **Schema** of your API (left hand panel in the AppSync console), you can edit it to serve all the available fields in the DynamoDB table, for example:
 
@@ -134,7 +136,19 @@ Or list multiple cases:
 
 ![listLawCase](list-min.png)
 
-The endpoint, in combination with multiple other AWS services, can be used in all types of applications/interfaces. For example, the UI of the Case Law Explorer project is a visual tool to analyse networks of cases. The way you can use this project to create something similar can be explored at [maastrichtlawtech/case-explorer-ui](https://github.com/maastrichtlawtech/case-explorer-ui).
+### Usecase: Case Law Explorer UI
+
+For example, the UI of the Case Law Explorer project is a visual tool to analyse networks of cases. It combines React with multiple AWS services to query the API, analyse the data, create graphs of case law, and render the network in the app. 
+
+![Perfect Graph example](perfect-graph.gif)
+
+Follow the [maastrichtlawtech/case-explorer-ui](https://github.com/maastrichtlawtech/case-explorer-ui) repository to see all the methods used. It includes the initialization and usage of AWS services (_i.e._ authentication, Lambda functions, DynamoDB, Amplify), React components, and network analysis techniques.
+
+<p align="center">
+  <a href="https://github.com/maastrichtlawtech/case-explorer-ui/tree/dev">
+    <img width="400" alt="case-explorer-ui repository"src="https://ondemand.bannerbear.com/signedurl/D0nJ4XLedwbENRZa1x/image.jpg?modifications=W3sibmFtZSI6InJlcG8iLCJ0ZXh0IjoibWFhc3RyaWNodGxhd3RlY2ggLyAqY2FzZS1leHBsb3Jlci11aSoifSx7Im5hbWUiOiJkZXNjIiwidGV4dCI6IlVzZXIgaW50ZXJmYWNlIGZvciB0aGUgbmV0d29yayBhbmFseXNpcyBzb2Z0d2FyZSBwbGF0Zm9ybSBmb3IgYW5hbHl6aW5nIER1dGNoIGFuZCBFdXJvcGVhbiBjb3VydCBkZWNpc2lvbnMuIn0seyJuYW1lIjoiYXZhdGFyNSIsImhpZGUiOnRydWV9LHsibmFtZSI6ImF2YXRhcjQiLCJoaWRlIjp0cnVlfSx7Im5hbWUiOiJhdmF0YXIzIiwiaGlkZSI6dHJ1ZX0seyJuYW1lIjoiYXZhdGFyMiIsImhpZGUiOnRydWV9LHsibmFtZSI6ImF2YXRhcjEiLCJpbWFnZV91cmwiOiJodHRwczovL2F2YXRhcnMuZ2l0aHVidXNlcmNvbnRlbnQuY29tL3UvNTI0NTIxNzQ_dj00In0seyJuYW1lIjoiY29udHJpYnV0b3JzIiwidGV4dCI6Im1hYXN0cmljaHRsYXd0ZWNoIn0seyJuYW1lIjoic3RhcnMiLCJ0ZXh0IjoiMSJ9XQ&s=63623cdd33143e92e6c069caa3610262a98c2b9a8aef8f8ca79e77e58aab023c" />
+  </a>
+</p>
 
 
 
