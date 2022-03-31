@@ -19,19 +19,14 @@ start = time.time()
 
 input_paths = [
     get_path_processed(CSV_RS_CASES),
-    #get_path_processed(CSV_RS_OPINIONS),
-    #get_path_processed(CSV_LI_CASES),
-    #get_path_raw(CSV_CASE_CITATIONS),
-    #get_path_raw(CSV_LEGISLATION_CITATIONS)
+    get_path_processed(CSV_RS_OPINIONS),
+    get_path_processed(CSV_LI_CASES),
+    get_path_raw(CSV_CASE_CITATIONS),
+    get_path_raw(CSV_LEGISLATION_CITATIONS)
 ]
 
 # parse input arguments
 parser = argparse.ArgumentParser()
-parser.add_argument(
-    'storage',
-    choices=['local', 'aws'],
-    help='location to take input data from and save output data to'
-)
 parser.add_argument(
     '-partial', '--partial',
     choices=['ddb', 'os'],
@@ -43,12 +38,12 @@ parser.add_argument(
     help='delete content from DynamoDB table/OpenSearch index'
 )
 args = parser.parse_args()
-print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
+print('INPUT/OUTPUT DATA STORAGE: aws')
 print('INPUT:\t\t\t\t', [basename(input_path) for input_path in input_paths])
 
 # set up clients
 if args.partial != 'os':
-    ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'), args.storage)
+    ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
 if args.partial != 'ddb':
     os_client = OpenSearchClient(
         domain_name=os.getenv('OS_DOMAIN_NAME'),
@@ -73,7 +68,7 @@ else:
 
         # prepare storage
         print(f'\n--- PREPARATION {basename(input_path)} ---\n')
-        storage = Storage(location=args.storage)
+        storage = Storage(location='aws')
         storage.fetch_data([input_path])
         last_updated = storage.fetch_last_updated([input_path])
         print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
