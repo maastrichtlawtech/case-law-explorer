@@ -12,6 +12,10 @@
 
   <!-- Custom theme styles -->
   <style>
+    a[target="_blank"]::after {
+      content: url("/icons/External-link.svg");
+      margin: 0 3px 0 5px;
+    }
     a {
       text-decoration: none;
     }
@@ -26,13 +30,22 @@
   <!-- Config -->
   <script>
     window.$docsify = {
-      name: 'Case Law Explorer',
+      name: 'Case Law Explorer: ETL',
       auto2top: true,
       loadSidebar: true,
       themeColor: '#001C3D',
       plugins: [
         EditOnGithubPlugin.create('https://github.com/maastrichtlawtech/case-law-explorer/tree/master/docs/')
-      ]
+      ],
+      search: {
+        maxAge: 86400000, // Expiration time, the default one day
+        paths: 'auto',
+        placeholder: 'Search ...',
+        noData: 'No Results!',
+        // Headline depth, 1 - 6
+        depth: 6,
+        hideOtherSidebarContent: true, // whether or not to hide other sidebar content
+     }
     }
   </script>
 
@@ -41,8 +54,10 @@
   <script src="//cdn.jsdelivr.net/npm/docsify-copy-code"></script>
   <script src="//unpkg.com/docsify-count/dist/countable.min.js"></script>
   <script src="//unpkg.com/docsify-plugin-flexible-alerts"></script>
-
+  <script src="//unpkg.com/docsify/lib/plugins/search.min.js"></script>
   <script src="//cdn.jsdelivr.net/npm/prismjs@1/components/prism-python.min.js"></script>
 
 </body>
 </html>
+
+

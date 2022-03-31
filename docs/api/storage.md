@@ -1,6 +1,16 @@
-# `Storage` API Reference
+# `Storage` Reference
 
 The `Storage` API is the script that handles the storage of extracted files. It defines global directory paths and the terminology used throughout all data processing steps.
+
+In both storage locations, the data directory follows the structure of:
+<pre>
+ 
+└── data
+    ├── OpenDataUitspraken <i># data parsed from the OpenDataUitspraken.zip archive</i>
+    ├── processed <i># data processed as result of the transformation scripts</i>
+    └── raw <i># raw data extracted as result of the extractions scripts</i>
+     
+</pre>
 
 ### Usage 
 
