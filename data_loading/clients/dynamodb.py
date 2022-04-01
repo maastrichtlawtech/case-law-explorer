@@ -1,18 +1,43 @@
 import boto3
 import logging
-import sys
-import botocore
-
-# to be able to deploy your DynamoDB table locally, follow these steps first:
-# https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html
 
 
 class DynamoDBClient:
-    def __init__(self, table_name):
+    def __init__(
+            self, table_name,
+            hash_key_name='ecli',
+            range_key_name='ItemType',
+            hash_key_type='S',
+            range_key_type='S'
+    ):
         ddb = boto3.resource('dynamodb')
         if table_name not in [table.name for table in ddb.tables.all()]:
-            logging.error(f'DynamoDB table {table_name} does not exist! Create table first and try again.')
-            sys.exit(2)
+            ddb.create_table(
+                AttributeDefinitions=[
+                    {
+                        'AttributeName': hash_key_name,
+                        'AttributeType': hash_key_type
+                    },
+                    {
+                        'AttributeName': range_key_name,
+                        'AttributeType': range_key_type
+                    },
+                ],
+                TableName=table_name,
+                KeySchema=[
+                    {
+                        'AttributeName': hash_key_name,
+                        'KeyType': 'HASH'
+                    },
+                    {
+                        'AttributeName': range_key_name,
+                        'KeyType': 'RANGE'
+                    },
+                ],
+                BillingMode='PAY_PER_REQUEST'
+            )
+            logging.warning(f'\nDynamoDB table {table_name} does not exist yet. '
+                            f'A table with this name and default settings will be created.')
         self.table = ddb.Table(table_name)
 
     def truncate_table(self):
