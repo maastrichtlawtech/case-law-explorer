@@ -14,7 +14,11 @@ output_path = DIR_RECHTSPRAAK + '.zip'
 
 # set up storage location
 parser = argparse.ArgumentParser()
-parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
+parser.add_argument(
+    'storage',
+    choices=['local', 'aws'],
+    help='location to save output data to'
+)
 args = parser.parse_args()
 print('\n--- PREPARATION ---\n')
 print('OUTPUT DATA STORAGE:\t', args.storage)

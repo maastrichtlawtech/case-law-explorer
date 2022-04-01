@@ -70,40 +70,42 @@ In both storage locations, the data directory follows the structure of:
 <pre>
  
 └── data
-    ├── OpenDataUitspraken <i># data parsed from the OpenDataUitspraken.zip archive</i>
     ├── processed <i># data processed as result of the transformation scripts</i>
-    └── raw <i># raw data extracted as result of the extractions scripts</i>
+    ├── raw <i># raw data extracted as result of the extractions scripts</i>
+    └── Rechtspraak 
+        ├── OpenDataUitspraken.zip <i># data dump downloaded from Rechtspraak.nl</i>
+        └── OpenDataUitspraken <i># data parsed from the OpenDataUitspraken.zip archive</i>
      
 </pre>
 
 > [!WARNING]
 > In both storage locations, data will be overwritten if the same script is called multiple times!
 
-
-
-
-
 This walkthrough will extract data from the defined [datasets](/datasets/) into the local storage.
 
 ### Rechtspraak data
 
-Download the latest version of the zipped folder with Rechtspraak data in data `data/OpenDataUitspraken.zip`. 
+Download the latest version of the zipped folder with Rechtspraak data from 
+[http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip](http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip) to `data/Rechtspraak/OpenDataUitspraken.zip`. 
 
 ```bash
 $ python3 data_extraction/caselaw/rechtspraak/rechtspraak_dump_downloader.py local
 ```
 
-Extract the raw `.xml` files from zipped folder and sub-folders in `data/OpenDataUitspraken.zip`.
+Extract the raw `.xml` files from the zipped folder and sub-folders in `data/Rechtspraak/OpenDataUitspraken.zip` to `data/Rechtspraak/OpenDataUitspraken/`.
 
 ```bash
 $ python3 data_extraction/caselaw/rechtspraak/rechtspraak_dump_unzipper.py local
 ```
 
-Parse the `.xml` files into in `.csv` files into the `data/raw/` directory.  
+Parse the `.xml` files from `data/Rechtspraak/OpenDataUitspraken/` into `.csv` files in the `data/raw/` directory.  
 
 ```bash
 $ python3 data_extraction/caselaw/rechtspraak/rechtspraak_metadata_dump_parser.py local
 ```
+
+**Arguments**:
+- ``storage`` (choices: ``local``, ``aws``): location to take input data from and save output data to (local directory or AWS S3 bucket).
 
 ### Legal Intelligence data
 
@@ -113,6 +115,9 @@ Extract the Legal Intelligence data available for each case previously extracted
 $ python3 data_extraction/caselaw/legal_intelligence/legal_intelligence_extractor.py local
 ```
 
+**Arguments**:
+- ``storage`` (choices: ``local``, ``aws``): location to take input data from and save output data to (local directory or AWS S3 bucket).
+
 ### LIDO data
 
 Extract the citations provided by the LIDO API for all the available cases previously extracted from the Rechtspraak archive. The data is stored in the `data/raw/caselaw_citations.csv` file (or `legislation`).
@@ -120,6 +125,9 @@ Extract the citations provided by the LIDO API for all the available cases previ
 ```bash
 $ python3 data_extraction/citations/rechtspraak_citations_extractor_incremental.py local
 ```
+
+**Arguments**:
+- ``storage`` (choices: ``local``, ``aws``): location to take input data from and save output data to (local directory or AWS S3 bucket).
 
 ## Transform
 
@@ -131,6 +139,9 @@ Transform the data available in the `data/raw/` directory. The processed data is
 $ python3 data_transformation/data_transformer.py local
 ```
 
+**Arguments**:
+- ``storage`` (choices: ``local``, ``aws``): location to take input data from and save output data to (local directory or AWS S3 bucket).
+
 ## Load
 
 If you would like to load the data into AWS services instead, please first follow our guide on [setting up AWS](/graphql/?id=setup).
@@ -138,11 +149,30 @@ Then follow the [Caselaw extraction > Extract](etl/?id=extract) and [Transform](
 
 Now load the data into the DynamoDB table and index the OpenSearch domain with the fresh data.
 
-```bash
-python3 data_loading/data_loader.py aws
-```
-
 > [!NOTE]
 > If you run the script for the first time, the initialization of the OpenSearch services might take some time. 
+
+```bash
+python3 data_loading/data_loader.py
+```
+
+**Options:**
+- ``-partial`` (choices: ``ddb``, ``os``): only loads the data to DynamoDB, or only indexes it into OpenSearch, not both.
+- ``-delete`` (choices: ``ddb``, ``os``): deletes all content from DynamoDB table or OpenSearch index
+
+**Input:**  
+    get_path_processed(CSV_RS_CASES),
+    get_path_processed(CSV_RS_OPINIONS),
+    get_path_processed(CSV_LI_CASES),
+    get_path_raw(CSV_CASE_CITATIONS),
+    get_path_raw(CSV_LEGISLATION_CITATIONS)
+    
+**Output:**  
+Data loaded into DynamoDB and/or indexed into Opensearch.
+
+**Functionality:**
+- this
+- that
+
 
 

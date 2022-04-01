@@ -28,6 +28,7 @@ DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 # data file names
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
 DIR_ECHR = join(DIR_DATA, 'echr')
+CELLAR_DIR = join(DIR_DATA, 'cellar')
 CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'         # eclis and decision dates of OpenDataUitspraken files
 CSV_RS_CASES = 'RS_cases.csv'                               # metadata of RS cases
 CSV_RS_OPINIONS = 'RS_opinions.csv'                         # metadata of RS opinions
@@ -39,7 +40,6 @@ CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
-CELLAR_DIR = join(DIR_DATA, 'cellar')
 
 # raw data:
 def get_path_raw(file_name):

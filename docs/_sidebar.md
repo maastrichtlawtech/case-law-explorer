@@ -15,6 +15,6 @@
     * [Datasets](/datasets/)
     * [Add data source extraction](/setup/)
 * [**References**](/api/)
-    * [`Attribute` reference](/api/attribute)
-    * [`Storage` reference](/api/storage)
+    * [`terminology and mappings`](/api/attribute)
+    * [`Storage` class](/api/storage)
     
