@@ -31,7 +31,6 @@ class DynamoDBRowProcessor:
             :return: list of dict representation of items in schema format
             """
             put_items = []
-            update_items = []
             update_set_items = []
             # split set attributes (domain, case citations, legislation citations)
             if RS_SUBJECT in row:
@@ -55,7 +54,7 @@ class DynamoDBRowProcessor:
                 key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
                 **row
             })
-            return put_items, update_items, update_set_items
+            return put_items, [], update_set_items
 
         def row_processor_rs_opinions(row):
             put_items = []
@@ -122,8 +121,6 @@ class DynamoDBRowProcessor:
 
         # @TODO: replace attribute names with global definition
         def row_processor_c_citations(row):
-            put_items = []
-            update_items = []
             update_set_items = []
             if row['keep1'] == 'True':
                 update_set_items = [{
@@ -135,17 +132,15 @@ class DynamoDBRowProcessor:
                     self.sk: ItemType.DATA.value,
                     'cited_by': {row[ECLI]}
                 }]
-            return put_items, update_items, update_set_items
+            return [], [], update_set_items
 
         def row_processor_l_citations(row):
-            put_items = []
-            update_items = []
             update_set_items = [{
                 self.pk: row[ECLI],
                 self.sk: ItemType.DATA.value,
                 'legal_provisions': {row[LIDO_ARTIKEL_TITLE]}
             }]
-            return put_items, update_items, update_set_items
+            return [], [], update_set_items
 
         processor_map = {
             get_path_processed(CSV_RS_CASES): row_processor_rs_cases,

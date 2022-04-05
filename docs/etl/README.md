@@ -70,12 +70,10 @@ In both storage locations, the data directory follows the structure of:
 <pre>
  
 └── data
-    ├── processed <i># data processed as result of the transformation scripts</i>
-    ├── raw <i># raw data extracted as result of the extractions scripts</i>
-    └── Rechtspraak 
-        ├── OpenDataUitspraken.zip <i># data dump downloaded from Rechtspraak.nl</i>
-        └── OpenDataUitspraken <i># data parsed from the OpenDataUitspraken.zip archive</i>
-     
+    ├── processed <i># processed data as result of the transformation scripts</i>
+    ├── raw <i># extracted data as result of the extractions scripts</i>
+    └── Rechtspraak <i># data downloaded from Rechtspraak.nl </i>
+
 </pre>
 
 > [!WARNING]
