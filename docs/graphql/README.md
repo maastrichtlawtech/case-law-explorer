@@ -4,8 +4,6 @@ This walkthrough will teach you how to setup your AWS account to run, load, and 
 
 ## Setup AWS
 
-### AWS services
-
 Make sure your [AWS account](https://aws.amazon.com/console/) is ready. 
 In order run the pipeline and publish the GraphQL endpoint, you need to setup a few AWS services in your account. As it follows:
 
@@ -27,15 +25,6 @@ In order run the pipeline and publish the GraphQL endpoint, you need to setup a 
         - Settings as `Default settings`.
     - Finally, click on **Create table**.
     - Configure the read/write capacity mode of your DynamoDB table according to your needs to avoid unexpected costs. Learn more about the [DynamoDB billing options](https://aws.amazon.com/dynamodb/pricing/).
-- **AWS AppSync**: create a GraphQL endpoint to serve the data stored in the DynamoDB. Read more in the [Import from Amazon DynamoDB](https://docs.aws.amazon.com/appsync/latest/devguide/import-dynamodb.html) guide.
-    - Open the [AppSync Console](https://console.aws.amazon.com/appsync/){target="_blank"}.
-    - Click on [Create API](https://console.aws.amazon.com/appsync/home#/create).
-    - In the **Customize your API or import from Amazon DynamoDB** panel select `Import DynamoDB Table`. 
-    - Click on **Start**.
-    - Create a model with the details:
-        - The AWS Region selected before.
-        - The DynamoDB table created before.
-    - Click on **Import**, and finally on **Create**.
 - **S3**: create a persistent storage for your data. An S3 bucket will be automatically created with the scripts once you name it in the `.env` file. Or create it manually following the [Creating a bucket](https://docs.aws.amazon.com/AmazonS3/latest/userguide/create-bucket-overview.html) guide.
     - Configure your bucket according to your needs. Learn more about the [S3 pricing](https://aws.amazon.com/s3/pricing/?nc=sn&loc=4).
 - **Amazon OpenSearch Service**: create an indexing service that facilitates the search of content inside your data. An OpenSearch domain will be automatically created with the scripts once you name it in the `.env` file. Or initiate it manually following the [Create an OpenSearch Service domain](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/gsgcreate-domain.html) guide.
@@ -106,7 +95,20 @@ python3 data_loading/data_loader.py aws
 > [!NOTE]
 > If you run the script for the first time, the initialization of the S3 and OpenSearch services might take long minutes to load. 
 
+> [!WARNING]
+> When naming your DynamoDB attributes and defining your GraphQL schema, only use characters a-z and _, otherwise you might encounter conflicts!
+
 ## Create a GraphQL API
+
+- **AWS AppSync**: create a GraphQL endpoint to serve the data stored in the DynamoDB. Read more in the [Import from Amazon DynamoDB](https://docs.aws.amazon.com/appsync/latest/devguide/import-dynamodb.html) guide.
+    - Open the [AppSync Console](https://console.aws.amazon.com/appsync/){target="_blank"}.
+    - Click on [Create API](https://console.aws.amazon.com/appsync/home#/create).
+    - In the **Customize your API or import from Amazon DynamoDB** panel select `Import DynamoDB Table`. 
+    - Click on **Start**.
+    - Create a model with the details:
+        - The AWS Region selected before.
+        - The DynamoDB table created before.
+    - Click on **Import**, and finally on **Create**.
 
 
 ## Query data

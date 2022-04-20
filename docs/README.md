@@ -1,6 +1,6 @@
 # Case Law Explorer: ETL
 
-This documentation covers the data pipeline used to extract, transform and load Dutch and European case law from different data sources into an AWS DynamoDB database (see repository [maastrichtlawtech/case-law-explorer](https://github.com/maastrichtlawtech/case-law-explorer)).
+This documentation covers the data pipeline used to extract, transform and load Dutch and European case law from different data sources into an AWS DynamoDB database, as well as the creation of a GraphQL API to query the data (see repository [maastrichtlawtech/case-law-explorer](https://github.com/maastrichtlawtech/case-law-explorer)).
 The data transformation and database schema are designed to serve our [Case Law Explorer app](https://dev.d11iy22xsphp3a.amplifyapp.com/) (see repository [maastrichtlawtech/case-explorer-ui](https://github.com/maastrichtlawtech/case-explorer-ui)).
 More information about the app can be found in our [use case example](/graphql/?id=usecase-case-law-explorer-ui).
 
@@ -23,7 +23,7 @@ More information about the app can be found in our [use case example](/graphql/?
 See [Datasets](/datasets/). Currently, we gather the case law of the Netherlands and that of two European courts, as it follows:
 
 - **Published and operable**
-    - [Rechtspraak](datasets/?id=rechtspraak-archive), backed by [Legal Intelligence](datasets/?id=legal-intelligence-api), and citations provided by [LIDO](datasets/?id=linked-data-overheid-lido)
+    - [Rechtspraak](datasets/?id=rechtspraak-archive), backed by [Legal Intelligence](datasets/?id=legal-intelligence-api), and citations provided by [LiDO](datasets/?id=linked-data-overheid-lido)
 - **Work in progress**
     - [European Court of Human Rights](datasets/?id=european-court-of-human-rights-echr) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/echr/ECHR_metadata_harvester.py) 
     - [Court of Justice of the European Union](datasets/?id=court-of-justice-of-the-european-union-cjeu) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/cellar/cellar_extraction.py)
