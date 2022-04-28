@@ -287,7 +287,7 @@ python3 data_loading/data_loader.py
 
 **Options:**
 - `-partial` (choices: `ddb`, `os`): only loads the data to DynamoDB, or only indexes it into OpenSearch, not both.
-- `-delete` (choices: `ddb`, `os`): deletes all content from DynamoDB table or OpenSearch index
+- `-delete` (choices: `ddb`, `os`): deletes all content from DynamoDB table or OpenSearch index, does not load any data.
 
 **Input:**  
 - `data/processed/RS_cases_clean.csv`
@@ -301,4 +301,10 @@ python3 data_loading/data_loader.py
 - `data/processed/OS_eclis_failed.csv`
 
 **Functionality:**
-
+- For each input file: reads input file by row
+- Analyzes row and creates items to put or update in DynamoDB table according to key schema
+(see [row_processors reference](reference/row-processors))
+- Analyzes row and creates items to index or update in OpenSearch index
+([row_processors reference](/reference/row-processors/?id=opensearch-service))
+- Loads items to DynamoDB table and/or OpenSearch index as defined in `.env` file
+- Writes errors and item keys/item IDs of failed loading attempts to `data/processed/DDB_eclis_failed.csv`/`data/processed/OS_eclis_failed.csv`
