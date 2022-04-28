@@ -17,7 +17,7 @@ response = requests.get(link, headers=headers, params=params)
 documents += response.json()['Documents']
 ```
 
-Setup the `Storage` object and the paths for the files to be stored. Read the full documentation of the [`Storage` reference](/api/storage). 
+Setup the `Storage` object and the paths for the files to be stored. Read the full documentation of the [`Storage` reference](/reference/storage). 
 
 For example, for the [Legal Intelligence extraction script](/datasets/?id=legal-intelligence-api) we do the following:
 
@@ -66,12 +66,7 @@ For example, our [Legal Intelligence extraction script](/datasets/?id=legal-inte
 
 ## Transform
 
-> [!WARNING]
-> **This sections is not complete!** It misses important information about the definitions **??? @Maxine :((( help**
-
-Before running the transformation scripts, be sure you map the fields of your data with the definitions described in the [`Attribute` reference](/api/attribute). 
-
-For example, for our scripts we defined **??? @Maxine :((( help**.
+Before running the transformation scripts, be sure you map the fields of your data with the definitions described in the [`Attribute` reference](/reference/attribute).
 
 Import the file paths of your data into `data_transformer.py`. At the moment, the script holds the input and the output paths for Rechtspraak and Legal Intelligence as it follows:
 
@@ -80,7 +75,14 @@ input_paths = [get_path_raw(CSV_RS_CASES), get_path_raw(CSV_RS_OPINIONS), get_pa
 output_paths = [get_path_processed(CSV_RS_CASES), get_path_processed(CSV_RS_OPINIONS), get_path_processed(CSV_LI_CASES)]
 ```
 
-The script will process and transform the raw data in each file in `input_paths` and outputs the clean data in the respective files in `output_paths`. The transformation follows the rules defined in the `definitions/` director, as **??? @Maxine :((( help**. 
+The script will process and transform the raw data in each file in `input_paths` and outputs the clean data in the respective files in `output_paths`.
+For this, field maps and tool maps need to be defined in the [data transformer](https://github.com/maastrichtlawtech/case-law-explorer/blob/76d4dc02012139418eaa0b584656b852d8d93db9/data_transformation/data_transformer.py) 
+for each new input file and its respective data fields. 
+
+The field maps create a mapping between the original attribute names of the new data source and the global attribute names
+(see [`attribute` reference](reference/attribtue) > Attribute Names).
+
+The tool maps create a mapping between the source's attribute names and the corresponding transformation/cleaning function, as defined in [utils.py](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_transformation/utils.py).
 
 ```python
 # process input file by row
@@ -96,10 +98,7 @@ for row in reader:
 
 At the end, the `data_transformer.py` script, similarly to the extraction scripts, will store the clean data on the disk and/or AWS.
 
-# Load 
-
-> [!WARNING]
-> **This section is not complete!** It does **not** cover the usage of `DynamoDBClient` `OpenSearchClient` `DynamoDBRowProcessor` `OpenSearchRowProcessor`. I am not sure if it's worth describing it, but maybe you wanna cover it??**??? @Maxine :((( help** 
+# Load
 
 After its transformation and cleaning, your data is ready to be loaded into DynamoDB and OpenSearch domains. The `data_loader.py` script will initialize instances for `DynamoDBClient` and `OpenSearchClient` with the right environmental variables, as described in the [GraphQL API walkthrough](graphql/?id=setup). 
 
@@ -119,4 +118,42 @@ The `data_loader.py` script will process each row of each file in the `input_pat
 
 - Store the data on the row in the DynamoDB table.
 - Upload the data on the row in the OpenSearch domain.
+
+Both for the DynamoDB table and the OpenSearch index, items are created from the input data to match the respective schema 
+and to determine, whether a new item should be loaded or an existing item should be updated. Define in the respective [row processor](https://github.com/maastrichtlawtech/case-law-explorer/tree/master/data_loading/row_processors) script,
+how each row of the new data source should be turned into items.
+
+The DynamoDB table contains a number of secondary indexes with the following key schema. For new data to be loaded successfully,
+row processors need to be defined that turn each input row to DynamoDB items following the below key schema (see [`data_loading/row_processors` reference](reference/row-processors)):
+
+**Primary table:**
+
+|                   | Name      | Type   | Values                                | Example                                         |
+|:------------------|:----------|:-------|:--------------------------------------|-------------------------------------------------|
+| **Partition key** | ecli      | String |                                       | ECLI&colon;NL&colon;RBLIM&colon;2014&colon;2011 |
+| **Sort key**      | ItemType  | String | {DATA, DOM_*domain*, DOM-LI_*domain*} | DOM_Civiel recht                                |
+
+
+**GSI-ItemType:**
+
+|                   | Name          | Type   | Values                                                                | Example           |
+|:------------------|:--------------|:-------|:----------------------------------------------------------------------|-------------------|
+| **Partition key** | ItemType      | String | {DATA, DOM_*domain*, DOM-LI_*domain*}                                 | DOM_Civiel recht  |
+| **Sort key**      | SourceDocDate | String | Source: {RS, ECHR, EURLEX} <br/>Doc: {DEC, OPI} <br/>Date: yyyy-mm-dd | RS_DEC_2006-10-30 |
+
+**GSI-instance:**
+
+|                   | Name          | Type   | Values                                                                | Example           |
+|:------------------|:--------------|:-------|:----------------------------------------------------------------------|-------------------|
+| **Partition key** | instance      | String |                                                                       | Hoge Raad         |
+| **Sort key**      | SourceDocDate | String | Source: {RS, ECHR, EURLEX} <br/>Doc: {DEC, OPI} <br/>Date: yyyy-mm-dd | RS_DEC_2006-10-30 |
+
+
+**GSI-instance_li:**
+
+|                   | Name          | Type   | Values                                                                | Example           |
+|:------------------|:--------------|:-------|:----------------------------------------------------------------------|-------------------|
+| **Partition key** | instance_li   | String |                                                                       | Hoge Raad         |
+| **Sort key**      | SourceDocDate | String | Source: {RS, ECHR, EURLEX} <br/>Doc: {DEC, OPI} <br/>Date: yyyy-mm-dd | RS_DEC_2006-10-30 |
+
 

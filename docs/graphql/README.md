@@ -29,7 +29,10 @@ In order run the pipeline and publish the GraphQL endpoint, you need to setup a 
     - ⚠ ️S3 has globally unique bucket names, choose a unique name!
     - Configure your bucket according to your needs. Learn more about the [S3 pricing](https://aws.amazon.com/s3/pricing/?nc=sn&loc=4).
 - **Amazon OpenSearch Service (optional)**: The indexing service that facilitates the search of content inside your data. An OpenSearch domain will be automatically created with the scripts once you name it in the `.env` file. Or initiate it manually following the [Create an OpenSearch Service domain](https://docs.aws.amazon.com/opensearch-service/latest/developerguide/gsgcreate-domain.html) guide.
-    - Configure your cluster according to your needs. Learn more about the [OpenSearch Service pricing](https://aws.amazon.com/opensearch-service/pricing/).
+  - We recommend to set up OpenSearch manually for the following reasons:
+    - The field type mapping (text, keyword, date, ...) can only be set at indexing time and cannot be changed afterwards
+    - The number of nodes and shards can only be set on creation
+  - Configure your cluster according to your needs. Learn more about the [OpenSearch Service pricing](https://aws.amazon.com/opensearch-service/pricing/).
 
 ### Environment variables
 

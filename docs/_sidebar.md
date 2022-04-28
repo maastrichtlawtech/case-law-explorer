@@ -26,6 +26,4 @@
 * [**References**](/reference/)
     * [Attribute definitions](/reference/attribute)
     * [`Storage` class](/reference/storage)
-    * [`data_transformation/utils`](/reference/utils)
-    * [`data_loading/row_processors`](/reference/row-processors)
     
