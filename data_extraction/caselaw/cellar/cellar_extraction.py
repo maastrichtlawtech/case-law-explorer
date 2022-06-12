@@ -10,7 +10,8 @@ from datetime import datetime
 from definitions.storage_handler import CELLAR_DIR, Storage
 import argparse
 
-from SPARQLWrapper import SPARQLWrapper, JSON
+from SPARQLWrapper import SPARQLWrapper, JSON, POST
+from os.path import exists
 
 start = time.time()
 
@@ -35,8 +36,10 @@ def get_all_eclis(starting_ecli=None, starting_date=None):
 
     # This query essentially gets all things from cellar that have an ECLI. 
     # It then sorts that list, and if necessary filters it based on an ECLI to start off from.
-    sparql = SPARQLWrapper('https://publications.europa.eu/webapi/rdf/sparql')
+    endpoint = 'https://publications.europa.eu/webapi/rdf/sparql'
+    sparql = SPARQLWrapper(endpoint)
     sparql.setReturnFormat(JSON)
+    
     sparql.setQuery('''
         prefix cdm: <http://publications.europa.eu/ontology/cdm#> 
         select 
@@ -81,9 +84,8 @@ def get_raw_cellar_metadata(eclis, get_labels=True, force_readable_cols=True, fo
 
     # Find every outgoing edge from an ECLI document and return it (essentially giving s -p> o)
     # Also get labels for p/o (optionally) and then make sure to only return distinct triples
-    sparql = SPARQLWrapper('https://publications.europa.eu/webapi/rdf/sparql')
-    sparql.setReturnFormat(JSON)
-    sparql.setQuery('''
+    endpoint = 'https://publications.europa.eu/webapi/rdf/sparql'
+    query = '''
         prefix cdm: <http://publications.europa.eu/ontology/cdm#> 
         prefix skos: <http://www.w3.org/2004/02/skos/core#>
         prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#>
@@ -101,7 +103,13 @@ def get_raw_cellar_metadata(eclis, get_labels=True, force_readable_cols=True, fo
                 FILTER(lang(?olabel) = "en") .
             }
         }
-    ''' % ('", "'.join(eclis)))
+    ''' % ('", "'.join(eclis))
+    
+    sparql = SPARQLWrapper(endpoint)
+    
+    sparql.setReturnFormat(JSON)
+    sparql.setMethod(POST)
+    sparql.setQuery(query)
     ret = sparql.queryAndConvert()
 
     # Create one dict for each document
@@ -150,7 +158,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
-    parser.add_argument('--concurrent-docs', default=200, type=int,
+    parser.add_argument('--concurrent-docs', default=1, type=int,
                         help='default number of documents to retrieve concurrently', required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads', action='store_true')
@@ -184,20 +192,49 @@ if __name__ == '__main__':
         eclis = get_all_eclis(
             starting_date=last_updated.isoformat()
         )
-
+    
+    print(args)
+    
     print(f"Found {len(eclis)} ECLIs")
 
     if args.amount:
         eclis = eclis[:args.amount]
 
     all_eclis = {}
-
-    for i in range(0, len(eclis), args.concurrent_docs):
-        new_eclis = get_raw_cellar_metadata(eclis[i:(i + args.concurrent_docs)])
-        all_eclis = {**all_eclis, **new_eclis}
-
-    with open(output_path, 'w') as f:
-        json.dump(all_eclis, f)
+    new_eclis = {}
+    
+    # Check if ECLI already exists
+    print(f'Checking for duplicate ECLIs')
+    duplicate = 0;
+    temp_eclis = []
+    for i in range(0, len(eclis)):
+    	temp_path = join(CELLAR_DIR, eclis[i] + '.json')
+    	if exists(temp_path):
+    	    duplicate = 1
+    	temp_eclis.append(eclis[i])
+    
+    
+    if duplicate == 1:
+    	print(f'Duplicate data found. Ignoring duplicate data.')
+    else:
+    	print(f'No duplicate data found.')
+    
+    if len(temp_eclis) > 0:
+        for i in range(0, len(temp_eclis), args.concurrent_docs):
+        	new_eclis = get_raw_cellar_metadata(temp_eclis[i:(i + args.concurrent_docs)])
+        	# all_eclis = {**all_eclis, **new_eclis}
+        	temp_path = join(CELLAR_DIR, temp_eclis[i] + '.json')
+        	
+        	with open(temp_path, 'w') as f:
+        		json.dump(new_eclis, f, indent=4)
+        	new_eclis.clear()
+    	    
+    	# new_eclis.clear()
+    	#temp_path = ''
+    	
+    
+    #with open(output_path, 'w') as f:
+    #    json.dump(all_eclis, f)
 
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()

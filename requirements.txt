@@ -18,7 +18,7 @@ botocore == 1.21.56
 lxml == 4.6.3
 
 # case-law-explorer/data_transformation/utils.py: 2
-numpy == 1.19.2
+# numpy == 1.19.2
 
 # case-law-explorer/data_loading/clients/opensearch.py: 4
 opensearch_py == 1.0.0
@@ -32,7 +32,7 @@ opensearch_py == 1.0.0
 # case-law-explorer/notebooks/ECHR_metadata_harvester.ipynb: 2
 # case-law-explorer/notebooks/analysis/data_consistency_checks.ipynb: 1
 # case-law-explorer/notebooks/analysis/data_raw_inspection.ipynb: 3
-pandas == 1.1.4
+# pandas == 1.1.4
 
 # case-law-explorer/data_transformation/utils.py: 7
 python_dateutil == 2.8.1
