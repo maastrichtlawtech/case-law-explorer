@@ -5,7 +5,12 @@ import argparse
 
 import pandas as pd
 
-from definitions.storage_handler import Storage, CSV_ECHR_CASES
+from os.path import dirname, abspath, basename, join
+from os import getenv
+import sys
+sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
+
+from definitions.storage_handler import Storage, CSV_ECHR_CASES 
 
 # TODO find a better way to do this.....
 class ContinueException(Exception): pass
