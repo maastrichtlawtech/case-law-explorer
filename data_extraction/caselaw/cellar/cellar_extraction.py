@@ -158,8 +158,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
-    parser.add_argument('--concurrent-docs', default=1, type=int,
-                        help='default number of documents to retrieve concurrently', required=False)
+    parser.add_argument('--concurrent-docs', default=20, type=int, help='default number of documents to retrieve concurrently', required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads', action='store_true')
     args = parser.parse_args()
@@ -201,8 +200,18 @@ if __name__ == '__main__':
         eclis = eclis[:args.amount]
 
     all_eclis = {}
+
+    for i in range(0, len(eclis), args.concurrent_docs):
+        new_eclis = get_raw_cellar_metadata(eclis[i:(i + args.concurrent_docs)])
+        all_eclis = {**all_eclis, **new_eclis}
+
+    with open(output_path, 'w') as f:
+        json.dump(all_eclis, f)
+
+    """ Code for getting individual ECLIs
+    all_eclis = {}
     new_eclis = {}
-    
+
     # Check if ECLI already exists
     print(f'Checking for duplicate ECLIs')
     duplicate = 0;
@@ -212,29 +221,23 @@ if __name__ == '__main__':
     	if exists(temp_path):
     	    duplicate = 1
     	temp_eclis.append(eclis[i])
-    
-    
+
+
     if duplicate == 1:
     	print(f'Duplicate data found. Ignoring duplicate data.')
     else:
     	print(f'No duplicate data found.')
-    
+
     if len(temp_eclis) > 0:
         for i in range(0, len(temp_eclis), args.concurrent_docs):
         	new_eclis = get_raw_cellar_metadata(temp_eclis[i:(i + args.concurrent_docs)])
         	# all_eclis = {**all_eclis, **new_eclis}
         	temp_path = join(CELLAR_DIR, temp_eclis[i] + '.json')
-        	
+
         	with open(temp_path, 'w') as f:
         		json.dump(new_eclis, f, indent=4)
         	new_eclis.clear()
-    	    
-    	# new_eclis.clear()
-    	#temp_path = ''
-    	
-    
-    #with open(output_path, 'w') as f:
-    #    json.dump(all_eclis, f)
+    """
 
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
