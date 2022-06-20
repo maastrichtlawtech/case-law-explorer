@@ -8,7 +8,14 @@ from dotenv import load_dotenv
 load_dotenv()
 import sys
 from datetime import date, datetime
+from sys import platform
 
+# Windows path fix, if system is windows then it replaces the forward slashes for the regex statement later
+WINDOWS_SYSTEM = False
+if platform =="win32":
+    WINDOWS_SYSTEM = True
+def windows_path(original):
+    return original.replace('\\', '/')
 """
 Purpose of script:
 a)  Define directory paths.
@@ -215,28 +222,50 @@ class Storage:
             if file_path == DIR_RECHTSPRAAK:
                 self.fetch_data([CSV_OPENDATA_INDEX])
                 file_path = CSV_OPENDATA_INDEX
+            if WINDOWS_SYSTEM:
+                if re.match(rf'^{windows_path(CELLAR_DIR)}/.*\.json$',windows_path(file_path)):
+                    if self.location == 'local':
+                        # Go through existing JSON files and use their filename to determine when the last
+                        # update was.
+                        # Alternatively, this could be switched to loading all the JSONs and checking the
+                        # max last modification date.
+                        new_date = datetime(1900, 1, 1)
+                        for filename in listdir(CELLAR_DIR):
+                            match = re.match(
+                                r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
+                            if not match:
+                                continue
 
-            if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path):
-                if self.location == 'local':
-                    # Go through existing JSON files and use their filename to determine when the last 
-                    # update was.
-                    # Alternatively, this could be switched to loading all the JSONs and checking the
-                    # max last modification date.
-                    new_date = datetime(1900, 1, 1)
-                    for filename in listdir(CELLAR_DIR):
-                        match = re.match(
-                            r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
-                        if not match:
-                            continue
-
-                        new_date = max(
-                            new_date,
-                            datetime(
-                                int(match[1]), int(match[2]), int(match[3]),
-                                int(match[4]), int(match[5]), int(match[6])
+                            new_date = max(
+                                new_date,
+                                datetime(
+                                    int(match[1]), int(match[2]), int(match[3]),
+                                    int(match[4]), int(match[5]), int(match[6])
+                                )
                             )
-                        )
                     return new_date
+            else:
+                if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path):
+                    if self.location == 'local':
+                        # Go through existing JSON files and use their filename to determine when the last
+                        # update was.
+                        # Alternatively, this could be switched to loading all the JSONs and checking the
+                        # max last modification date.
+                        new_date = datetime(1900, 1, 1)
+                        for filename in listdir(CELLAR_DIR):
+                            match = re.match(
+                                r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
+                            if not match:
+                                continue
+
+                            new_date = max(
+                                new_date,
+                                datetime(
+                                    int(match[1]), int(match[2]), int(match[3]),
+                                    int(match[4]), int(match[5]), int(match[6])
+                                )
+                            )
+                        return new_date
 
             if file_path.endswith('.csv'):
                 import pandas as pd

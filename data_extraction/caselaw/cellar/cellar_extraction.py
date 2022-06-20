@@ -158,7 +158,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
-    parser.add_argument('--concurrent-docs', default=20, type=int, help='default number of documents to retrieve concurrently', required=False)
+    parser.add_argument('--concurrent-docs', default=150, type=int, help='default number of documents to retrieve concurrently', required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads', action='store_true')
     args = parser.parse_args()
@@ -176,7 +176,7 @@ if __name__ == '__main__':
     date_time_obj = datetime.now()
     date = str(date_time_obj.year) + '-' + str(date_time_obj.month) + '-' + str(date_time_obj.day)
 
-    print(f"Downloading {args.amount if 'amount' in args else 'all'} CELLAR documents")
+    print(f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents")
 
     if args.fresh:
         print('Starting a fresh download')
@@ -192,7 +192,7 @@ if __name__ == '__main__':
             starting_date=last_updated.isoformat()
         )
     
-    print(args)
+    #print(args)
     
     print(f"Found {len(eclis)} ECLIs")
 
