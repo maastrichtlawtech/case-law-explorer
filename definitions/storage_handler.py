@@ -46,12 +46,9 @@ CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'     # cited legislation 
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
-<<<<<<< HEAD
 CELLAR_DIR = join(DIR_DATA, 'cellar')
 CELLAR_METADATA = join(CELLAR_DIR, 'cellar_metadata.json')
-=======
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
->>>>>>> pb
 
 
 # raw data:
