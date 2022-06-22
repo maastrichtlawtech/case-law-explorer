@@ -1,49 +1,44 @@
 import boto3
 import logging
-import sys
-import botocore
-
-# to be able to deploy your DynamoDB table locally, follow these steps first:
-# https://docs.aws.amazon.com/amazondynamodb/latest/developerguide/DynamoDBLocal.DownloadingAndRunning.html
 
 
 class DynamoDBClient:
-    def __init__(self, table_name, storage='aws'):
+    def __init__(
+            self, table_name,
+            hash_key_name='ecli',
+            range_key_name='ItemType',
+            hash_key_type='S',
+            range_key_type='S'
+    ):
         ddb = boto3.resource('dynamodb')
         if table_name not in [table.name for table in ddb.tables.all()]:
-            logging.error(f'DynamoDB table {table_name} does not exist! Create table first and try again.')
-            sys.exit(2)
+            ddb.create_table(
+                AttributeDefinitions=[
+                    {
+                        'AttributeName': hash_key_name,
+                        'AttributeType': hash_key_type
+                    },
+                    {
+                        'AttributeName': range_key_name,
+                        'AttributeType': range_key_type
+                    },
+                ],
+                TableName=table_name,
+                KeySchema=[
+                    {
+                        'AttributeName': hash_key_name,
+                        'KeyType': 'HASH'
+                    },
+                    {
+                        'AttributeName': range_key_name,
+                        'KeyType': 'RANGE'
+                    },
+                ],
+                BillingMode='PAY_PER_REQUEST'
+            )
+            logging.warning(f'\nDynamoDB table {table_name} does not exist yet. '
+                            f'A table with this name and default settings will be created.')
         self.table = ddb.Table(table_name)
-        if storage == 'local':
-            ddb = boto3.resource('dynamodb', endpoint_url="http://localhost:8000")
-            gs_indexes = []
-            for gsi in self.table.global_secondary_indexes:
-                gs_indexes.append({
-                    'IndexName': gsi['IndexName'],
-                    'KeySchema': gsi['KeySchema'],
-                    'Projection': gsi['Projection'],
-                    'ProvisionedThroughput': {
-                        'ReadCapacityUnits': gsi['ProvisionedThroughput']['ReadCapacityUnits'],
-                        'WriteCapacityUnits': gsi['ProvisionedThroughput']['WriteCapacityUnits']
-                    }
-                })
-            try:
-                ddb.create_table(
-                    AttributeDefinitions=self.table.attribute_definitions,
-                    TableName=self.table.name,
-                    KeySchema=self.table.key_schema,
-                    GlobalSecondaryIndexes=gs_indexes,
-                    ProvisionedThroughput={
-                        'ReadCapacityUnits': self.table.provisioned_throughput['ReadCapacityUnits'],
-                        'WriteCapacityUnits': self.table.provisioned_throughput['WriteCapacityUnits']
-                    }
-                )
-            except botocore.exceptions.ClientError as error:
-                if error.response['Error']['Code'] == 'ResourceInUseException':
-                    print('Table already exists.')
-                else:
-                    raise error
-            self.table = ddb.Table(table_name)
 
     def truncate_table(self):
         """

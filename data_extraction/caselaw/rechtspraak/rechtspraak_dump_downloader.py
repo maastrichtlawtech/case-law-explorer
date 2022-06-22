@@ -14,7 +14,11 @@ output_path = DIR_RECHTSPRAAK + '.zip'
 
 # set up storage location
 parser = argparse.ArgumentParser()
-parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
+parser.add_argument(
+    'storage',
+    choices=['local', 'aws'],
+    help='location to save output data to'
+)
 args = parser.parse_args()
 print('\n--- PREPARATION ---\n')
 print('OUTPUT DATA STORAGE:\t', args.storage)
@@ -36,7 +40,7 @@ date = str(dateTimeObj.year) + '-' + str(dateTimeObj.month) + '-' + str(dateTime
 
 print("Downloading Rechtspraak.nl dump - " + date + " - " + rs_url + " ...")
 # for testing:
-#urllib.request.urlretrieve('https://surfdrive.surf.nl/files/index.php/s/WaEWoCfKlaS0gD0/download', output_path)
+#urllib.request.urlretrieve('https://surfdrive.surf.nl/files/index.php/s/zvrWcsriC5PU9xx/download', output_path)
 urllib.request.urlretrieve(rs_url, output_path)
 
 print(f"\nUpdating {args.storage} storage ...")

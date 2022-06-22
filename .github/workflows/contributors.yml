@@ -1,0 +1,19 @@
+# This is a basic workflow to help you get started with Actions
+
+name: contributors
+
+on: 
+  workflow_dispatch:
+
+jobs:
+    contrib-readme-job:
+        runs-on: ubuntu-latest
+        name: A job to automate contrib in readme
+        steps:
+            - name: Contribute List
+              uses: akhilmhdh/contributors-readme-action@v2.3.3
+              with:
+                  commit_message: "chore: Update contributors list"
+                  columns_per_row: 7
+              env:
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

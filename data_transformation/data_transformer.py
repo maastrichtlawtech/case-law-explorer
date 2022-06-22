@@ -56,27 +56,31 @@ Start processing
 """
 start = time.time()
 
-input_paths = [get_path_raw(CSV_RS_CASES), get_path_raw(CSV_RS_OPINIONS), get_path_raw(CSV_LI_CASES)]
-output_paths = [get_path_processed(CSV_RS_CASES), get_path_processed(CSV_RS_OPINIONS), get_path_processed(CSV_LI_CASES)]
+input_paths = [
+    get_path_raw(CSV_RS_CASES),
+    get_path_raw(CSV_RS_OPINIONS),
+    get_path_raw(CSV_LI_CASES)
+]
 
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
 args = parser.parse_args()
 
 print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
-print('INPUTS:\t\t\t\t', basename(input_paths[0]), basename(input_paths[1]), basename(input_paths[2]))
-print('OUTPUTS:\t\t\t', f'{basename(output_paths[0])}, {basename(output_paths[1])}, {basename(output_paths[2])}\n')
+print('INPUTS:\t\t\t\t', [basename(input_path) for input_path in input_paths])
+print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for input_path in input_paths], '\n')
 
 # run data transformation for each input file
-for i, input_path in enumerate(input_paths):
-    output_path = output_paths[i]
-    print(f'\n--- PREPARATION {basename(input_path)} ---\n')
+for input_path in input_paths:
+    file_name = basename(input_path)
+    output_path = get_path_processed(file_name)
+    print(f'\n--- PREPARATION {file_name} ---\n')
     storage = Storage(location=args.storage)
     storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
     last_updated = storage.pipeline_last_updated
     print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
-    print(f'\n--- START {basename(input_path)} ---\n')
+    print(f'\n--- START {file_name} ---\n')
 
     field_map = field_maps.get(input_path)
     tool_map = tool_maps.get(input_path)

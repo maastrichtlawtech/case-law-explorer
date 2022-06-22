@@ -1,15 +1,29 @@
 <!-- docs/_sidebar.md -->
 
-* **Getting started**
-    * [Quickstart](/?id=quickstart)
-    * [ETL pipeline](/?id=etl-pipeline)
-    * [License](/?id=license)
-* **Setup**
-    * [New data source extraction](/setup/?id=extraction)
-* **Caselaw extraction**
-    * [Extract](/elt/?id=extract)
-    * [Transform](/elt/?id=transform)
-    * [Load](/elt/?id=load)
-* **Deployment**
-    * [Extraction](/deploy/?id=extraction)
+* [**Getting started**](/)
+* [**Caselaw extraction**](/etl/)
+    * [Setup ETL](/etl/?id=setup)
+    * [Extract](/etl/?id=extract)
+        * [Rechtspraak](/etl/?id=rechtspraak-data)
+        * [Legal Intelligence](/etl/?id=legal-intelligence-data)
+        * [LiDO](/etl/?id=lido-data)
+        * [ECHR](/etl/?id=echr-data)
+        * [CJEU](/etl/?id=cjeu-data)
+    * [Transform](/etl/?id=transform)
+    * [Load](/etl/?id=load)
+* [**GraphQL API**](/graphql/)
+    * [Setup AWS](/graphql/?id=)
+    * [Create a GraphQL API](/graphql/?id=create-a-graphql-api)
+    * [Query the API with AppSync](/graphql/?id=query-data)
+    * [Use case: Case Law Explorer UI](/graphql/?id=use-case-case-law-explorer-ui)
+* [**Datasets**](/datasets/)
+    * [Rechtspraak](/datasets/?id=rechtspraak-archive)
+    * [Legal Intelligence](/datasets/?id=legal-intelligence-api)
+    * [Linked Data Overheid](/datasets/?id=linked-data-overheid-lido)
+    * [European Court of Human Rights](/datasets/?id=european-court-of-human-rights-echr)
+    * [Court of Justice of the European Union](/datasets/?id=court-of-justice-of-the-european-union-cjeu)
+    * [>> Add data source extraction](/setup/)
+* [**References**](/reference/)
+    * [Attribute definitions](/reference/attribute)
+    * [`Storage` class](/reference/storage)
     
