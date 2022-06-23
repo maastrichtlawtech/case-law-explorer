@@ -27,7 +27,7 @@ def drop_columns(data,columns):
 
 if __name__ == '__main__':
     print("")
-    print("TRANSFORMATION OF CSV FILES IN CELLAR DIR STARTED")
+    print("TRANSFORMATION OF CSV FILES IN DATA PROCESSED DIR STARTED")
     print("")
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     print(f"FOUND {len(csv_files)} CSV FILES")
