@@ -57,6 +57,8 @@ def json_to_csv(json_data):
 			# value = re.sub("\"", "", str(value))
 			# Remove semicolon
 			value = re.sub(r";", ",", str(value))
+			# Changing the commas inside lists of data into _, a fix to windows-only issue
+			# Making commas as the only value separator in the dataset
 			value = re.sub(r",", "_", str(value))
 			# Remove HTML tags
 			value = BeautifulSoup(value, "lxml").text
