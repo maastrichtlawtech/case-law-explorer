@@ -8,11 +8,10 @@ from dotenv import load_dotenv
 load_dotenv()
 import sys
 from datetime import date, datetime
-from sys import platform
 
 # Windows path fix, if system is windows then it replaces the forward slashes for the regex statement later
 WINDOWS_SYSTEM = False
-if platform =="win32":
+if sys.platform =="win32":
     WINDOWS_SYSTEM = True
 def windows_path(original):
     return original.replace('\\', '/')
