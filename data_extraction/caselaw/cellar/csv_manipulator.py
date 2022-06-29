@@ -5,7 +5,7 @@ sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_PROCESSED
 
 # In this list, we would insert headings of all the columns we want removed from the data
-data_to_drop=["CASE LAW BASED ON A LEGAL INSTRUMENT"]
+data_to_drop = ["CASE LAW HAS A TYPE OF PROCEDURE", "SECTOR IDENTIFIER", "YEAR OF THE LEGAL RESOURCE"]
 
 def read_csv(file_path):
     try:
