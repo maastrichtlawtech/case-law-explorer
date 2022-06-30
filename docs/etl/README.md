@@ -232,7 +232,7 @@ $ python3 data_extraction/caselaw/cellar/cellar_extraction.py local
 - `--fresh` (flag): if present, runs a complete download regardless of existing downloads 
 
 **Output:**
-- `data/cellar/`
+- `data/cellar/*date_of_download*.json`
 
 **Functionality:**
 - It queries SPARQL endpoint https://publications.europa.eu/webapi/rdf/sparql for all the ECLIs available in the CELLAR that are related to the CJEU. 
@@ -269,6 +269,39 @@ $ python3 data_transformation/data_transformer.py local
 - Applies adequate transformation function to each row attribute value (see [utils reference](/reference/utils))
 - Writes clean row to output file
 - Finally, the data is stored using the [`Storage` object](/reference/storage)
+
+
+
+Data transformation for cellar is handled separately. The [cellar transformation script ](https://github.com/maastrichtlawtech/case-law-explorer/blob/cellar/data_extraction/caselaw/cellar/json_to_csv.py) transform the json files into csv files with pre-defined columns.
+ The [cellar csv manipulator script](https://github.com/maastrichtlawtech/case-law-explorer/blob/cellar/data_extraction/caselaw/cellar/csv_manipulator.py) limits the columns to the ones defined in [the datasets section](/reference/datasets).
+```bash
+$ python3 data_extraction/caselaw/cellar json_to_csv.py
+```
+**Input:**  
+- `data/cellar/*date_of_download_*.json`
+
+    
+**Output:**  
+- `data/processed/*date_of_download_*.csv`
+
+**Functionality:**
+- Maps data from json file to csv
+- Separate data types are set as columns
+- Separate case data are in rows
+
+```bash
+$ python3 data_extraction/caselaw/cellar csv_manipulator.py
+```
+**Input:**  
+- `data/processed/*date_of_download*.csv`
+
+    
+**Output:**  
+- `data/processed/*date_of_download*_Transformed.csv`
+
+**Functionality:**
+- Removes not used columns of data from the csv file
+- Matches data to fit the expected data from [the datasets section](/reference/datasets)
 
 ## Load
 

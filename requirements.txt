@@ -5,6 +5,7 @@ urllib3
 lxml
 rdflib
 boto3
+bs4
 botocore
 opensearch-py
 requests_aws4auth

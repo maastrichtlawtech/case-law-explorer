@@ -194,30 +194,30 @@ The [CJEU](https://european-union.europa.eu/institutions-law-budget/institutions
 
 #### Data format
 
-These fields are expected to be found in the JSON files that store the CJEU data: 
+These fields are expected to be found in the CSV files that store the CJEU data: 
 
-| Name                                     | Format  | Definition                      |
-|:-----------------------------------------|:--------|:--------------------------------|
-| _key                                     | String  | Unique identifier               |
-| Legal resource has type of act           | String  | Type of document                |
-| Case law originates in country           | String  | Country of decision             |
-| Legal resource is about subject matter   | String  | Subject of case                 |
-| ECLI                                     | String  | European Case Law Identifier    |
-| Reference to provisions of national law  | RDF     | Reference to the the judgement  |
-| Publication reference of Court decision  | RDF     | Reference to the decision       |
-| Celex identifier                         | String  | Celex identifier                |
-| Local identifier                         | String  | Local identifier                |
-| Sector identifier                        | Number  | Sector identifier               |
-| Type of legal resource                   | String  | Legal resource type             |
-| Year of the legal resource               | Number  | Legal resource year             |
-| Work is created by agent (AU)            | URL     | Link to the legal agent         |
-| Legacy date of creation of work          | Date    | System date                     |
-| Date of document                         | Date    | Document date                   |
-| Identifier of document                   | String  | Celex unique identifier         |
-| Work title                               | String  | Case title                      |
-| CMR creation date                        | Date    | Creation date                   |
-| last CMR modification date               | Date    | Last updated date               |
-| Case law delivered by national court     | URL     | Link to the court               |
-| Case law based on a legal instrument     | URL     | Link to the legal instrument    |
-| Parties of the case law                  | RDF     | Reference to the parties        |
+| Name                                                    | Format | Definition                                                         |
+|:--------------------------------------------------------|:-------|:-------------------------------------------------------------------|
+| CASE LAW COMMENTED BY AGENT                             | String | Provides information on which Member States submitted information  |
+| CASE LAW DELIVERED BY COURT FORMATION                   | String | Court (Chamber) that delivered the judgment                        | 
+| CASE LAW HAS A JUDICIAL PROCEDURE TYPE                  | String | Type of procedure (eg reference, annulment)                        |
+| CASE LAW HAS TYPE OF PROCEDURE                          | String | Type of procedure with more information                            |
+| CASE LAW HAS CONCLUSIONS                                | String | Opinion of the Advocate-General                                    |
+| CASE LAW INTERPRETS LEGAL RESOURCE                      | URL    | The source (eg law, legal provision) the case interprets           |                                                                   |
+| CASE LAW ORIGINATES IN COUNTRY                          | String | Country of  judgement                                              |
+| CASE LAW ORIGINATES IN COUNTRY OR USES A ROLE QUALIFIER | String | Country in which the case originated with more information         |
+| CASE LAW USES LANGUAGE OF PROCEDURE                     | String | Language of procedure                                              |
+| CELEX IDENTIFIER                                        | String | Celex identifier                                                   |
+| DATE OF DOCUMENT                                        | Date   | Document date                                                      |
+| DATE OF REQUEST FOR AN OPINION                          | Date   | Date of request for an Opinion of the Advocate-General             |
+| ECLI                                                    | String | European Case Law Identifier                                       |
+| LEGACY DATE OF CREATION OF WORK                         | Date   | Date of latest modification in dataset.                            |
+| LEGAL RESOURCE BASED ON TREATY CONCEPT                  | String | Treaty on which judgment is based                                  |
+| LEGAL RESOURCE IS ABOUT SUBJECT MATTER                  | String | Subject matter                                                     |
+| NATIONAL JUDGEMENT                                      | RDF    | Source of national case                                            |
+| RELATED JOURNAL ARTICLE                                 | RDF    | References to journal articles                                     |
+| SECTOR IDENTIFIER                                       | Number | Indicates the type of source                                       |
+| WORK CITES WORK. CI / CJ                                | URL    | Works cited                                                        |
+| WORK HAS RESOURCE TYPE                                  | String | Document type (judgment, opinion, order)                           |
+| YEAR OF THE LEGAL RESOURCE                              | Date   | Judgement Year                                                     |
 
