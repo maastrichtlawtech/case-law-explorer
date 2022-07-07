@@ -28,7 +28,7 @@ def extract_rows(data,number):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--amount', help='number of rows to extract', type=int, required=True)
-    args= parser.parse_args()
+    args = parser.parse_args()
     # The first row contains only the column headings, which is why we add +1
     number=args.amount+1
 
