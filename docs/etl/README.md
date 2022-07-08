@@ -232,7 +232,7 @@ $ python3 data_extraction/caselaw/cellar/cellar_extraction.py local
 - `--fresh` (flag): if present, runs a complete download regardless of existing downloads 
 
 **Output:**
-- `data/cellar/*date_of_download*.json`
+- `data/cellar/'date_of_download'.json`
 
 **Functionality:**
 - It queries SPARQL endpoint https://publications.europa.eu/webapi/rdf/sparql for all the ECLIs available in the CELLAR that are related to the CJEU. 
@@ -278,11 +278,11 @@ Data transformation for cellar is handled separately. The [cellar transformation
 $ python3 data_extraction/caselaw/cellar json_to_csv.py
 ```
 **Input:**  
-- `data/cellar/*date_of_download_*.json`
+- `data/cellar/'date_of_download_'.json`
 
     
 **Output:**  
-- `data/processed/*date_of_download_*.csv`
+- `data/processed/'date_of_download_'.csv`
 
 **Functionality:**
 - Maps data from json file to csv
@@ -293,11 +293,11 @@ $ python3 data_extraction/caselaw/cellar json_to_csv.py
 $ python3 data_extraction/caselaw/cellar csv_manipulator.py
 ```
 **Input:**  
-- `data/processed/*date_of_download*.csv`
+- `data/processed/'date_of_download'.csv`
 
     
 **Output:**  
-- `data/processed/*date_of_download*_Transformed.csv`
+- `data/processed/'date_of_download'_Transformed.csv`
 
 **Functionality:**
 - Removes not used columns of data from the csv file
