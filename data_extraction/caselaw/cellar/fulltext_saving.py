@@ -60,11 +60,52 @@ def get_summary_from_html(html,starting):
          except:
              print("Weird summary website found, returning entire text")
      return text
-def add_sections(data):
+def get_keywords_from_html(html,starting):
+    # This method turns the html code from the summary page into text
+    # It has different cases depending on the first character of the CELEX ID
+    # Should only be used for summaries extraction
+    soup = BeautifulSoup(html, "html.parser")
+    for script in soup(["script", "style"]):
+        script.extract()  # rip it out
+    text = soup.get_text()
+    # break into lines and remove leading and trailing space on each
+    lines = (line.strip() for line in text.splitlines())
+    # break multi-headlines into a line each
+    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+    # drop blank lines
+    text = '\n'.join(chunk for chunk in chunks if chunk)
+    if starting == "8":
+        text="No keywords available"
+    elif starting == "6":
+        try:
+            text = text.replace("Summary", "nothing", 1)
+            index = text.index("Summary")
+            text=text.replace("Keywords","nothing",1)
+            index2=text.index("Keywords")
+            text = text[index2:index]
+        except:
+            print("Weird summary website found, returning entire text")
+    return text
+def get_full_text_from_html(html):
+    # This method turns the html code from the summary page into text
+    # It has different cases depending on the first character of the CELEX ID
+    # Should only be used for summaries extraction
+    soup = BeautifulSoup(html, "html.parser")
+    for script in soup(["script", "style"]):
+        script.extract()  # rip it out
+    text = soup.get_text()
+    # break into lines and remove leading and trailing space on each
+    lines = (line.strip() for line in text.splitlines())
+    # break multi-headlines into a line each
+    chunks = (phrase.strip() for line in lines for phrase in line.split("  "))
+    # drop blank lines
+    text = '\n'.join(chunk for chunk in chunks if chunk)
+    return text
+def add_summary(data):
 
     name='CELEX IDENTIFIER'
     Ids= data.loc[:,name]
-    S1 = pd.Series([])
+    S1 = pd.Series([],dtype='string')
 
     for i in range(len(Ids)):
         Id=Ids[i]
@@ -75,7 +116,32 @@ def add_sections(data):
         else:
             S1[i]=summary
     data.insert(1,"Summary", S1)
-
+def add_keywords(data):
+    name = 'CELEX IDENTIFIER'
+    Ids = data.loc[:, name]
+    S1 = pd.Series([],dtype='string')
+    for i in range(len(Ids)):
+        Id = Ids[i]
+        summary = get_summary_html(Id)
+        if summary != "No summary available":
+            text = get_keywords_from_html(summary, Id[0])
+            S1[i] = text
+        else:
+            S1[i] = summary
+    data.insert(1, "Keywords", S1)
+def add_fulltext(data):
+    name = 'CELEX IDENTIFIER'
+    Ids = data.loc[:, name]
+    S1 = pd.Series([],dtype='string')
+    for i in range(len(Ids)):
+        html = get_html_by_celex_id(Ids[i])
+        if "] not found." in html:
+            #print(f"Full text not found for {Ids[i]}" )
+            S1[i]="No full text in english available"
+        else:
+            text=get_full_text_from_html(html)
+            S1[i]=text
+    data.insert(1, "Full Text", S1)
 if __name__ == '__main__':
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     print(f"FOUND {len(csv_files)} CSV FILES")
@@ -84,5 +150,8 @@ if __name__ == '__main__':
             print("")
             print(f"WORKING ON  {csv_files[i]} ")
             data = read_csv(csv_files[i])
-            add_sections(data)
+            add_fulltext(data)
+            add_summary(data)
+            add_keywords(data)
             data.to_csv(csv_files[i].replace("Extracted","With Summary"), index=False)
+    print("WORK FINISHED SUCCESSFULLY!")
