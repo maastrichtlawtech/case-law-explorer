@@ -28,7 +28,8 @@ def drop_columns(data,columns):
             data.pop(columns[i])
         except:
             print(f"Column titled {columns[i]} does not exist in the file!")
-
+    data.drop(data[-data.ECLI.str.contains("ECLI:EU")].index,inplace=True)
+    data.reset_index()
 
 
 if __name__ == '__main__':
