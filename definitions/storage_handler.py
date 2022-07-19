@@ -29,6 +29,7 @@ b)  Define the terminology to be used throughout all data processing steps.
 DIR_ROOT = dirname(dirname(abspath(__file__)))
 DIR_DATA = join(DIR_ROOT, 'data')
 DIR_DATA_RAW = join(DIR_DATA, 'raw')
+DIR_DATA_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak')
 DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 
 # data file names
