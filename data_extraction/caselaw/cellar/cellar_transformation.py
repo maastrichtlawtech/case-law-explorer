@@ -4,8 +4,9 @@ import warnings
 import time
 warnings.filterwarnings("ignore")
 import sys
-from SPARQLWrapper import SPARQLWrapper, JSON
+from SPARQLWrapper import SPARQLWrapper, JSON,CSV,POST
 import requests
+from io import StringIO
 from os.path import dirname, abspath, join
 import re
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
@@ -172,20 +173,60 @@ def get_citations(source_celex, cites_depth=1, cited_depth=1):
     targets = set([el for el in list(targets)])  # Filters the list. Filtertype: '3'=legislation, '6'=case law.
 
     return targets
+def get_citations_csv(celex):
+    endpoint = 'https://publications.europa.eu/webapi/rdf/sparql'
+    input='", "'.join(celex)
+    query = '''
+           prefix cdm: <http://publications.europa.eu/ontology/cdm#>
+ prefix xsd: <http://www.w3.org/2001/XMLSchema#>
+
+        SELECT DISTINCT * WHERE
+        {
+        {
+            SELECT ?celex ?citedD WHERE {
+                ?doc cdm:resource_legal_id_celex ?celex
+                 FILTER(STR(?celex) in ("%s")).
+                ?doc cdm:work_cites_work{1,1} ?cited .
+                ?cited cdm:resource_legal_id_celex ?citedD .
+            }
+        } UNION {
+            SELECT ?celex ?citedD WHERE {
+                ?doc cdm:resource_legal_id_celex ?celex
+                 FILTER(STR(?celex) in ("%s")).
+                ?cited cdm:work_cites_work{1,1} ?doc .
+                ?cited cdm:resource_legal_id_celex ?citedD .
+            }
+        }
+}
+       ''' % (input,input)
+
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setReturnFormat(CSV)
+    sparql.setMethod(POST)
+    sparql.setQuery(query)
+    try:
+        ret = sparql.queryAndConvert()
+    except:
+        return get_citations_csv(celex)
+    return ret.decode("utf-8")
 def add_citations(data):
-    name = 'WORK CITES WORK. CI / CJ'
-    citations = data.loc[:, "CELEX IDENTIFIER"]
-    citations_column = pd.Series([])
-    if not citations.empty:
-        for i in range(len(citations)):
-            citation = get_citations(citations[i])
-            if len(citation) != 0:
-                citations_column[i] = "_".join(citation)
-    #print(citations_column)
-    columns = data.columns
-    index = columns.get_loc(name)
-    data.drop(columns=[name], axis=1, inplace=True)
-    data.insert(index, name, citations_column)
+    name="WORK CITES WORK. CI / CJ"
+    celex = data.loc[:, "CELEX IDENTIFIER"]
+    all_csv = list()
+    at_once = 1000
+    for i in range(0, len(celex), at_once):
+        new_csv = get_citations_csv(celex[i:(i + at_once)])
+        all_csv.append(StringIO(new_csv))
+    df = pd.concat(map(pd.read_csv, all_csv), ignore_index=True)
+    celexes = pd.unique(df.loc[:, 'celex'])
+    citations = pd.Series([], dtype='string')
+    for celex in celexes:
+        index = data[data['CELEX IDENTIFIER'] == celex].index.values
+        cited = df[df['celex'] == celex].loc[:, "citedD"]
+        string = "_".join(cited)
+        citations[index[0]] = string
+    data.pop(name)
+    data.insert(1, name, citations)
 def read_csv(file_path):
     try:
         data = pd.read_csv(file_path, sep=",", encoding='utf-8')
@@ -291,20 +332,24 @@ def get_full_text_from_html(html):
     text = '\n'.join(chunk for chunk in chunks if chunk)
     text = text.replace(",", "_")
     return text
-def add_summary(data):
+def add_summary_and_keywords(data):
     name = 'CELEX IDENTIFIER'
     Ids = data.loc[:, name]
     S1 = pd.Series([], dtype='string')
-
+    S2 = pd.Series([], dtype='string')
     for i in range(len(Ids)):
         Id = Ids[i]
         summary = get_summary_html(Id)
         if summary != "No summary available":
             text = get_summary_from_html(summary, Id[0])
+            text2 = get_keywords_from_html(summary,Id[0])
             S1[i] = text
+            S2[i] = text2
         else:
             S1[i] = summary
+            S2[i] = summary
     data.insert(1, "Summary", S1)
+    data.inser(1,"Keywords",S2)
 def add_keywords(data):
     name = 'CELEX IDENTIFIER'
     Ids = data.loc[:, name]

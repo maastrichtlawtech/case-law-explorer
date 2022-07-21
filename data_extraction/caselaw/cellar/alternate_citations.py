@@ -47,11 +47,13 @@ def get_citations_csv(celex):
        ''' % (input,input)
 
     sparql = SPARQLWrapper(endpoint)
-
     sparql.setReturnFormat(CSV)
     sparql.setMethod(POST)
     sparql.setQuery(query)
-    ret = sparql.queryAndConvert()
+    try:
+        ret = sparql.queryAndConvert()
+    except:
+        return get_citations_csv(celex)
     return ret.decode("utf-8")
 def read_csv(file_path):
     try:
@@ -62,20 +64,16 @@ def read_csv(file_path):
         print("Something went wrong when trying to open the csv file!")
         sys.exit(2)
 if __name__ == '__main__':
-
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     data=read_csv(csv_files[0])
     celex=data.loc[:, "CELEX IDENTIFIER"]
-    celex[200] = "62017CJ0216"
+    celex=celex.append(celex.append(celex.append(celex)))
     all_csv = list()
-    at_once=200
+    at_once=800
     for i in range(0, len(celex), at_once):
         new_csv = get_citations_csv(celex[i:(i + at_once)])
-        all_csv.append(new_csv)
-    all_IO=list()
-    for i in range(len(all_csv)):
-        all_IO.append(StringIO(all_csv[i]))
-    df = pd.concat(map(pd.read_csv,all_IO),ignore_index=True)
+        all_csv.append(StringIO(new_csv))
+    df = pd.concat(map(pd.read_csv,all_csv),ignore_index=True)
     function={'celex':'"_".join'}
     celexes=pd.unique(df.loc[:,'celex'])
     citations = pd.Series([],dtype='string')
