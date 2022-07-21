@@ -14,10 +14,11 @@ all_data=X+Y
 saving=['CASE LAW COMMENTED BY AGENT','CASE LAW DELIVERED BY COURT FORMATION','CASE LAW HAS A JUDICIAL PROCEDURE TYPE','CASE LAW HAS A TYPE OF PROCEDURE','CASE LAW HAS CONCLUSIONS','CASE LAW INTERPRETS LEGAL RESOURCE','CASE LAW ORIGINATES IN COUNTRY','CASE LAW ORIGINATES IN COUNTRY OR USES A ROLE QUALIFIER','CASE LAW USES LANGUAGE OF PROCEDURE','CELEX IDENTIFIER','DATE OF DOCUMENT','DATE OF REQUEST FOR AN OPINION','ECLI','LEGACY DATE OF CREATION OF WORK','LEGAL RESOURCE BASED ON TREATY CONCEPT','LEGAL RESOURCE IS ABOUT SUBJECT MATTER','NATIONAL JUDGEMENT','RELATED JOURNAL ARTICLE','SECTOR IDENTIFIER','WORK CITES WORK. CI / CJ','WORK HAS RESOURCE TYPE','YEAR OF THE LEGAL RESOURCE']
 data_to_drop=[i for i in all_data if i not in saving]
 def read_csv(file_path):
+    data = pd.read_csv(file_path, sep=",", encoding='utf-8')
     try:
         data = pd.read_csv(file_path,sep=",",encoding='utf-8')
         #print(data)
-        return data
+        return data.T
     except:
         print("Something went wrong when trying to open the csv file!")
         sys.exit(2)
@@ -36,17 +37,23 @@ if __name__ == '__main__':
     print("")
     print("TRANSFORMATION OF CSV FILES IN DATA PROCESSED DIR STARTED")
     print("")
-    csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
-    print(f"FOUND {len(csv_files)} CSV FILES")
+    #csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
+   # print(f"FOUND {len(csv_files)} CSV FILES")
 
+   # for i in range(len(csv_files)):
+    #    if("Transformed" not in csv_files[i] and "Citations" not in csv_files[i] and "Extracted" not in csv_files[i]):
+    #        print("")
+    #        print(f"TRANSFORMING {csv_files[i]} ")
+    #        data=read_csv(csv_files[i])
+     #       drop_columns(data,data_to_drop)
+    #        output_path=csv_files[i].replace(".csv","_Transformed.csv")
+     #       data.to_csv(output_path,index=False)
+    csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     for i in range(len(csv_files)):
-        if("Transformed" not in csv_files[i] and "Citations" not in csv_files[i] and "Extracted" not in csv_files[i]):
-            print("")
-            print(f"TRANSFORMING {csv_files[i]} ")
+        if("test"  in csv_files[i]):
             data=read_csv(csv_files[i])
-            drop_columns(data,data_to_drop)
-            output_path=csv_files[i].replace(".csv","_Transformed.csv")
-            data.to_csv(output_path,index=False)
+            b=3
+    b=2
     print("")
     print(f"TRANSFORMATION DONE")
     print("")

@@ -86,7 +86,15 @@ def get_keywords_from_html(html,starting):
             text = text[index2:index]
         except:
             print("Weird summary website found, returning entire text")
-    return text
+    return get_words_from_keywords(text)
+
+def get_words_from_keywords(text):
+    words = text.split()
+    result = list()
+    for word in words:
+        if "-" in word:
+            result.extend(word.split(sep="-"))
+    return "_".join(result)
 def get_full_text_from_html(html):
     # This method turns the html code from the summary page into text
     # It has different cases depending on the first character of the CELEX ID
@@ -180,6 +188,7 @@ if __name__ == '__main__':
             print("")
             print(f"WORKING ON  {csv_files[i]} ")
             data = read_csv(csv_files[i])
-            add_sections(data)
+            #add_sections(data)
+            add_keywords(data)
             data.to_csv(csv_files[i].replace("Extracted","With Summary"), index=False)
     print("WORK FINISHED SUCCESSFULLY!")
