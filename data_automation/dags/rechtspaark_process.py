@@ -11,9 +11,9 @@ default_args = {
 }
 
 with DAG(
-    dag_id='our_first_shit',
+    dag_id='rechtspaark_process',
     default_args = default_args,
-    description =' LMAO ded',
+    description =' Still in process',
     start_date=datetime(2022,7,20),
     schedule_interval='@daily'
 
