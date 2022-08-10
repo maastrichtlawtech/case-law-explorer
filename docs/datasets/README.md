@@ -149,36 +149,42 @@ The [ECHR](https://www.echr.coe.int/Pages/home.aspx?p=home) is dealing with case
 
 The following fileds are expected to be found in the CSV files storing ECHR data:
 
-| Name                | Format   | Definition                                       |
-|:--------------------|:---------|:-------------------------------------------------|
-| itemid              | String   | Unique identifier                                |
-| applicability       | String   |                                                  |
-| application         | String   |                                                  |
-| appno               | String   | Application number                               |
-| article             | String   | Alleged violated articles                        |
-| conclusion          | String   | Violated/Non-violated articles                   |
-| docname             | String   | Name of the case                                 |
-| doctype             | String   | Type of document                                 |
-| doctypebranch       | String   |                                                  |
-| ecli                | String   | European Case Law Identifier                     |
-| importance          | Number   |                                                  |
-| isplaceholder       | Boolean  |                                                  |
-| judgementdate       | Date     | Date of judgement                                |
-| kpdate              | Date     | Date of judgement in 12-hours format             |
-| kpdateAsText        | String   | Date of judgement as string                      |
-| kpthesaurus         | String   |                                                  |
-| languageisocode     | String   | Language of case                                 |
-| originatingbody     | Number   |                                                  |
-| Rank                | Number   |                                                  |
-| representedby       | String   | Representation of the case                       |
-| respondent          | String   | Defender of the case                             |
-| respondentOrderEng  | Number   | Defender unique identifier                       |
-| separateopinion     | Boolean  |                                                  |
-| sharepointid        | Number   | Internal identifier                              |
-| typedescription     | Number   |                                                  |
-| violation           | String   | Violated articles                                |
-| typedescription     | Number   |                                                  |
-| violation           | String   |                                                  |
+| Name                | Format   | Definition                                        | Examples                           | Comments                                                |
+|:--------------------|:---------|:--------------------------------------------------|------------------------------------|---------------------------------------------------------|
+| itemid              | String   | Unique document identifier                        | 001-100002                         | identifies document, not case                           |
+| applicability       | Integer  | Which articles are applicable                     | 12->articles 14 & 8                | full mapping still to be determined                     |
+| application         | String   | Document format                                   | MSWORD, ACROBAT, null              | null means no available full article                    |
+| appno               | String   | Applicant numbers                                 | 8549\/06;17763\/06                 | uniquely identifies applicant                           |
+| article             | String   | Alleged violated articles                         | 6;6-1                              | consistent across multiple cases                        |
+| conclusion          | String   | Violated/Non-violated articles                    | Violation of P1-1                  | mentions damages, awarded money, insadmissability, etc. |
+| docname             | String   | Name of the case                                  | CASE OF MELIS v. GREECE            |                                                         |
+| doctype             | String   | Type of document                                  | HEJUD                              | always HEJUD                                            | 
+| doctypebranch       | String   | Branch of court                                   | CHAMBER, GRANDCHAMBER, COMMITTEE   |                                                         |
+| ecli                | String   | European Case Law Identifier                      | ECLI:CE:ECHR:2010:0722JUD002014707 |                                                         |                                                         |
+| importance          | Integer  | Case importance from 1 (most) to 4 (least)        | 1                                  |                                                         |
+| isplaceholder       | Boolean  | Indicates if there is an english article          | TRUE, FALSE                        | even if FALSE, there is still a unique itemid           |
+| judgementdate       | Datetime | Date and time of judgement                        | 06\/01\/1984 00:00:00              | all times are 00:00:00                                  |
+| kpdate              | Datetime | Americanised date of judgement with 12-hour time  | 1\/6\/1984 12:00:00 AM             |                                                         |
+| kpdateAsText        | String   | The same as judementdate                          | 06\/01\/1984 00:00:00              | all entries are stored as strings anyway                |
+| kpthesaurus         | Integer  | Indicates keywords                                | 445->art. 6 right to a fair trial  | full mapping still to be detemined                      |
+| languageisocode     | ISO code | Language of document                              | ENG                                | not the same thing as language of case                  |
+| originatingbody     | Integer  | Division of court                                 | 4->court (first section)           | full mapping still to be determined                     |
+| Rank                | Number   |                                                   | 0                                  | always 0                                                |
+| representedby       | String   | Representation of the case                        | ANFUSO ALBERGHINA A.               | can be both names and institutions                      |
+| respondent          | ISO code | Defender of the case                              | TUR                                |                                                         |
+| respondentOrderEng  | Integer  | Defender unique identifier                        | 1480->Turkey                       | full mapping still to be determined                     |
+| separateopinion     | Boolean  | Presence of concurring or dissenting oppitions    | TRUE                               | actual nature of the optinion is in the text            |
+| sharepointid        | Number   | Internal identifier                               | 357902                             | Seems to be for Microsoft Sharepoint                    |
+| typedescription     | Integer  |                                                   |                                    |                                                         |
+| violation           | String   | Violated Articles                                 | 5;5-1;6;6-1;6-3-c                  |                                                         |
+| nonviolation        | String   |                                                   |                                    |                                                         |
+| publishedby         | String   | Publications which contain the case               | Reports 1996-II", "A156            | these reports can be found on echr.coe.int              |
+| externalsources     | String   | Relevant interntional acts or previous outcomes   | 1951 Dissenters Tax Act            |                                                         |
+| extractedappno      | String   | All applicant number mentioned in case            | 40083\/07                          |                                                         |
+| issue               | String   | Domestic laws in questions                        | 1951 Dissenters Tax Act            | conclusion does not mention domestic laws               |
+| referencedate       | Datetime | Date and time that a case was referred to ECHR    | 13\/09\/1988 00:00:00              | sparse                                                  |
+| rulesofcourt        | Integer  | Which rules needed to be invoked                  | 13->nationality of judges conflict | only rule 13 is ever mentioned                          | 
+| scl                 | String   | Strasburg case law citations                      |                                    |                                                         |
 
 ### Court of Justice of the European Union (CJEU)
 

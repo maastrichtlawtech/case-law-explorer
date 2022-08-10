@@ -1,11 +1,18 @@
+from os.path import dirname, abspath
 from socket import timeout
+
+import sys
 import requests
 import time
 import argparse
 
 import pandas as pd
 
+current_dir = dirname(dirname(abspath(__file__)))
+correct_dir = ('\\').join(current_dir.replace('\\', '/').split('/')[:-2])
+sys.path.append(correct_dir)
 from definitions.storage_handler import Storage, CSV_ECHR_CASES
+from definitions.mappings.attribute_name_maps import MAP_ECHR
 
 # TODO find a better way to do this.....
 class ContinueException(Exception): pass
@@ -39,6 +46,7 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     """
 
     data = []
+    """ # replaced by basing fields off ECHR_MAP
     fields = ['itemid',
               'applicability',
               'application',
@@ -82,6 +90,8 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
               'nonviolation',
               'violation',
               ]
+    """
+    fields = MAP_ECHR.keys()
     META_URL = 'http://hudoc.echr.coe.int/app/query/results' \
         '?query=(contentsitename=ECHR) AND ' \
                '(documentcollectionid2:"JUDGMENTS" OR documentcollectionid2:"COMMUNICATEDCASES") AND' \

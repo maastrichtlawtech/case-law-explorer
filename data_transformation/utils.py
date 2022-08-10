@@ -8,7 +8,14 @@ import dateutil.parser
 import re
 import sys
 import csv
-csv.field_size_limit(sys.maxsize)
+from ctypes import c_long, sizeof
+
+#csv.field_size_limit(sys.maxsize) #appears to be system dependent so is replaced with:
+#from https://stackoverflow.com/questions/52475749/maximum-and-minimum-value-of-c-types-integers-from-python
+signed = c_long(-1).value < c_long(0).value
+bit_size = sizeof(c_long)*8
+signed_limit = 2**(bit_size-1)
+csv.field_size_limit(signed_limit-1 if signed else 2*signed_limit-1)
 
 # %%
 """ CLEANING: """
@@ -48,6 +55,12 @@ def format_li_list(text):
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original RS date format YYYY-MM-DD
 def format_rs_date(text):
+    return dateutil.parser.parse(text).date()
+
+
+# converts string representation of a date into datetime (YYYY-MM-DD)
+# from original RS date format DD-MM-YYYY
+def format_echr_date(text):
     return dateutil.parser.parse(text).date()
 
 

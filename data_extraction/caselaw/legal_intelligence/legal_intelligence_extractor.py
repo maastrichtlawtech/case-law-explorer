@@ -72,6 +72,7 @@ def get_search_query(query, filters=None):
     n_requests += 1
     print(initial_response)
     # total number of cases retrieved by the given query
+    print(initial_response.json())
     count = initial_response.json()["Count"]
     print("case count : " + str(count))
 

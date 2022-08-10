@@ -20,36 +20,36 @@ More information on the meaning of the different attributes can be found in the 
 
 | Global reference              | Rechtspraak               | Legal Intelligence        | ECHR                      | CJEU                      |
 |-------------------------------|---------------------------|---------------------------|---------------------------|---------------------------|
-| **alternative_publications**  | hasVersion                | Sources                   |                           |                           |
-| **case_number**               | zaaknummer                | CaseNumber                |                           |                           |
-| **date_added**                | -                         | DateAdded                 |                           |                           |
-| **date_decision**             | date                      | EnactmentDate             |                           |                           |
-| **date_publication**          | issued                    | PublicationDate           |                           |                           |
-| **display_subtitle**          | -                         | DisplaySubtitle           |                           |                           |
-| **display_title**             | -                         | DisplayTitle              |                           |                           |
-| **document_id**               | -                         | Id                        |                           |                           |
-| **document_type**             | type                      | -                         |                           |                           |
-| **domains**                   | subject                   | LawArea                   |                           |                           |
+| **alternative_publications**  | hasVersion                | Sources                   | publishedby               |                           |
+| **case_number**               | zaaknummer                | CaseNumber                | *(can generate)*          |                           |
+| **date_added**                | -                         | DateAdded                 | -                         |                           |
+| **date_decision**             | date                      | EnactmentDate             | judgementdate             |                           |
+| **date_publication**          | issued                    | PublicationDate           | -                         |                           |
+| **display_subtitle**          | -                         | DisplaySubtitle           | -                         |                           |
+| **display_title**             | -                         | DisplayTitle              | -                         |                           |
+| **document_id**               | -                         | Id                        | itemid                    |                           |
+| **document_type**             | type                      | -                         | doctypebranch             |                           |
+| **domains**                   | subject                   | LawArea                   | article, issue            |                           |
 | **ecli**                      | identifier                | CaseNumber                | ecli                      | ECLI                      |
-| **ecli_decision**             | ecli_decision *(generated)*| -                        |                           |                           |
-| **ecli_opinion**              | ecli_opinion *(generated)*| -                         |                           |                           |
-| **full_text**                 | full_text *(generated)*   | -                         |                           |                           |
-| **info**                      | info                      | -                         |                           |                           |
-| **instance**                  | creator                   | IssuingInstitution        |                           |                           |
-| **issue_number**              | -                         | IssueNumber               |                           |                           |
-| **jurisdiction_city**         | spatial                   | -                         |                           |                           |
-| **jurisdiction_country**      | jurisdiction_country *(generated)*| Jurisdiction      |                           |                           |
-| **language**                  | language                  | -                         |                           |                           |
-| **predecessor_successor_cases**| relation                 | -                         |                           |                           |
-| **procedure_type**            | procedure                 | -                         |                           |                           |
-| **publication_number**        | -                         | PublicationNumber         |                           |                           |
-| **referenced_legislation_titles**| references             | -                         |                           |                           |
-| **search_numbers**            | -                         | SearchNumbers             |                           |                           |
-| **source**                    | source *(generated)*      | DocumentType              |                           |                           |
-| **summary**                   | inhoudsindicatie          | Summary                   |                           |                           |
-| **title**                     | title                     | Title                     |                           |                           |
-| **url_entry**                 | -                         | Url                       |                           |                           |
-| **url_publication**           | identifier2               | OriginalUrl               |                           |                           |
+| **ecli_decision**             | ecli_decision *(generated)*| -                        | *(can generate)*          |                           |
+| **ecli_opinion**              | ecli_opinion *(generated)*| -                         | *(can generate)*          |                           |
+| **full_text**                 | full_text *(generated)*   | -                         | *(can generate)*          |                           |
+| **info**                      | info                      | -                         | -                         |                           |
+| **instance**                  | creator                   | IssuingInstitution        | originatingbody           |                           |
+| **issue_number**              | -                         | IssueNumber               | -                         |                           |
+| **jurisdiction_city**         | spatial                   | -                         | *(can generate)*          |                           |
+| **jurisdiction_country**      | jurisdiction_country *(generated)*| Jurisdiction      | *(can generate)*          |                           |
+| **language**                  | language                  | -                         | languageisocode           |                           |
+| **predecessor_successor_cases**| relation                 | -                         | -			        |                           |
+| **procedure_type**            | procedure                 | -                         | originatingbody           |                           |
+| **publication_number**        | -                         | PublicationNumber         | -                         |                           |
+| **referenced_legislation_titles**| references             | -                         | applicability             |                           |
+| **search_numbers**            | -                         | SearchNumbers             | -                         |                           |
+| **source**                    | source *(generated)*      | DocumentType              | doctype                   |                           |
+| **summary**                   | inhoudsindicatie          | Summary                   | conclusion		        |                           |
+| **title**                     | title                     | Title                     | docname                   |                           |
+| **url_entry**                 | -                         | Url                       | -                         |                           |
+| **url_publication**           | identifier2               | OriginalUrl               | *(can generate)*          |                           |
 
 **Citations:**
 

@@ -241,7 +241,9 @@ list_of_files_to_parse = []
 # List all top-level directories
 file_tree = os.walk(input_path)
 
-# List all the files from the sub-directories
+#for (dirpath, dirnames, filenames) in file_tree:
+#    print(os.listdir(dirpath))
+
 for (dirpath, dirnames, filenames) in file_tree:
     if filenames:
         year, month = int(basename(dirpath)[:4]), int(basename(dirpath)[4:])
@@ -249,6 +251,7 @@ for (dirpath, dirnames, filenames) in file_tree:
         if year < last_updated.year or year == last_updated.year and month < last_updated.month:
             continue
         for file in filenames:
+            print(file)
             # Append only the xml files
             if file[-4:].lower() == ".xml":
                 list_of_files_to_parse.append(os.path.join(dirpath, file))

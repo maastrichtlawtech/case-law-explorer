@@ -49,6 +49,9 @@ def get_path_raw(file_name):
 
 # processed data
 def get_path_processed(file_name):
+    last_slash_index = file_name.rfind('\\')+1 #this is necissary when a path is passed as a file name
+    if last_slash_index != 0:
+        file_name = file_name[last_slash_index:]
     return join(DIR_DATA_PROCESSED, file_name.split('.csv')[0] + '_clean.csv')
 
 
@@ -70,7 +73,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR]:
+        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR, DIR_ECHR]:
             makedirs(d, exist_ok=True)
 
         if self.location == 'aws':
@@ -203,7 +206,8 @@ class Storage:
         def date_map(file_path):
             default = ('date_decision', lambda x: date.fromisoformat(x))
             d_map = {
-                get_path_raw(CSV_LI_CASES): ('EnactmentDate', lambda x: datetime.strptime(x, "%Y%m%d").date())
+                get_path_raw(CSV_LI_CASES): ('EnactmentDate', lambda x: datetime.strptime(x, "%Y%m%d").date()),
+                get_path_raw(CSV_ECHR_CASES): ('judgementdate', lambda x: datetime.strptime(x, "%d/%m/%Y %H:%M:%S").date()),
             }
             return d_map.get(file_path, default)
 
@@ -215,8 +219,7 @@ class Storage:
             if file_path == DIR_RECHTSPRAAK:
                 self.fetch_data([CSV_OPENDATA_INDEX])
                 file_path = CSV_OPENDATA_INDEX
-
-            if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path):
+            if re.match(rf'^{CELLAR_DIR}/.*'.replace('\\', '/')+'\.json$', file_path.replace('\\', '/')):
                 if self.location == 'local':
                     # Go through existing JSON files and use their filename to determine when the last 
                     # update was.

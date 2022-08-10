@@ -1,4 +1,3 @@
-# %%
 from os.path import dirname, abspath, basename
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
@@ -9,20 +8,28 @@ from data_loading.row_processors.dynamodb import DynamoDBRowProcessor
 from data_loading.row_processors.opensearch import OpenSearchRowProcessor
 from data_loading.clients.dynamodb import DynamoDBClient
 from data_loading.clients.opensearch import OpenSearchClient
-from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
+from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_ECHR_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
     CSV_LEGISLATION_CITATIONS, get_path_processed, get_path_raw
 import time
 import argparse
-csv.field_size_limit(sys.maxsize)
+from ctypes import c_long, sizeof
+
+#csv.field_size_limit(sys.maxsize) #appears to be system dependent so is replaced with:
+#from https://stackoverflow.com/questions/52475749/maximum-and-minimum-value-of-c-types-integers-from-python
+signed = c_long(-1).value < c_long(0).value
+bit_size = sizeof(c_long)*8
+signed_limit = 2**(bit_size-1)
+csv.field_size_limit(signed_limit-1 if signed else 2*signed_limit-1)
 
 start = time.time()
 
 input_paths = [
-    get_path_processed(CSV_RS_CASES),
-    get_path_processed(CSV_RS_OPINIONS),
-    get_path_processed(CSV_LI_CASES),
-    get_path_raw(CSV_CASE_CITATIONS),
-    get_path_raw(CSV_LEGISLATION_CITATIONS)
+    #get_path_processed(CSV_RS_CASES),
+    #get_path_processed(CSV_RS_OPINIONS),
+    #get_path_processed(CSV_LI_CASES),
+    get_path_processed(CSV_ECHR_CASES),
+    #get_path_raw(CSV_CASE_CITATIONS),
+    #get_path_raw(CSV_LEGISLATION_CITATIONS)
 ]
 
 # parse input arguments
@@ -69,6 +76,7 @@ else:
         # prepare storage
         print(f'\n--- PREPARATION {basename(input_path)} ---\n')
         storage = Storage(location='aws')
+        #storage = Storage(location='local') #for local testing
         storage.fetch_data([input_path])
         last_updated = storage.fetch_last_updated([input_path])
         print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
@@ -112,3 +120,7 @@ else:
 end = time.time()
 print("\n--- DONE ---")
 print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+
+#table = ddb_client.table
+#table.delete()
+print(ddb_client.table.scan())

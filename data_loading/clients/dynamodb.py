@@ -11,6 +11,8 @@ class DynamoDBClient:
             range_key_type='S'
     ):
         ddb = boto3.resource('dynamodb')
+        #ddb = boto3.resource("dynamodb", endpoint_url = "http://localhost:8000", region_name = "eu-central-1", 
+        #                      aws_access_key_id = "local", aws_secret_access_key = "local")                                     #for local testing
         if table_name not in [table.name for table in ddb.tables.all()]:
             ddb.create_table(
                 AttributeDefinitions=[

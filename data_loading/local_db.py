@@ -1,14 +1,97 @@
-from definitions.terminology.attribute_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, ECHR_ARTICLES, RS_RELATION, \
-    LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE, ECHR_JUDGEMENT_DATE
-from definitions.storage_handler import CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, CSV_ECHR_CASES, CSV_CASE_CITATIONS, \
-    CSV_LEGISLATION_CITATIONS, CSV_DDB_ECLIS_FAILED, get_path_raw, get_path_processed
+from os.path import dirname, abspath, basename
+from csv import DictReader
+import os
+import sys
+import boto3
+import logging
+import time
+
+correct_dir = dirname(dirname(abspath(__file__)))
+sys.path.append(correct_dir)
+from definitions.storage_handler import Storage, CSV_ECHR_CASES, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS, get_path_raw, get_path_processed
+from definitions.terminology.attribute_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, RS_RELATION, LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE, ECHR_ARTICLES, ECHR_APPLICABLE_ARTICLES, ECHR_JUDGEMENT_DATE
 from definitions.terminology.attribute_values import ItemType, DocType, DataSource
+
+start = time.time()
 
 KEY_SEP = '_'               # used to separate compound key values
 key_sdd = 'SourceDocDate'   # name of secondary sort key
 LI = '_li'                  # suffix of attributes from LI data
 SET_SEP = '; '              # used to separate set items in string
 
+class DynamoDBClient:
+    def __init__(
+            self, table_name,
+            hash_key_name='ecli',
+            range_key_name='ItemType',
+            hash_key_type='S',
+            range_key_type='S'
+    ):
+        ddb = boto3.resource("dynamodb", endpoint_url = "http://localhost:8000", region_name = "eu-central-1", aws_access_key_id = "local", aws_secret_access_key = "local") 
+        if table_name not in [table.name for table in ddb.tables.all()]:
+            ddb.create_table(
+                AttributeDefinitions=[
+                    {
+                        'AttributeName': hash_key_name,
+                        'AttributeType': hash_key_type
+                    },
+                    {
+                        'AttributeName': range_key_name,
+                        'AttributeType': range_key_type
+                    },
+                ],
+                TableName=table_name,
+                KeySchema=[
+                    {
+                        'AttributeName': hash_key_name,
+                        'KeyType': 'HASH'
+                    },
+                    {
+                        'AttributeName': range_key_name,
+                        'KeyType': 'RANGE'
+                    },
+                ],
+                BillingMode='PAY_PER_REQUEST'
+            )
+            logging.warning(f'\nDynamoDB table {table_name} does not exist yet. '
+                            f'A table with this name and default settings will be created.')
+        self.table = ddb.Table(table_name)
+
+    def truncate_table(self):
+        """
+        taken from https://stackoverflow.com/questions/55169952/delete-all-items-dynamodb-using-python
+
+        Removes all items from a given DynamoDB table without deleting the table itself.
+        :param table: DynamoDB table instance
+        """
+        # get the table keys
+        key_names = [key.get("AttributeName") for key in self.table.key_schema]
+
+        # Only retrieve the keys for each item in the table (minimize data transfer)
+        projection_expression = ", ".join('#' + key for key in key_names)
+        expression_attr_names = {'#' + key: key for key in key_names}
+
+        counter = 0
+        page = self.table.scan(
+            ProjectionExpression=projection_expression,
+            ExpressionAttributeNames=expression_attr_names
+        )
+        with self.table.batch_writer() as batch:
+            while page["Count"] > 0:
+                counter += page["Count"]
+                # Delete items in batches
+                for item_keys in page["Items"]:
+                    batch.delete_item(Key=item_keys)
+                # Fetch the next page
+                if 'LastEvaluatedKey' in page:
+                    page = self.table.scan(
+                        ProjectionExpression=projection_expression,
+                        ExpressionAttributeNames=expression_attr_names,
+                        ExclusiveStartKey=page['LastEvaluatedKey']
+                    )
+                else:
+                    break
+        print(f"Deleted {counter} items.")
 
 class DynamoDBRowProcessor:
     def __init__(self, path, table):
@@ -154,7 +237,7 @@ class DynamoDBRowProcessor:
                         key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[ECHR_JUDGEMENT_DATE],
                         ECHR_ARTICLES[:-1]: val
                     })
-            for attribute in [ECHR_ARTICLES]:
+            for attribute in [ECHR_APPLICABLE_ARTICLES, ECHR_ARTICLES]:
                 if attribute in row:
                     update_set_items.append({
                         self.pk: row[ECLI],
@@ -244,3 +327,39 @@ class DynamoDBRowProcessor:
                     f.write(item[self.pk] + '\n')
 
         return item_counter
+
+input_path = get_path_processed(CSV_ECHR_CASES)
+#input_path = get_path_processed(CSV_RS_CASES)
+print(f'\n--- PREPARATION {basename(input_path)} ---\n')
+#storage = Storage(location='aws')
+storage = Storage(location='local')
+storage.fetch_data([input_path])
+last_updated = storage.fetch_last_updated([input_path])
+print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+print(f'\n--- START {basename(input_path)} ---\n')
+print(f'Processing {basename(input_path)} ...')
+ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
+ddb_rp = DynamoDBRowProcessor(input_path, ddb_client.table)
+case_counter = 0
+ddb_item_counter = 0
+with open(input_path, 'r', newline='') as in_file:
+	reader = DictReader(in_file)
+	for row in reader:
+		if row != '':
+			atts = list(row.items())
+			for att in atts:
+				if att[1] == '':
+					row.pop(att[0])
+			ddb_item_counter += ddb_rp.upload_row(row)
+		case_counter += 1
+		if case_counter%1000 == 0:
+			print(case_counter, "rows processed")
+	print(f"{case_counter} cases ({ddb_item_counter} ddb items) added.")
+
+end = time.time()
+print("\n--- DONE ---")
+print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+
+#table = ddb_client.table
+#table.delete()
+#print(ddb_client.table.scan())
