@@ -1,7 +1,7 @@
 import json, csv, re, glob
 from bs4 import BeautifulSoup
-import warnings
-import time
+import warnings,threading
+import time, argparse
 warnings.filterwarnings("ignore")
 import sys
 from SPARQLWrapper import SPARQLWrapper, JSON,CSV,POST
@@ -209,14 +209,26 @@ def get_citations_csv(celex):
     except:
         return get_citations_csv(celex)
     return ret.decode("utf-8")
-def add_citations(data):
-    name="WORK CITES WORK. CI / CJ"
-    celex = data.loc[:, "CELEX IDENTIFIER"]
-    all_csv = list()
+def execute_citations(csv_list,citations):
     at_once = 1000
-    for i in range(0, len(celex), at_once):
-        new_csv = get_citations_csv(celex[i:(i + at_once)])
-        all_csv.append(StringIO(new_csv))
+    for i in range(0, len(citations), at_once):
+        new_csv = get_citations_csv(citations[i:(i + at_once)])
+        csv_list.append(StringIO(new_csv))
+def add_citations(data,threads):
+    name = "WORK CITES WORK. CI / CJ"
+    celex = data.loc[:, "CELEX IDENTIFIER"]
+    length = celex.size
+    at_once_threads = int(length / threads)
+    all_csv = list()
+    threads=[]
+    for i in range(0, length, at_once_threads):
+        curr_celex = celex[i:(i + at_once_threads)]
+        t = threading.Thread(target=execute_citations,args=(all_csv,curr_celex))
+        threads.append(t)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
     df = pd.concat(map(pd.read_csv, all_csv), ignore_index=True)
     celexes = pd.unique(df.loc[:, 'celex'])
     citations = pd.Series([], dtype='string')
@@ -226,6 +238,7 @@ def add_citations(data):
         string = "_".join(cited)
         citations[index[0]] = string
     data.pop(name)
+    citations.sort_index(inplace=True)
     data.insert(1, name, citations)
 def read_csv(file_path):
     try:
@@ -235,19 +248,31 @@ def read_csv(file_path):
     except:
         print("Something went wrong when trying to open the csv file!")
         sys.exit(2)
+def response_wrapper(link,num=1):
+    if num ==5:
+        return "404"
+    try:
+        response=requests.get(link)
+        return response
+    except:
+        time.sleep(0.5*num)
+        return response_wrapper(id,num+1)
 def get_summary_html(celex):
     if celex.startswith("6"):
         link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere_SUM&qid=1657547189758&from=EN#SM'
         sum_link = link.replace("cIdHere", celex)
-        response = requests.get(sum_link)
-        if response.status_code == 200:
-            return response.text
-        else:
+        response = response_wrapper(sum_link)
+        try:
+            if response.status_code == 200:
+                return response.text
+            else:
+                return "No summary available"
+        except:
             return "No summary available"
     elif celex.startswith("8"):
         link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=URISERV:cIdHere_SUMJURE&qid=1657547270514&from=EN'
         sum_link = link.replace("cIdHere", celex)
-        response = requests.get(sum_link)
+        response = response_wrapper(sum_link)
         if response.status_code == 200:
             return response.text
         else:
@@ -368,7 +393,7 @@ def add_fulltext(data):
     Ids = data.loc[:, name]
     S1 = pd.Series([], dtype='string')
     for i in range(len(Ids)):
-        html = get_html_by_celex_id(Ids[i])
+        html = get_html_by_celex_id_wrapper(Ids[i])
         if "] not found." in html:
             # print(f"Full text not found for {Ids[i]}" )
             S1[i] = "No full text in english available"
@@ -376,6 +401,15 @@ def add_fulltext(data):
             text = get_full_text_from_html(html)
             S1[i] = text
     data.insert(1, "Full Text", S1)
+def get_html_by_celex_id_wrapper(id,num=1):
+    if num == 5:
+        return "404"
+    try:
+        html = get_html_by_celex_id(id)
+        return html
+    except:
+        time.sleep(0.5*num)
+        return get_html_by_celex_id_wrapper(id,num+1)
 def add_sections(data):
     name = 'CELEX IDENTIFIER'
     Ids = data.loc[:, name]
@@ -384,26 +418,31 @@ def add_sections(data):
     Full_text = pd.Series([], dtype='string')
     for i in range(len(Ids)):
         id = Ids[i]
-        html = get_html_by_celex_id(id)
-        summary = get_summary_html(id)
-        if "] not found." in html:
-            # print(f"Full text not found for {Ids[i]}" )
-            Full_text[i] = "No full text in english available"
-        else:
-            text = get_full_text_from_html(html)
-            Full_text[i] = text
-        if summary != "No summary available":
-            text = get_keywords_from_html(summary, id[0])
-            text2 = get_summary_from_html(summary, id[0])
-            Keywords[i] = text
-            Summaries[i] = text2
-        else:
-            Keywords[i] = summary
-            Summaries[i] = summary
+        html = get_html_by_celex_id_wrapper(id)
+        if html !="404":
+            summary = get_summary_html(id)
+            if "] not found." in html:
+                # print(f"Full text not found for {Ids[i]}" )
+                Full_text[i] = "No full text in english available"
+            else:
+                text = get_full_text_from_html(html)
+                Full_text[i] = text
+            if summary != "No summary available":
+                text = get_keywords_from_html(summary, id[0])
+                text2 = get_summary_from_html(summary, id[0])
+                Keywords[i] = text
+                Summaries[i] = text2
+            else:
+                Keywords[i] = summary
+                Summaries[i] = summary
     data.insert(1, "Full Text", Full_text)
     data.insert(1, "Keywords", Keywords)
     data.insert(1, "Summary", Summaries)
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('--amount', help='number of threads to use', type=int, required=True)
+    args = parser.parse_args()
+    threads = args.amount
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
     print('\n--- START ---\n')
@@ -434,9 +473,9 @@ if __name__ == '__main__':
     print("REMOVING REDUNDANT COLUMNS AND NON-EU CASES")
     drop_columns(data, data_to_drop)
     print("ADDING CITATIONS IN CELEX FORMAT")
-    add_citations(data)
+    add_citations(data,threads)
     print("ADDING FULL TEXT, SUMMARY AND KEYWORDS")
-    add_sections(data)
+    #add_sections(data)
     data.to_csv(filepath.replace(".csv","_Processed_.csv"), index=False)
     print("WORK FINISHED SUCCESSFULLY!")
     end = time.time()
