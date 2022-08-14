@@ -39,12 +39,12 @@ if __name__ == '__main__':
     print(f"FOUND {len(csv_files)} CSV FILES")
 
     for i in range(len(csv_files)):
-        if("Transformed" in csv_files[i]):
+        if("Processed" in csv_files[i]):
             print("")
             print(f"EXTRACTING FROM {csv_files[i]} ")
             data=read_csv(csv_files[i])
             output=extract_rows(data,number)
-            output_path=csv_files[i].replace("Transformed","Extracted")
+            output_path=csv_files[i].replace("Processed","Extracted")
             output.to_csv(output_path,index=False)
     print("")
     print(f"Extraction DONE")

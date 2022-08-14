@@ -293,18 +293,21 @@ def get_summary_from_html(html, starting):
     text = '\n'.join(chunk for chunk in chunks if chunk)
     text = text.replace(",", "_")
     if starting == "8":
-        text = text.replace("JURE SUMMARY", "", 1)
-        index = text.index("JURE SUMMARY")
-        text = text[index:]
-        text = text.replace("JURE SUMMARY", "")
-        text = text.strip()
+        text2 = text.replace("JURE SUMMARY", "", 1)
+        index = text2.index("JURE SUMMARY")
+        text2 = text2[index:]
+        text2 = text2.replace("JURE SUMMARY", "")
+        text2 = text2.strip()
+        return text2
     elif starting == "6":
         try:
-            text = text.replace("Summary", "nothing", 1)
-            index = text.index("Summary")
-            text = text[index:]
+            text2 = text.replace("Summary", "nothing", 1)
+            index = text2.index("Summary")
+            text2 = text2[index:]
+            return text2
         except:
-            print("Weird summary website found, returning entire text")
+            return text
+            #print("Weird summary website found, returning entire text")
     return text
 def get_keywords_from_html(html, starting):
     # This method turns the html code from the summary page into text
@@ -323,23 +326,17 @@ def get_keywords_from_html(html, starting):
     text = text.replace(",", "_")
     if starting == "8":
         text = "No keywords available"
+        return text
     elif starting == "6":
-        try:
-            text = text.replace("Summary", "nothing", 1)
-            index = text.index("Summary")
-            text = text.replace("Keywords", "nothing", 1)
-            index2 = text.index("Keywords")
-            text = text[index2:index]
-        except:
-            print("Weird summary website found, returning entire text")
-            return text
-    return get_words_from_keywords(text)
+        return get_words_from_keywords(text)
+
 def get_words_from_keywords(text):
+    text=text.replace(" - ","-")
     words = text.split()
-    result = list()
+    result = set()
     for word in words:
         if "-" in word:
-            result.extend(word.split(sep="-"))
+            result.update(word.split(sep="-"))
     return "_".join(result)
 def get_full_text_from_html(html):
     # This method turns the html code from the summary page into text
@@ -410,39 +407,82 @@ def get_html_by_celex_id_wrapper(id,num=1):
     except:
         time.sleep(0.5*num)
         return get_html_by_celex_id_wrapper(id,num+1)
-def add_sections(data):
-    name = 'CELEX IDENTIFIER'
-    Ids = data.loc[:, name]
-    Summaries = pd.Series([], dtype='string')
-    Keywords = pd.Series([], dtype='string')
-    Full_text = pd.Series([], dtype='string')
-    for i in range(len(Ids)):
-        id = Ids[i]
+def put_data_in_threads(list,index,data):
+    try:
+        list[index]=data
+    except:
+        time.sleep(0.2)
+        # print(f"trying to put in went wrong, tryin again in  {threading.currentThread().getName()}")
+        put_data_in_threads(list,index,data)
+def execute_sections_threads(celex,start,list_sum,list_key,list_full):
+    sum=pd.Series([],dtype='string')
+    key=pd.Series([],dtype='string')
+    full=pd.Series([],dtype='string')
+    for i in range(len(celex)):
+        j = start + i
+        id = celex[j]
         html = get_html_by_celex_id_wrapper(id)
+
         if html !="404":
             summary = get_summary_html(id)
             if "] not found." in html:
                 # print(f"Full text not found for {Ids[i]}" )
-                Full_text[i] = "No full text in english available"
+                full[j] = "No full text in english available"
+                #put_data_in_threads(full,j,"No full text in english available")
             else:
                 text = get_full_text_from_html(html)
-                Full_text[i] = text
+                full[j]=text
+               #put_data_in_threads(full,j,text)
             if summary != "No summary available":
                 text = get_keywords_from_html(summary, id[0])
                 text2 = get_summary_from_html(summary, id[0])
-                Keywords[i] = text
-                Summaries[i] = text2
+                key[j]=text
+                sum[j]=text2
+               # put_data_in_threads(key,j,text)
+                #put_data_in_threads(sum, j, text2)
             else:
-                Keywords[i] = summary
-                Summaries[i] = summary
+                key[j]=summary
+                sum[j]=summary
+               # put_data_in_threads(key, j, summary)
+                #put_data_in_threads(sum, j, summary)
+    list_sum.append(sum)
+    list_key.append(key)
+    list_full.append(full)
+def add_sections(data,threads):
+    name = 'CELEX IDENTIFIER'
+    celex = data.loc[:, name]
+    Summaries = pd.Series([], dtype='string')
+    Keywords = pd.Series([], dtype='string')
+    Full_text = pd.Series([], dtype='string')
+    at_once_threads=int(celex.size/threads)
+    length=celex.size
+    threads = []
+    list_sum, list_key, list_full=list()
+    for i in range(0, length, at_once_threads):
+        curr_celex = celex[i:(i + at_once_threads)]
+        t = threading.Thread(target=execute_sections_threads, args=(curr_celex,i,list_sum,list_key,list_full))
+        threads.append(t)
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    for l in list_sum:
+        Summaries=Summaries.append(l)
+    for l in list_key:
+        Keywords=Keywords.append(l)
+    for l in list_full:
+        Full_text=Full_text.append(l)
+    Full_text.sort_index(inplace=True)
+    Summaries.sort_index(inplace=True)
+    Keywords.sort_index(inplace=True)
     data.insert(1, "Full Text", Full_text)
     data.insert(1, "Keywords", Keywords)
     data.insert(1, "Summary", Summaries)
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--amount', help='number of threads to use', type=int, required=True)
-    args = parser.parse_args()
-    threads = args.amount
+    #parser = argparse.ArgumentParser()
+    #parser.add_argument('--amount', help='number of threads to use', type=int, required=True)
+    #args = parser.parse_args()
+    threads = 15#args.amount
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
     print('\n--- START ---\n')
@@ -472,12 +512,18 @@ if __name__ == '__main__':
     data=read_csv(filepath)
     print("REMOVING REDUNDANT COLUMNS AND NON-EU CASES")
     drop_columns(data, data_to_drop)
+    first = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(first - start)))
     print("ADDING CITATIONS IN CELEX FORMAT")
     add_citations(data,threads)
+    second = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(second - first)))
     print("ADDING FULL TEXT, SUMMARY AND KEYWORDS")
-    #add_sections(data)
+    add_sections(data,threads)
     data.to_csv(filepath.replace(".csv","_Processed_.csv"), index=False)
     print("WORK FINISHED SUCCESSFULLY!")
     end = time.time()
     print("\n--- DONE ---")
-    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
