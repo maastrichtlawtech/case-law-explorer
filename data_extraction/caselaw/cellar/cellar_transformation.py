@@ -457,7 +457,9 @@ def add_sections(data,threads):
     at_once_threads=int(celex.size/threads)
     length=celex.size
     threads = []
-    list_sum, list_key, list_full=list()
+    list_sum=list()
+    list_key=list()
+    list_full=list()
     for i in range(0, length, at_once_threads):
         curr_celex = celex[i:(i + at_once_threads)]
         t = threading.Thread(target=execute_sections_threads, args=(curr_celex,i,list_sum,list_key,list_full))
@@ -478,52 +480,56 @@ def add_sections(data,threads):
     data.insert(1, "Full Text", Full_text)
     data.insert(1, "Keywords", Keywords)
     data.insert(1, "Summary", Summaries)
-if __name__ == '__main__':
-    #parser = argparse.ArgumentParser()
-    #parser.add_argument('--amount', help='number of threads to use', type=int, required=True)
-    #args = parser.parse_args()
-    threads = 15#args.amount
+def transform_file(filepath):
+    print("How many threads should the code use for this transformation? (15 should me enough)")
+    threads = int(input())
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
     print('\n--- START ---\n')
     start: float = time.time()
     print("TRANSFORMING JSON INTO CSV")
-    json_data = '';
-    json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
-    global filepath
-    for i in json_files:
-        json_data = read_json(i)
-
-        if json_data:
-            final_data = json_to_csv(json_data)
-
-            if final_data:
-                if WINDOWS_SYSTEM:
-                    i = windows_path(i)
-                filename = i[i.rindex('/') + 1:].partition('.')[0] + ".csv"
-                filepath = DIR_DATA_PROCESSED + "/" + filename
-                create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
-            else:
-                print("Error creating CSV file. Data is empty.")
+    json_data = read_json(filepath)
+    if json_data:
+        final_data = json_to_csv(json_data)
+        if final_data:
+            if WINDOWS_SYSTEM:
+                filepath = windows_path(filepath)
+            filename = filepath[filepath.rindex('/') + 1:].partition('.')[0] + ".csv"
+            filepath = DIR_DATA_PROCESSED + "/" + filename
+            create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
         else:
+            print("Error creating CSV file. Data is empty.")
+    else:
             print("Error reading json file. Please make sure json file exists and contains data.")
     print("CREATION OF CSV DONE")
     print("TRANSFORMATION OF CSV FILES IN DATA PROCESSED DIR STARTED")
-    data=read_csv(filepath)
+    data = read_csv(filepath)
     print("REMOVING REDUNDANT COLUMNS AND NON-EU CASES")
     drop_columns(data, data_to_drop)
     first = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(first - start)))
     print("ADDING CITATIONS IN CELEX FORMAT")
-    add_citations(data,threads)
+    add_citations(data, threads)
     second = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(second - first)))
     print("ADDING FULL TEXT, SUMMARY AND KEYWORDS")
-    add_sections(data,threads)
-    data.to_csv(filepath.replace(".csv","_Processed_.csv"), index=False)
+    add_sections(data, threads)
+    data.to_csv(filepath.replace(".csv", "_Processed_.csv"), index=False)
     print("WORK FINISHED SUCCESSFULLY!")
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
+if __name__ == '__main__':
+    print("Welcome to cellar transformation!")
+    json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
+    for file in json_files:
+        print(f"\nFound file {file}")
+        print("\nShould this file be transformed? Answer Y/N please.")
+        answer= str(input())
+        if answer =="Y":
+            transform_file(file)
+
+
+
