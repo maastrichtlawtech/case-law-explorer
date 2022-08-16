@@ -9,6 +9,12 @@ load_dotenv()
 import sys
 from datetime import date, datetime
 
+# Windows path fix, if system is windows then it replaces the forward slashes for the regex statement later
+WINDOWS_SYSTEM = False
+if sys.platform =="win32":
+    WINDOWS_SYSTEM = True
+def windows_path(original):
+    return original.replace('\\', '/')
 """
 Purpose of script:
 a)  Define directory paths.
@@ -23,6 +29,7 @@ b)  Define the terminology to be used throughout all data processing steps.
 DIR_ROOT = dirname(dirname(abspath(__file__)))
 DIR_DATA = join(DIR_ROOT, 'data')
 DIR_DATA_RAW = join(DIR_DATA, 'raw')
+DIR_DATA_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak')
 DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 
 # data file names
@@ -39,6 +46,7 @@ CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'     # cited legislation 
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
+CELLAR_METADATA = join(CELLAR_DIR, 'cellar_metadata.json')
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
 
 
@@ -215,28 +223,50 @@ class Storage:
             if file_path == DIR_RECHTSPRAAK:
                 self.fetch_data([CSV_OPENDATA_INDEX])
                 file_path = CSV_OPENDATA_INDEX
+            if WINDOWS_SYSTEM:
+                if re.match(rf'^{windows_path(CELLAR_DIR)}/.*\.json$',windows_path(file_path)):
+                    if self.location == 'local':
+                        # Go through existing JSON files and use their filename to determine when the last
+                        # update was.
+                        # Alternatively, this could be switched to loading all the JSONs and checking the
+                        # max last modification date.
+                        new_date = datetime(1900, 1, 1)
+                        for filename in listdir(CELLAR_DIR):
+                            match = re.match(
+                                r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
+                            if not match:
+                                continue
 
-            if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path):
-                if self.location == 'local':
-                    # Go through existing JSON files and use their filename to determine when the last 
-                    # update was.
-                    # Alternatively, this could be switched to loading all the JSONs and checking the
-                    # max last modification date.
-                    new_date = datetime(1900, 1, 1)
-                    for filename in listdir(CELLAR_DIR):
-                        match = re.match(
-                            r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
-                        if not match:
-                            continue
-
-                        new_date = max(
-                            new_date,
-                            datetime(
-                                int(match[1]), int(match[2]), int(match[3]),
-                                int(match[4]), int(match[5]), int(match[6])
+                            new_date = max(
+                                new_date,
+                                datetime(
+                                    int(match[1]), int(match[2]), int(match[3]),
+                                    int(match[4]), int(match[5]), int(match[6])
+                                )
                             )
-                        )
                     return new_date
+            else:
+                if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path):
+                    if self.location == 'local':
+                        # Go through existing JSON files and use their filename to determine when the last
+                        # update was.
+                        # Alternatively, this could be switched to loading all the JSONs and checking the
+                        # max last modification date.
+                        new_date = datetime(1900, 1, 1)
+                        for filename in listdir(CELLAR_DIR):
+                            match = re.match(
+                                r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
+                            if not match:
+                                continue
+
+                            new_date = max(
+                                new_date,
+                                datetime(
+                                    int(match[1]), int(match[2]), int(match[3]),
+                                    int(match[4]), int(match[5]), int(match[6])
+                                )
+                            )
+                        return new_date
 
             if file_path.endswith('.csv'):
                 import pandas as pd
