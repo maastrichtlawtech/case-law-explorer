@@ -123,6 +123,7 @@ def add_citations(data,threads):
     citations.sort_index(inplace=True)
     data.insert(1, name, citations)
 if __name__ == '__main__':
+
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     print(f"FOUND {len(csv_files)} CSV FILES")
     for i in range(len(csv_files)):

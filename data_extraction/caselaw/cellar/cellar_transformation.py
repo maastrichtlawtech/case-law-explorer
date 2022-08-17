@@ -414,17 +414,30 @@ def put_data_in_threads(list,index,data):
         time.sleep(0.2)
         # print(f"trying to put in went wrong, tryin again in  {threading.currentThread().getName()}")
         put_data_in_threads(list,index,data)
-def execute_sections_threads(celex,start,list_sum,list_key,list_full):
+def get_entire_page(celex):
+    link = 'https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX:cIdHere'
+    sum_link = link.replace("cIdHere", celex)
+    response = response_wrapper(sum_link)
+    try:
+        if response.status_code == 200:
+            return response.text
+        else:
+            return "No data available"
+    except:
+        return "No data available"
+
+def execute_sections_threads(celex,start,list_sum,list_key,list_full,list_subject,list_codes):
     sum=pd.Series([],dtype='string')
     key=pd.Series([],dtype='string')
     full=pd.Series([],dtype='string')
+    subject_matter=pd.Series([],dtype='string')
+    case_codes =pd.Series([],dtype='string')
     for i in range(len(celex)):
         j = start + i
         id = celex[j]
         html = get_html_by_celex_id_wrapper(id)
-
         if html !="404":
-            summary = get_summary_html(id)
+
             if "] not found." in html:
                 # print(f"Full text not found for {Ids[i]}" )
                 full[j] = "No full text in english available"
@@ -432,37 +445,73 @@ def execute_sections_threads(celex,start,list_sum,list_key,list_full):
             else:
                 text = get_full_text_from_html(html)
                 full[j]=text
-               #put_data_in_threads(full,j,text)
-            if summary != "No summary available":
-                text = get_keywords_from_html(summary, id[0])
-                text2 = get_summary_from_html(summary, id[0])
-                key[j]=text
-                sum[j]=text2
+
+        summary = get_summary_html(id)   #put_data_in_threads(full,j,text)
+        if summary != "No summary available":
+            text = get_keywords_from_html(summary, id[0])
+            text2 = get_summary_from_html(summary, id[0])
+            key[j]=text
+            sum[j]=text2
                # put_data_in_threads(key,j,text)
                 #put_data_in_threads(sum, j, text2)
-            else:
-                key[j]=summary
-                sum[j]=summary
+        else:
+            key[j]=summary
+            sum[j]=summary
                # put_data_in_threads(key, j, summary)
                 #put_data_in_threads(sum, j, summary)
+        entire_page = get_entire_page(id)
+        text=get_full_text_from_html(entire_page)
+        if entire_page != "No data available":
+            try:
+                index_matter = text.index("Subject matter:")
+                try:
+                    index_end = text.index("Case law directory code:")  # if this fails then miscellaneous
+                except:
+                    index_end = text.index("Miscellaneous information")
+                extracting = text[index_matter + 16:index_end]
+                subject_matter = extracting.split(sep="\n")
+                subject = "_".join(subject_matter)
+                subject = subject[:len(subject) - 1]
+            except:
+                subject = ""
+            try:
+                index_codes = text.index("Case law directory code:")
+                index_end = text.index("Miscellaneous information")
+                extracting = text[index_codes + 20:index_end]
+                words = extracting.split()
+                codes = [x for x in words if is_code(x)]
+                code = "_".join(codes)
+            except:
+                code = ""
+        else:
+            code=""
+            subject=""
+        subject_matter[j]=subject
+        case_codes[j]=code
     list_sum.append(sum)
     list_key.append(key)
     list_full.append(full)
+    list_codes.append(case_codes)
+    list_subject.append(subject_matter)
 def add_sections(data,threads):
     name = 'CELEX IDENTIFIER'
     celex = data.loc[:, name]
     Summaries = pd.Series([], dtype='string')
     Keywords = pd.Series([], dtype='string')
     Full_text = pd.Series([], dtype='string')
+    Codes = pd.Series([], dtype='string')
+    Subject_matter = pd.Series([], dtype='string')
     at_once_threads=int(celex.size/threads)
     length=celex.size
     threads = []
     list_sum=list()
     list_key=list()
     list_full=list()
+    list_codes=list()
+    list_subject=list()
     for i in range(0, length, at_once_threads):
         curr_celex = celex[i:(i + at_once_threads)]
-        t = threading.Thread(target=execute_sections_threads, args=(curr_celex,i,list_sum,list_key,list_full))
+        t = threading.Thread(target=execute_sections_threads, args=(curr_celex,i,list_sum,list_key,list_full,list_subject,list_codes))
         threads.append(t)
     for t in threads:
         t.start()
@@ -474,14 +523,22 @@ def add_sections(data,threads):
         Keywords=Keywords.append(l)
     for l in list_full:
         Full_text=Full_text.append(l)
+    for l in list_codes:
+        Codes=Codes.append(l)
+    for l in list_subject:
+        Subject_matter=Subject_matter.append(l)
     Full_text.sort_index(inplace=True)
     Summaries.sort_index(inplace=True)
     Keywords.sort_index(inplace=True)
+    Codes.sort_index(inplace=True)
+    Subject_matter.sort_index(inplace=True)
+    data.insert(1, "Subject matter", Subject_matter)
+    data.insert(1, "Case law directory codes", Codes)
     data.insert(1, "Full Text", Full_text)
     data.insert(1, "Keywords", Keywords)
     data.insert(1, "Summary", Summaries)
 def transform_file(filepath):
-    print("How many threads should the code use for this transformation? (15 should me enough)")
+    print("How many threads should the code use for this transformation? (15 should be enough)")
     threads = int(input())
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
@@ -514,13 +571,18 @@ def transform_file(filepath):
     second = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(second - first)))
-    print("ADDING FULL TEXT, SUMMARY AND KEYWORDS")
+    print("ADDING FULL TEXT, SUMMARY, KEYWORDS, SUBJECT MATTER AND CASE LAW DIRECTORY CODES")
     add_sections(data, threads)
     data.to_csv(filepath.replace(".csv", "_Processed_.csv"), index=False)
     print("WORK FINISHED SUCCESSFULLY!")
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
+def is_code(word):
+    if "." in word:
+        return word.replace(".", "0")[1:].isdigit()
+    else:
+        return False
 if __name__ == '__main__':
     print("Welcome to cellar transformation!")
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
@@ -530,6 +592,3 @@ if __name__ == '__main__':
         answer= str(input())
         if answer =="Y":
             transform_file(file)
-
-
-
