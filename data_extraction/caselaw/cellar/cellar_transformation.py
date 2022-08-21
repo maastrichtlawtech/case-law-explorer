@@ -469,8 +469,8 @@ def execute_sections_threads(celex,start,list_sum,list_key,list_full,list_subjec
                 except:
                     index_end = text.index("Miscellaneous information")
                 extracting = text[index_matter + 16:index_end]
-                subject_matter = extracting.split(sep="\n")
-                subject = "_".join(subject_matter)
+                subject_mat = extracting.split(sep="\n")
+                subject = "_".join(subject_mat)
                 subject = subject[:len(subject) - 1]
             except:
                 subject = ""
