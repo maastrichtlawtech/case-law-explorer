@@ -578,6 +578,46 @@ def transform_file(filepath):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
+def transform_file(filepath,threads):
+    print("How many threads should the code use for this transformation? (15 should be enough)")
+    print('\n--- PREPARATION ---\n')
+    print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
+    print('\n--- START ---\n')
+    start: float = time.time()
+    print("TRANSFORMING JSON INTO CSV")
+    json_data = read_json(filepath)
+    if json_data:
+        final_data = json_to_csv(json_data)
+        if final_data:
+            if WINDOWS_SYSTEM:
+                filepath = windows_path(filepath)
+            filename = filepath[filepath.rindex('/') + 1:].partition('.')[0] + ".csv"
+            filepath = DIR_DATA_PROCESSED + "/" + filename
+            create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
+        else:
+            print("Error creating CSV file. Data is empty.")
+    else:
+            print("Error reading json file. Please make sure json file exists and contains data.")
+    print("CREATION OF CSV DONE")
+    print("TRANSFORMATION OF CSV FILES IN DATA PROCESSED DIR STARTED")
+    data = read_csv(filepath)
+    print("REMOVING REDUNDANT COLUMNS AND NON-EU CASES")
+    drop_columns(data, data_to_drop)
+    first = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(first - start)))
+    print("ADDING CITATIONS IN CELEX FORMAT")
+    add_citations(data, threads)
+    second = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(second - first)))
+    print("ADDING FULL TEXT, SUMMARY, KEYWORDS, SUBJECT MATTER AND CASE LAW DIRECTORY CODES")
+    add_sections(data, threads)
+    data.to_csv(filepath.replace(".csv", "_Processed_.csv"), index=False)
+    print("WORK FINISHED SUCCESSFULLY!")
+    end = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
 def is_code(word):
     if "." in word:
         return word.replace(".", "0")[1:].isdigit()
@@ -592,3 +632,6 @@ if __name__ == '__main__':
         answer= str(input())
         if answer =="Y":
             transform_file(file)
+def transform_airflow():
+    json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
+    transform_file(json_files[0],15)

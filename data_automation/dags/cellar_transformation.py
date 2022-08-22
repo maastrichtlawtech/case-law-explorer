@@ -11,7 +11,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id='cellar extraction',
+    dag_id='cellar transformation',
     default_args = default_args,
     description =' Still in process',
     start_date=datetime(2022,7,20),
