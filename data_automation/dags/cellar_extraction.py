@@ -1,5 +1,7 @@
 from datetime import datetime, timedelta
-
+import sys
+sys.path.append('data_extraction/caselaw/cellar')
+import cellar_extraction
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
@@ -18,17 +20,18 @@ with DAG(
     schedule_interval='@daily'
 
 ) as DAG:
-    task1 = BashOperator(
+    task_extraction = BashOperator(
         task_id = 'cellar_extraction',
-        bash_command = 'python ./data_extraction/caselaw/cellar/cellar_extraction.py local'
+        #python_command = cellar_extraction.
+        # op_kwargs={'age': 10}
     )
 
     task2 = BashOperator(
         task_id = '',
-        bash_command='python ./data_extraction/caselaw/cellar/cellar_extraction.py local'
+        #python_command = cellar_transformation.
     )
 
     task2 = BashOperator(
         task_id='',
-        bash_command='python ./data_extraction/caselaw/cellar/cellar_extraction.py local'
+        #python_command = csv_extractor
     )
