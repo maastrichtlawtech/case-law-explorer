@@ -562,12 +562,12 @@ def transform_file(filepath):
     print("TRANSFORMATION OF CSV FILES IN DATA PROCESSED DIR STARTED")
     data = read_csv(filepath)
     print("REMOVING REDUNDANT COLUMNS AND NON-EU CASES")
-    drop_columns(data, data_to_drop)
+    #drop_columns(data, data_to_drop)
     first = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(first - start)))
     print("ADDING CITATIONS IN CELEX FORMAT")
-    add_citations(data, threads)
+    #add_citations(data, threads)
     second = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(second - first)))
@@ -579,10 +579,8 @@ def transform_file(filepath):
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
 def is_code(word):
-    if "." in word:
-        return word.replace(".", "0")[1:].isdigit()
-    else:
-        return False
+    return word.replace(".","0").replace("-","0")[1:].isdigit()
+
 if __name__ == '__main__':
     print("Welcome to cellar transformation!")
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
