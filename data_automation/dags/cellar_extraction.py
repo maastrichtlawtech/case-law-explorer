@@ -4,7 +4,9 @@ sys.path.append('data_extraction/caselaw/cellar')
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
-from data_extraction.caselaw.cellar.cellar_transformation import transform_airflow
+from os.path import dirname, abspath
+sys.path.append (dirname(dirname(abspath(__file__))))
+from data_extraction.caselaw.cellar.cellar_extraction import download_locally
 default_args = {
     'owner': 'none',
     'retries': 5,
@@ -16,21 +18,10 @@ with DAG(
     default_args = default_args,
     description =' Still in process',
     start_date=datetime(2022,7,20),
-    schedule_interval='@daily'
+    schedule_interval='@weekly'
 
 ) as DAG:
-    task_extraction = BashOperator(
-        task_id = 'cellar_extraction',
-        #python_command = cellar_extraction.
-        # op_kwargs={'age': 10}
-    )
-
-    task2 = BashOperator(
-        task_id = '',
-        #python_command = cellar_transformation.
-    )
-
-    task3 = BashOperator(
-        task_id='',
-        #python_command = csv_extractor
+    task1 = PythonOperator(
+        task_id='cellar_transformation',
+        python_callable=download_locally
     )

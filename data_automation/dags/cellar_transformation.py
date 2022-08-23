@@ -19,7 +19,7 @@ with DAG(
     default_args = default_args,
     description =' Still in process',
     start_date=datetime(2022,7,20),
-    schedule_interval='@daily'
+    schedule_interval='@weekly'
 
 ) as DAG:
     task1 = PythonOperator(
