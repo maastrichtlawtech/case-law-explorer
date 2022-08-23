@@ -14,11 +14,35 @@ from definitions.storage_handler import CELLAR_DIR, DIR_DATA_PROCESSED
 
 WINDOWS_SYSTEM = False
 import pandas as pd
-from eurlex import get_html_by_celex_id
 
 if sys.platform == "win32":
     WINDOWS_SYSTEM = True
+def get_html_by_celex_id(celex_id: str) -> str:
+    """Retrieve HTML by CELEX ID.
 
+    Parameters
+    ----------
+    celex_id : str
+        The CELEX ID to find HTML for.
+
+    Returns
+    -------
+    str
+        HTML found using the CELEX ID.
+    """
+    url = "http://publications.europa.eu/resource/celex/" + str(
+        celex_id
+    )  # pragma: no cover
+    response = requests.get(
+        url,
+        allow_redirects=True,
+        headers={  # pragma: no cover
+            "Accept": "text/html,application/xhtml+xml,application/xml",  # pragma: no cover
+            "Accept-Language": "en",  # pragma: no cover
+        },
+    )  # pragma: no cover
+    html = response.content.decode("utf-8")  # pragma: no cover
+    return html  # pragma: no cover
 
 def read_csv(file_path):
     try:

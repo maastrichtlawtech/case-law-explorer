@@ -1,8 +1,12 @@
 from datetime import datetime, timedelta
-
+import sys
+from pprint import pprint
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+from os.path import dirname, abspath
+sys.path.append (dirname(dirname(abspath(__file__))))
+from data_extraction.caselaw.cellar.cellar_transformation import transform_airflow
 
 default_args = {
     'owner': 'none',
@@ -11,24 +15,14 @@ default_args = {
 }
 
 with DAG(
-    dag_id='cellar transformation',
+    dag_id='cellar_transformation',
     default_args = default_args,
     description =' Still in process',
     start_date=datetime(2022,7,20),
     schedule_interval='@daily'
 
 ) as DAG:
-    task1 = BashOperator(
-        task_id = 'cellar_extraction',
-        bash_command = 'python ./data_extraction/caselaw/cellar/cellar_extraction.py local'
-    )
-
-    task2 = BashOperator(
-        task_id = '',
-        bash_command='python ./data_extraction/caselaw/cellar/cellar_extraction.py local'
-    )
-
-    task3 = BashOperator(
-        task_id='',
-        bash_command='python ./data_extraction/caselaw/cellar/cellar_extraction.py local'
+    task1 = PythonOperator(
+        task_id = 'cellar_transformation',
+        python_callable = transform_airflow
     )
