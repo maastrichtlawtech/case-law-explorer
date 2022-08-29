@@ -230,7 +230,7 @@ def get_citations_csv(celex):
     endpoint = 'https://publications.europa.eu/webapi/rdf/sparql'
     input_celex = '", "'.join(celex)
     query = '''
-           prefix cdm: <https://publications.europa.eu/ontology/cdm#>
+           prefix cdm: <http://publications.europa.eu/ontology/cdm#>
  prefix xsd: <http://www.w3.org/2001/XMLSchema#>
 
         SELECT DISTINCT * WHERE
@@ -763,7 +763,8 @@ After all that is done, it saves the csv file in processed directory with "Proce
 
 
 def transform_file(filepath):
-    print("How many threads should the code use for this transformation? (15 should be enough)")
+    print("How many threads should the code use for this transformation? (15 should be safe, higher numbers might "
+          "limit your internet heavily)")
     threads = int(input())
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
