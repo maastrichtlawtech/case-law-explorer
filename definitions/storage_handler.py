@@ -39,6 +39,7 @@ CELLAR_DIR = join(DIR_DATA, 'cellar')
 CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'         # eclis and decision dates of OpenDataUitspraken files
 CSV_RS_CASES = 'RS_cases.csv'                               # metadata of RS cases
 CSV_RS_OPINIONS = 'RS_opinions.csv'                         # metadata of RS opinions
+CSV_CELLAR_CASES = 'cellar_csv_data.csv'                    # Metadata of CELLAR cases
 CSV_RS_INDEX = 'RS_index.csv'                               # eclis, decision dates and relations of RS cases and opinions
 CSV_LI_CASES = 'LI_cases.csv'                               # metadata of LI cases
 CSV_CASE_CITATIONS = 'caselaw_citations.csv'                # citations of RS cases and opinions
@@ -46,6 +47,7 @@ CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'     # cited legislation 
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
+
 CELLAR_METADATA = join(CELLAR_DIR, 'cellar_metadata.json')
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
 
@@ -267,7 +269,8 @@ class Storage:
                                 )
                             )
                         return new_date
-
+            if DIR_DATA_PROCESSED in file_path:
+                return default_date(file_path)
             if file_path.endswith('.csv'):
                 import pandas as pd
                 try:

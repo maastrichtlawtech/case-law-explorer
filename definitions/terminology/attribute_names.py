@@ -5,7 +5,7 @@ Original LI terminology: see https://www.legalintelligence.com/files/li-search-e
 """
 
 # corresponding fields in RS and LI (change here if you want to remap fields):
-ECLI = RS_IDENTIFIER = 'ecli'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
+ECLI = RS_IDENTIFIER = 'ECLI'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
 SOURCE = LI_DOCUMENT_TYPE = 'source'  # source of case (so far: always 'Rechtspraak')
 JURISDICTION_COUNTRY = LI_JURISDICTION = 'jurisdiction_country'  # country of jurisdiction (so far: always 'NL')
 RS_ISSUED = LI_PUBLICATION_DATE = 'date_publication'  # date of document publication
@@ -47,3 +47,9 @@ LIDO_TYPE = 'type'  # type id of citation as given in the linktype URL
 LIDO_WET = 'legal_provision_url_lido'  # URL to lido entry of cited legislation
 LIDO_ARTIKEL = 'legal_provision_url'  # URL to cited legislation (on wetten.nl)
 LIDO_ARTIKEL_TITLE = 'legal_provision'  # title of cited legislation
+
+# fields only in CELLAR
+CELLAR_KEYWORDS = 'Keywords'
+CELLAR_DIRECTORY_CODES = 'Case law directory codes'
+CELLAR_SUBJECT_MATTER =  'Subject matter'
+CELLAR_CITATIONS = 'WORK CITES WORK. CI/CJ'
