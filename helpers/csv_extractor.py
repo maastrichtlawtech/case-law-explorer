@@ -1,19 +1,10 @@
 import glob, sys
 from os.path import dirname, abspath
-import pandas as pd
 import argparse
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_PROCESSED
-
+from helpers.json_to_csv import read_csv
 # In this list, we would insert headings of all the columns we want removed from the data
-def read_csv(file_path):
-    try:
-        data = pd.read_csv(file_path,sep=",",encoding='utf-8')
-        #print(data)
-        return data
-    except:
-        print("Something went wrong when trying to open the csv file!")
-        sys.exit(2)
 
 def extract_rows(data,number):
 
@@ -39,12 +30,12 @@ if __name__ == '__main__':
     print(f"FOUND {len(csv_files)} CSV FILES")
 
     for i in range(len(csv_files)):
-        if("Processed" in csv_files[i]):
+        if("tester" in csv_files[i]):
             print("")
             print(f"EXTRACTING FROM {csv_files[i]} ")
             data=read_csv(csv_files[i])
             output=extract_rows(data,number)
-            output_path=csv_files[i].replace("Processed","Extracted")
+            output_path=csv_files[i].replace("tester","tester_100")
             output.to_csv(output_path,index=False)
     print("")
     print(f"Extraction DONE")

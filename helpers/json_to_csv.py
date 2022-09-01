@@ -7,7 +7,7 @@ from os.path import dirname, abspath,join
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import CELLAR_DIR, DIR_DATA_PROCESSED
 WINDOWS_SYSTEM=False
-
+import pandas as pd
 if sys.platform =="win32":
     WINDOWS_SYSTEM = True
 def windows_path(original):
@@ -20,6 +20,11 @@ Y = ['LEGAL RESOURCE HAS TYPE OF ACT', 'WORK HAS RESOURCE TYPE', 'CASE LAW ORIGI
 COLS = set(X + Y)
 COLS = sorted(COLS)
 
+"""
+Method used after the json to csv conversion, to save the file in the processed directory.
+"""
+
+
 def create_csv(filepath, encoding="UTF8", data=None, filename="undefined.csv"):
 	if data != "":
 		csv_file = open(filepath, 'w', encoding=encoding)
@@ -29,48 +34,94 @@ def create_csv(filepath, encoding="UTF8", data=None, filename="undefined.csv"):
 		csv_file.close()
 		print("CSV file " + filename + " created in " + DIR_DATA_PROCESSED)
 
+
+"""
+Reads the json file and returns it.
+"""
+
+
 def read_json(file_path):
-	with open(file_path, 'r') as f:
-		json_data = json.loads(f.read())
-	return json_data
+    with open(file_path, 'r') as f:
+        json_data = json.loads(f.read())
+    return json_data
+
+
+"""
+Method used to transform the json file received from cellar_extraction to a csv file.
+Cellar specific, sets specific columns with names defined at the beginning of file as COLS.
+"""
+
 
 def json_to_csv(json_data):
-	final_data = []
-	for i in json_data:
-		ecli_data = json_data[i]
+    final_data = []
+    for i in json_data:
+        ecli_data = json_data[i]
 
-		data = [''] * len(COLS)
+        data = [''] * len(COLS)
 
-		for v in ecli_data.items():
-			title = v[0].upper()
+        for v in ecli_data.items():
+            title = v[0].upper()
 
-			value = str(v[1])
-			# Remove new lines
-			value = re.sub(r"\\n", '', str(value))
-			# Remove blank spaces appearing more than one time
-			value = re.sub(r" +", ' ', str(value))
-			# Remove brackets
-			value = re.sub(r"\[", "", str(value))
-			value = re.sub(r"\]", "", str(value))
-			# Remove unwanted quotation marks
-			value = re.sub(r"'", "", str(value))
-			# value = re.sub("\"", "", str(value))
-			# Remove semicolon
-			value = re.sub(r";", ",", str(value))
-			# Changing the commas inside lists of data into _, a fix to windows-only issue
-			# Making commas as the only value separator in the dataset
-			value = re.sub(r",", "_", str(value))
-			# Remove HTML tags
-			value = BeautifulSoup(value, "lxml").text
+            value = str(v[1])
+            # Remove new lines
+            value = re.sub(r"\\n", '', str(value))
+            # Remove blank spaces appearing more than one time
+            value = re.sub(r" +", ' ', str(value))
+            # Remove brackets
+            value = re.sub(r"\[", "", str(value))
+            value = re.sub(r"\]", "", str(value))
+            # Remove unwanted quotation marks
+            value = re.sub(r"'", "", str(value))
+            # value = re.sub("\"", "", str(value))
+            # Remove semicolon
+            value = re.sub(r";", ",", str(value))
+            # Changing the commas inside lists of data into _, a fix to windows-only issue
+            # Making commas as the only value separator in the dataset
+            value = re.sub(r",", "_", str(value))
+            # Remove HTML tags
+            value = BeautifulSoup(value, "lxml").text
 
-			for j in [j for j, x in enumerate(COLS) if x == title]:
-				data[j] = value
-		# data.insert(j-1, value)
-		# print(j-1, value)
+            for j in [j for j, x in enumerate(COLS) if x == title]:
+                data[j] = value
+        # data.insert(j-1, value)
+        # print(j-1, value)
 
-		final_data.append(data)
-	return final_data
+        final_data.append(data)
+    return final_data
 
+"""
+Reads a csv file and returns it.
+"""
+
+
+def read_csv(file_path):
+    try:
+        data = pd.read_csv(file_path, sep=",", encoding='utf-8')
+        # print(data)
+        return data
+    except Exception:
+        print("Something went wrong when trying to open the csv file!")
+        sys.exit(2)
+
+def json_to_csv(filepath):
+    i=filepath
+    json_data = read_json(i)
+
+    if json_data:
+        final_data = json_to_csv(json_data)
+
+        if final_data:
+            if WINDOWS_SYSTEM:
+                i = windows_path(i)
+            filename = i[i.rindex('/') + 1:].partition('.')[0] + ".csv"
+            filepath = DIR_DATA_PROCESSED + "/" + filename
+
+            create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
+        else:
+            print("Error creating CSV file. Data is empty.")
+    else:
+        print("Error reading json file. Please make sure json file exists and contains data.")
+    return read_csv(filepath)
 if __name__ == '__main__':
 	json_data = '';
 
