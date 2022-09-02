@@ -1,6 +1,7 @@
-import glob, sys,time
+import glob, sys, time
 from os.path import dirname, abspath
 import pandas as pd
+
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_PROCESSED
 from helpers.sparql import get_citations_csv
@@ -20,6 +21,7 @@ def execute_citations(csv_list, citations):
     for i in range(0, len(citations), at_once):
         new_csv = get_citations_csv(citations[i:(i + at_once)])
         csv_list.append(StringIO(new_csv))
+
 
 """
 This method replaces replaces the column with citations.
@@ -61,6 +63,7 @@ def add_citations(data, threads):
     citations.sort_index(inplace=True)
     data.insert(1, name, citations)
 
+
 if __name__ == '__main__':
 
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
@@ -71,8 +74,8 @@ if __name__ == '__main__':
             start: float = time.time()
             print(f"EXTRACTING FROM {csv_files[i]} ")
             data = read_csv(csv_files[i])
-            add_citations(data,10)
+            add_citations(data, 10)
             end = time.time()
             print("\n--- DONE ---")
             print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-            data.to_csv(csv_files[i].replace("Extracted","With Citations"), index=False)
+            data.to_csv(csv_files[i].replace("Extracted", "With Citations"), index=False)

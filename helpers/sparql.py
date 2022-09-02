@@ -92,4 +92,3 @@ def get_citations_csv(celex):
     except Exception:
         return get_citations_csv(celex)
     return ret.decode("utf-8")
-

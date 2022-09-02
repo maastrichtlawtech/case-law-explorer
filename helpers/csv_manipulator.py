@@ -4,6 +4,7 @@ from os.path import dirname, abspath
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_PROCESSED
 from helpers.json_to_csv import read_csv
+
 X = ['WORK IS CREATED BY AGENT (AU)', 'CASE LAW COMMENTED BY AGENT', 'CASE LAW HAS A TYPE OF PROCEDURE',
      'LEGAL RESOURCE USES ORIGINALLY LANGUAGE', 'CASE LAW USES LANGUAGE OF PROCEDURE',
      'CASE LAW HAS A JUDICIAL PROCEDURE TYPE', 'WORK HAS RESOURCE TYPE', 'LEGAL RESOURCE BASED ON TREATY CONCEPT',
@@ -45,13 +46,13 @@ Method used to remove unnecessary columns from a dataframe.
 
 
 def drop_columns(data):
-    columns=data_to_drop
+    columns = data_to_drop
     for i in range(len(columns)):
         try:
             data.pop(columns[i])
         except:
             print(f"Column titled {columns[i]} does not exist in the file!")
-    data.drop(data[-data.ECLI.str.contains("ECLI:EU")].index,inplace=True)
+    data.drop(data[-data.ECLI.str.contains("ECLI:EU")].index, inplace=True)
     data.reset_index()
 
 
@@ -59,23 +60,23 @@ if __name__ == '__main__':
     print("")
     print("TRANSFORMATION OF CSV FILES IN DATA PROCESSED DIR STARTED")
     print("")
-    #csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
-   # print(f"FOUND {len(csv_files)} CSV FILES")
+    # csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
+    # print(f"FOUND {len(csv_files)} CSV FILES")
 
-   # for i in range(len(csv_files)):
+    # for i in range(len(csv_files)):
     #    if("Transformed" not in csv_files[i] and "Citations" not in csv_files[i] and "Extracted" not in csv_files[i]):
     #        print("")
     #        print(f"TRANSFORMING {csv_files[i]} ")
     #        data=read_csv(csv_files[i])
-     #       drop_columns(data,data_to_drop)
+    #       drop_columns(data,data_to_drop)
     #        output_path=csv_files[i].replace(".csv","_Transformed.csv")
-     #       data.to_csv(output_path,index=False)
+    #       data.to_csv(output_path,index=False)
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     for i in range(len(csv_files)):
-        if("test"  in csv_files[i]):
-            data=read_csv(csv_files[i])
-            b=3
-    b=2
+        if ("test" in csv_files[i]):
+            data = read_csv(csv_files[i])
+            b = 3
+    b = 2
     print("")
     print(f"TRANSFORMATION DONE")
     print("")

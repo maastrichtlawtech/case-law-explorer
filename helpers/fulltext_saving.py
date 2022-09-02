@@ -1,11 +1,12 @@
 import glob, sys
 from os.path import dirname, abspath
 import pandas as pd
+
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_PROCESSED
 from bs4 import BeautifulSoup
 import requests
-from eurlex  import get_html_by_celex_id
+from eurlex import get_html_by_celex_id
 import time
 import threading
 from helpers.json_to_csv import read_csv
@@ -262,6 +263,87 @@ def get_entire_page(celex):
         return "No data available"
 
 
+def get_subject(text):
+    try:
+        index_matter = text.index("Subject matter:")
+        try:
+            index_end = text.index("Case law directory code:")  # if this fails then miscellaneous
+        except Exception:
+            index_end = text.index("Miscellaneous information")
+        extracting = text[index_matter + 16:index_end]
+        subject_mat = extracting.split(sep="\n")
+        subject = "_".join(subject_mat)
+        subject = subject[:len(subject) - 1]
+    except Exception:
+        subject = ""
+    return subject
+
+
+def get_eurovoc(text):
+    try:
+        start = text.find("EUROVOC")
+        try:
+            ending = text.find("Subject matter")
+        except:
+            try:
+                ending = text.find("Directory code")
+            except:
+                try:
+                    ending = text.find("Miscellaneous information")
+                except:
+                    ending = start
+        if ending is start:
+            return ""
+        else:
+            text = text[start:ending]
+            texts = text.split("\n")
+            lists = []
+            for t in texts:
+                if "EUROVOC" not in t and t != "":
+                    lists.append(t)
+            return "_".join(lists)
+    except:
+        return ""
+
+
+def get_codes(text):
+    try:
+        index_codes = text.index("Case law directory code:")
+        index_end = text.index("Miscellaneous information")
+        extracting = text[index_codes + 20:index_end]
+        extracting = extracting.rstrip()
+        words = extracting.split()
+        codes = [x for x in words if is_code(x)]
+        codes_full = list(set(codes))
+        codes_result = list()
+        indexes = [extracting.find(x) for x in codes_full]
+        for x in range(len(codes_full)):
+            done = False
+            index_start = indexes[x]
+            getting_ending = extracting[index_start:]
+            words_here = getting_ending.split()
+
+            for words in words_here:
+
+                if words is not words_here[0]:
+
+                    if is_code(words):
+                        ending = getting_ending[2:].find(words)
+                        done = True
+                        break
+
+            if done:
+                code_text = getting_ending[:ending]
+            else:
+                code_text = getting_ending
+
+            codes_result.append(code_text.replace("\n", ""))
+        code = "_".join(codes_result)
+    except:
+        code = ""
+    return code
+
+
 """
 This is the method executed by individual threads by the add_sections method.
 
@@ -271,91 +353,44 @@ after all the threads are done the individual parts are put together.
 """
 
 
-def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_subject, list_codes):
+def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_subject, list_codes, list_eurovoc):
     sum = pd.Series([], dtype='string')
     key = pd.Series([], dtype='string')
     full = pd.Series([], dtype='string')
     subject_matter = pd.Series([], dtype='string')
     case_codes = pd.Series([], dtype='string')
+    eurovocs = pd.Series([], dtype='string')
     for i in range(len(celex)):
         j = start + i
         id = celex[j]
         html = get_html_by_celex_id_wrapper(id)
         if html != "404":
-
             if "] not found." in html:
-                # print(f"Full text not found for {Ids[i]}" )
-                full[j] = "No full text in english available"
-                # put_data_in_threads(full,j,"No full text in english available")
+                full[j] = ""
             else:
                 text = get_full_text_from_html(html)
                 full[j] = text
 
-        summary = get_summary_html(id)  # put_data_in_threads(full,j,text)
+        summary = get_summary_html(id)
         if summary != "No summary available":
             text = get_keywords_from_html(summary, id[0])
             text2 = get_summary_from_html(summary, id[0])
             key[j] = text
             sum[j] = text2
-            # put_data_in_threads(key,j,text)
-            # put_data_in_threads(sum, j, text2)
         else:
-            key[j] = summary
-            sum[j] = summary
-            # put_data_in_threads(key, j, summary)
-            # put_data_in_threads(sum, j, summary)
+            key[j] = ""
+            sum[j] = ""
         entire_page = get_entire_page(id)
         text = get_full_text_from_html(entire_page)
         if entire_page != "No data available":
-            try:
-                index_matter = text.index("Subject matter:")
-                try:
-                    index_end = text.index("Case law directory code:")  # if this fails then miscellaneous
-                except Exception:
-                    index_end = text.index("Miscellaneous information")
-                extracting = text[index_matter + 16:index_end]
-                subject_mat = extracting.split(sep="\n")
-                subject = "_".join(subject_mat)
-                subject = subject[:len(subject) - 1]
-            except Exception:
-                subject = ""
-            try:
-                index_codes = text.index("Case law directory code:")
-                index_end = text.index("Miscellaneous information")
-                extracting = text[index_codes + 20:index_end]
-                extracting = extracting.rstrip()
-                words = extracting.split()
-                codes = [x for x in words if is_code(x)]
-                codes_full = list(set(codes))
-                codes_result = list()
-                indexes = [extracting.find(x) for x in codes_full]
-                for x in range(len(codes_full)):
-                    done = False
-                    index_start = indexes[x]
-                    getting_ending = extracting[index_start:]
-                    words_here = getting_ending.split()
-
-                    for words in words_here:
-
-                        if words is not words_here[0]:
-
-                            if is_code(words):
-                                ending = getting_ending[2:].find(words)
-                                done = True
-                                break
-
-                    if done:
-                        code_text = getting_ending[:ending]
-                    else:
-                        code_text = getting_ending
-
-                    codes_result.append(code_text.replace("\n", ""))
-                code = "_".join(codes_result)
-            except:
-                code = ""
+            subject = get_subject(text)
+            code = get_codes(text)
+            eurovoc = get_eurovoc(text)
         else:
             code = ""
             subject = ""
+            eurovoc = ""
+        eurovocs[j] = eurovoc
         subject_matter[j] = subject
         case_codes[j] = code
     list_sum.append(sum)
@@ -363,6 +398,7 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
     list_full.append(full)
     list_codes.append(case_codes)
     list_subject.append(subject_matter)
+    list_eurovoc.append(eurovocs)
 
 
 """
@@ -382,11 +418,6 @@ It operates with multiple threads, using that feature is recommended as it speed
 def add_sections(data, threads):
     name = 'CELEX IDENTIFIER'
     celex = data.loc[:, name]
-    summaries = pd.Series([], dtype='string')
-    keywords = pd.Series([], dtype='string')
-    full_text = pd.Series([], dtype='string')
-    codes = pd.Series([], dtype='string')
-    subject_matter = pd.Series([], dtype='string')
     at_once_threads = int(celex.size / threads)
     length = celex.size
     threads = []
@@ -395,35 +426,30 @@ def add_sections(data, threads):
     list_full = list()
     list_codes = list()
     list_subject = list()
+    list_eurovoc = list()
     for i in range(0, length, at_once_threads):
         curr_celex = celex[i:(i + at_once_threads)]
         t = threading.Thread(target=execute_sections_threads,
-                             args=(curr_celex, i, list_sum, list_key, list_full, list_subject, list_codes))
+                             args=(
+                                 curr_celex, i, list_sum, list_key, list_full, list_subject, list_codes, list_eurovoc))
         threads.append(t)
     for t in threads:
         t.start()
     for t in threads:
         t.join()
-    for l in list_sum:
-        summaries = summaries.append(l)
-    for l in list_key:
-        keywords = keywords.append(l)
-    for l in list_full:
-        full_text = full_text.append(l)
-    for l in list_codes:
-        codes = codes.append(l)
-    for l in list_subject:
-        subject_matter = subject_matter.append(l)
-    full_text.sort_index(inplace=True)
-    summaries.sort_index(inplace=True)
-    keywords.sort_index(inplace=True)
-    codes.sort_index(inplace=True)
-    subject_matter.sort_index(inplace=True)
-    data.insert(1, "Subject matter", subject_matter)
-    data.insert(1, "Case law directory codes", codes)
-    data.insert(1, "Full Text", full_text)
-    data.insert(1, "Keywords", keywords)
-    data.insert(1, "Summary", summaries)
+    add_column_frow_list(data, "celex_summary", list_sum)
+    add_column_frow_list(data, "celex_kewords", list_key)
+    add_column_frow_list(data, "celex_eurovoc", list_eurovoc)
+    add_column_frow_list(data, "celex_subject_matter", list_subject)
+    add_column_frow_list(data, "celex_directory_codes", list_codes)
+
+
+def add_column_frow_list(data, name, list):
+    column = pd.Series([], dtype='string')
+    for l in list:
+        column = column.append(l)
+    column.sort_index(inplace=True)
+    data.insert(1, name, column)
 
 
 if __name__ == '__main__':
@@ -434,7 +460,7 @@ if __name__ == '__main__':
             print("")
             print(f"WORKING ON  {csv_files[i]} ")
             data = read_csv(csv_files[i])
-            #add_sections(data)
+            # add_sections(data)
             add_keywords(data)
-            data.to_csv(csv_files[i].replace("Extracted","With Summary"), index=False)
+            data.to_csv(csv_files[i].replace("Extracted", "With Summary"), index=False)
     print("WORK FINISHED SUCCESSFULLY!")
