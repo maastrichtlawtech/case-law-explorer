@@ -133,7 +133,7 @@ def get_words_from_keywords(text):
     for word in words:
         if "-" in word:
             result.update(word.split(sep="-"))
-    return "_".join(result)
+    return ";".join(result)
 
 
 """
@@ -272,7 +272,7 @@ def get_subject(text):
             index_end = text.index("Miscellaneous information")
         extracting = text[index_matter + 16:index_end]
         subject_mat = extracting.split(sep="\n")
-        subject = "_".join(subject_mat)
+        subject = ";".join(subject_mat)
         subject = subject[:len(subject) - 1]
     except Exception:
         subject = ""
@@ -301,7 +301,7 @@ def get_eurovoc(text):
             for t in texts:
                 if "EUROVOC" not in t and t != "":
                     lists.append(t)
-            return "_".join(lists)
+            return ";".join(lists)
     except:
         return ""
 
@@ -338,7 +338,7 @@ def get_codes(text):
                 code_text = getting_ending
 
             codes_result.append(code_text.replace("\n", ""))
-        code = "_".join(codes_result)
+        code = ";".join(codes_result)
     except:
         code = ""
     return code
@@ -440,6 +440,7 @@ def add_sections(data, threads):
     add_column_frow_list(data, "celex_summary", list_sum)
     add_column_frow_list(data, "celex_kewords", list_key)
     add_column_frow_list(data, "celex_eurovoc", list_eurovoc)
+    add_column_frow_list(data,"celex_full_text",list_full)
     add_column_frow_list(data, "celex_subject_matter", list_subject)
     add_column_frow_list(data, "celex_directory_codes", list_codes)
 

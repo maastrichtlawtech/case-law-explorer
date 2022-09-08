@@ -7,7 +7,7 @@ import sys
 from os.path import dirname, abspath, join
 
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-from definitions.storage_handler import CELLAR_DIR, DIR_DATA_PROCESSED
+from definitions.storage_handler import CELLAR_DIR, DIR_DATA_PROCESSED,get_path_raw,CSV_CELLAR_CASES
 
 WINDOWS_SYSTEM = False
 import pandas as pd
@@ -101,7 +101,7 @@ def json_to_csv(json_data):
             value = re.sub(r";", ",", str(value))
             # Changing the commas inside lists of data into _, a fix to windows-only issue
             # Making commas as the only value separator in the dataset
-            value = re.sub(r",", "_", str(value))
+            value = re.sub(r",", ";", str(value))
             # Remove HTML tags
             value = BeautifulSoup(value, "lxml").text
 
@@ -129,8 +129,9 @@ def read_csv(file_path):
         sys.exit(2)
 
 
-def json_to_csv(filepath):
+def json_to_csv_main(filepath):
     i = filepath
+    print(f"JSON TO CSV OF {filepath} HAS STARTED")
     json_data = read_json(i)
 
     if json_data:
@@ -140,7 +141,7 @@ def json_to_csv(filepath):
             if WINDOWS_SYSTEM:
                 i = windows_path(i)
             filename = i[i.rindex('/') + 1:].partition('.')[0] + ".csv"
-            filepath = DIR_DATA_PROCESSED + "/" + filename
+            filepath = get_path_raw(CSV_CELLAR_CASES)
 
             create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
         else:
@@ -156,19 +157,8 @@ if __name__ == '__main__':
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
 
     for i in json_files:
-        json_data = read_json(i)
-
-        if json_data:
-            final_data = json_to_csv(json_data)
-
-            if final_data:
-                if WINDOWS_SYSTEM:
-                    i = windows_path(i)
-                filename = i[i.rindex('/') + 1:].partition('.')[0] + ".csv"
-                filepath = DIR_DATA_PROCESSED + "/" + filename
-
-                create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
-            else:
-                print("Error creating CSV file. Data is empty.")
-        else:
-            print("Error reading json file. Please make sure json file exists and contains data.")
+        print(f"\nFound file {i}")
+        print("\nShould this file be transformed? Answer Y/N please.")
+        answer = str(input())
+        if answer == "Y":
+           json_to_csv_main(i)

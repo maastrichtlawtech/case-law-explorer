@@ -24,7 +24,9 @@ MAP_RS = {
     JURISDICTION_COUNTRY: JURISDICTION_COUNTRY,  # not in original data, added through script
     SOURCE: SOURCE  # not in original data, added through script
 }
+MAP_CELLAR = {
 
+}
 MAP_RS_OPINION = MAP_RS.copy()
 MAP_RS_OPINION[ECLI_DECISION] = ECLI_DECISION  # not in original data, added through script
 

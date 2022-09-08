@@ -8,7 +8,11 @@ import dateutil.parser
 import re
 import sys
 import csv
-csv.field_size_limit(sys.maxsize)
+from ctypes import c_long, sizeof
+signed = c_long(-1).value < c_long(0).value
+bit_size = sizeof(c_long)*8
+signed_limit = 2**(bit_size-1)
+csv.field_size_limit(signed_limit-1 if signed else 2*signed_limit-1)
 
 # %%
 """ CLEANING: """
@@ -70,8 +74,9 @@ def format_li_domains(text):
         domains = domains.union(MAP_LI_DOMAINS[domain])
     domains_str = format_li_list(str(list(domains)))
     return format_domains(domains_str)
-
-
+def format_cellar_year(text):
+    all = text.split("-")
+    return all[0]
 def format_instance(text):
     for key, value in MAP_INSTANCE.items():
         text = text.replace(key, value)

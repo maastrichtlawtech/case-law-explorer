@@ -57,7 +57,7 @@ def add_citations(data, threads):
     for celex in celexes:
         index = data[data['CELEX IDENTIFIER'] == celex].index.values
         cited = df[df['celex'] == celex].loc[:, "citedD"]
-        string = "_".join(cited)
+        string = ";".join(cited)
         citations[index[0]] = string
     data.pop(name)
     citations.sort_index(inplace=True)

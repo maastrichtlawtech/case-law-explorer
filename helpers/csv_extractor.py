@@ -3,7 +3,7 @@ from os.path import dirname, abspath
 import argparse
 
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-from definitions.storage_handler import DIR_DATA_PROCESSED
+from definitions.storage_handler import DIR_DATA_PROCESSED,DIR_DATA_RAW
 from helpers.json_to_csv import read_csv
 
 
@@ -28,16 +28,16 @@ if __name__ == '__main__':
     print("")
     print("EXTRACTION FROM CSV FILE IN DATA PROCESSED DIR STARTED")
     print("")
-    csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
+    csv_files = (glob.glob(DIR_DATA_RAW + "/" + "*.csv"))
     print(f"FOUND {len(csv_files)} CSV FILES")
 
     for i in range(len(csv_files)):
-        if ("tester" in csv_files[i]):
+        if ("clean" not in csv_files[i]):
             print("")
             print(f"EXTRACTING FROM {csv_files[i]} ")
             data = read_csv(csv_files[i])
             output = extract_rows(data, number)
-            output_path = csv_files[i].replace("tester", "tester_100")
+            output_path = DIR_DATA_RAW+"/tester_100.csv"
             output.to_csv(output_path, index=False)
     print("")
     print(f"Extraction DONE")

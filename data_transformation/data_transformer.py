@@ -5,11 +5,11 @@ sys.path.append(dirname(dirname(abspath(__file__))))
 from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
-    get_path_raw, get_path_processed
+    get_path_raw, get_path_processed,CSV_CELLAR_CASES
 import time
 import argparse
 from csv import DictReader, DictWriter
-
+from cellar_transformation import transform_cellar
 
 """
 Define tool_maps
@@ -37,17 +37,21 @@ tool_map_li = {
     'Sources': format_li_list,
     'SearchNumbers': format_li_list
 }
-
+tool_map_cellar = {
+    'YEAR OF THE LEGAL RESOURCE' : format_cellar_year
+}
 tool_maps = {
     get_path_raw(CSV_RS_CASES): tool_map_rs,
     get_path_raw(CSV_RS_OPINIONS): tool_map_rs,
-    get_path_raw(CSV_LI_CASES): tool_map_li
+    get_path_raw(CSV_LI_CASES): tool_map_li,
+    get_path_raw(CSV_CELLAR_CASES) : tool_map_cellar
 }
 
 field_maps = {
     get_path_raw(CSV_RS_CASES): MAP_RS,
     get_path_raw(CSV_RS_OPINIONS): MAP_RS_OPINION,
-    get_path_raw(CSV_LI_CASES): MAP_LI
+    get_path_raw(CSV_LI_CASES): MAP_LI,
+    get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR
 }
 
 
@@ -59,7 +63,8 @@ start = time.time()
 input_paths = [
     get_path_raw(CSV_RS_CASES),
     get_path_raw(CSV_RS_OPINIONS),
-    get_path_raw(CSV_LI_CASES)
+    get_path_raw(CSV_LI_CASES),
+    get_path_raw(CSV_CELLAR_CASES)
 ]
 
 parser = argparse.ArgumentParser()
@@ -72,6 +77,15 @@ print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for 
 
 # run data transformation for each input file
 for input_path in input_paths:
+    broken = False
+    try:
+        with open(input_path, 'r', newline='') as in_file:
+            b = 2
+    except:
+        print(f"No such file found as {input_path}")
+        broken = True
+    if broken:
+        continue
     file_name = basename(input_path)
     output_path = get_path_processed(file_name)
     print(f'\n--- PREPARATION {file_name} ---\n')
@@ -84,7 +98,8 @@ for input_path in input_paths:
 
     field_map = field_maps.get(input_path)
     tool_map = tool_maps.get(input_path)
-
+    if CSV_CELLAR_CASES in input_path:
+        transform_cellar(input_path,15)
     with open(output_path, 'a', newline='') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()

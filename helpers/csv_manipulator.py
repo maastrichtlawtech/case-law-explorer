@@ -22,7 +22,7 @@ Y = ['LEGAL RESOURCE HAS TYPE OF ACT', 'WORK HAS RESOURCE TYPE', 'CASE LAW ORIGI
      'TYPE OF LEGAL RESOURCE', 'YEAR OF THE LEGAL RESOURCE', 'WORK IS CREATED BY AGENT (AU)',
      'LEGACY DATE OF CREATION OF WORK', 'DATE OF DOCUMENT', 'IDENTIFIER OF DOCUMENT', 'WORK TITLE', 'CMR CREATION DATE',
      'LAST CMR MODIFICATION DATE', 'CASE LAW DELIVERED BY NATIONAL COURT', 'REFERENCE TO A EUROPEAN ACT IN FREE TEXT',
-     'CASE LAW BASED ON A LEGAL INSTRUMENT', 'PARTIES OF THE CASE LAW']
+     'CASE LAW BASED ON A LEGAL INSTRUMENT', 'PARTIES OF THE CASE LAW','index']
 
 COLS = set(X + Y)
 COLS = sorted(COLS)
@@ -53,7 +53,7 @@ def drop_columns(data):
         except:
             print(f"Column titled {columns[i]} does not exist in the file!")
     data.drop(data[-data.ECLI.str.contains("ECLI:EU")].index, inplace=True)
-    data.reset_index()
+    data.reset_index(inplace=True, drop=True)
 
 
 if __name__ == '__main__':

@@ -269,7 +269,7 @@ class Storage:
                                 )
                             )
                         return new_date
-            if DIR_DATA_PROCESSED in file_path:
+            if DIR_DATA_RAW  in file_path or DIR_DATA_PROCESSED in file_path:
                 return default_date(file_path)
             if file_path.endswith('.csv'):
                 import pandas as pd
