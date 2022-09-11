@@ -7,7 +7,7 @@ import sys
 from os.path import dirname, abspath, join
 
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-from definitions.storage_handler import CELLAR_DIR, DIR_DATA_PROCESSED,get_path_raw,CSV_CELLAR_CASES
+from definitions.storage_handler import CELLAR_DIR, DIR_DATA_RAW,get_path_raw,CSV_CELLAR_CASES
 
 WINDOWS_SYSTEM = False
 import pandas as pd
@@ -56,7 +56,7 @@ def create_csv(filepath, encoding="UTF8", data=None, filename="undefined.csv"):
         csv_writer.writerow(COLS)
         csv_writer.writerows(data)
         csv_file.close()
-        print("CSV file " + filename + " created in " + DIR_DATA_PROCESSED)
+        print("CSV file " + filename + " created in " + DIR_DATA_RAW)
 
 
 """
@@ -140,7 +140,7 @@ def json_to_csv_main(filepath):
         if final_data:
             if WINDOWS_SYSTEM:
                 i = windows_path(i)
-            filename = i[i.rindex('/') + 1:].partition('.')[0] + ".csv"
+            filename = CSV_CELLAR_CASES
             filepath = get_path_raw(CSV_CELLAR_CASES)
 
             create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)

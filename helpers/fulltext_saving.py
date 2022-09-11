@@ -363,13 +363,13 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
     for i in range(len(celex)):
         j = start + i
         id = celex[j]
-        html = get_html_by_celex_id_wrapper(id)
-        if html != "404":
-            if "] not found." in html:
-                full[j] = ""
-            else:
-                text = get_full_text_from_html(html)
-                full[j] = text
+        #html = get_html_by_celex_id_wrapper(id)
+       # if html != "404":
+          #  if "] not found." in html:
+           #     full[j] = ""
+           # else:
+           #     text = get_full_text_from_html(html)
+            #    full[j] = text
 
         summary = get_summary_html(id)
         if summary != "No summary available":
@@ -395,7 +395,7 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
         case_codes[j] = code
     list_sum.append(sum)
     list_key.append(key)
-    list_full.append(full)
+   # list_full.append(full)
     list_codes.append(case_codes)
     list_subject.append(subject_matter)
     list_eurovoc.append(eurovocs)
@@ -438,9 +438,9 @@ def add_sections(data, threads):
     for t in threads:
         t.join()
     add_column_frow_list(data, "celex_summary", list_sum)
-    add_column_frow_list(data, "celex_kewords", list_key)
+    add_column_frow_list(data, "celex_keywords", list_key)
     add_column_frow_list(data, "celex_eurovoc", list_eurovoc)
-    add_column_frow_list(data,"celex_full_text",list_full)
+   # add_column_frow_list(data,"celex_full_text",list_full)
     add_column_frow_list(data, "celex_subject_matter", list_subject)
     add_column_frow_list(data, "celex_directory_codes", list_codes)
 

@@ -5,19 +5,21 @@ Original LI terminology: see https://www.legalintelligence.com/files/li-search-e
 """
 
 # corresponding fields in RS and LI (change here if you want to remap fields):
-ECLI = RS_IDENTIFIER = 'ECLI'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
 SOURCE = LI_DOCUMENT_TYPE = 'source'  # source of case (so far: always 'Rechtspraak')
 JURISDICTION_COUNTRY = LI_JURISDICTION = 'jurisdiction_country'  # country of jurisdiction (so far: always 'NL')
-RS_ISSUED = LI_PUBLICATION_DATE = 'date_publication'  # date of document publication
 RS_CREATOR = LI_ISSUING_INSTITUTION = 'instance'  # name of instance (court)
 RS_DATE = LI_ENACTMENT_DATE = 'date_decision'  # date of court decision
 RS_ZAAKNUMMER = LI_CASE_NUMBER = 'case_number'  # case number, for internal use by courts -- main identifier prior to introduction of ECLI
 RS_SUBJECT = LI_LAW_AREA = 'domains'  # domain(s) (area(s) of the law) applicable to case
 RS_HASVERSION = LI_SOURCES = 'alternative_publications'  # references to other publications
 RS_IDENTIFIER2 = LI_ORIGINAL_URL = 'url_publication'  # URL to original document by publisher
-RS_INHOUDSINDICATIE = LI_SUMMARY = 'summary'  # case summary
 RS_TITLE = LI_TITLE = 'title'  # title of case
-RS_FULL_TEXT = 'full_text'  # full text of case
+
+
+# fields in RS and LI and CELLAR
+RS_ISSUED = LI_PUBLICATION_DATE = CELLAR_DATE_OF_DOCUMENT = 'date_publication'  # date of document publication
+RS_INHOUDSINDICATIE = LI_SUMMARY = CELLAR_SUMMARY =  'summary'  # case summary
+ECLI = RS_IDENTIFIER = 'ECLI'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
 
 # fields only in RS
 RS_LANGUAGE = 'language'
@@ -29,7 +31,7 @@ RS_REFERENCES = 'referenced_legislation_titles'  # title of applicable legislati
 RS_INFO = 'info'  # information about case, often not systematic or already captured in other fields
 ECLI_DECISION = 'ecli_decision'  # ecli of case decision corresponding to case opinion
 ECLI_OPINION = 'ecli_opinion'  # ecli of case opinion corresponding to case decision
-
+RS_FULL_TEXT = 'full_text'  # full text of case
 # fields only in LI
 LI_ID = 'document_id'  # internal document id in LI
 LI_DISPLAY_TITLE = 'display_title'  # title of document entry in LI
@@ -49,7 +51,26 @@ LIDO_ARTIKEL = 'legal_provision_url'  # URL to cited legislation (on wetten.nl)
 LIDO_ARTIKEL_TITLE = 'legal_provision'  # title of cited legislation
 
 # fields only in CELLAR
-CELLAR_KEYWORDS = 'Keywords'
-CELLAR_DIRECTORY_CODES = 'Case law directory codes'
-CELLAR_SUBJECT_MATTER =  'Subject matter'
-CELLAR_CITATIONS = 'WORK CITES WORK. CI/CJ'
+CELLAR_COMMENTED_AGENT = 'commented_by_agent'  # which Member States submitted information
+CELLAR_DIRECTORY_CODES = 'directory_codes'  # directory classification codes for case
+CELLAR_SUBJECT_MATTER = 'subject_matter'  # subject matter of case
+CELLAR_CITATIONS = 'citations'  # works cited by work and works citing work
+CELLAR_EUROVOC = 'eurovoc'  # eurovoc classification codes for the case
+CELLAR_KEYWORDS = 'keywords'  # keywords for case
+CELLAR_DELIVERED_COURT = 'delivered_by_court_formation'  # court (chamber) that delivered the judgment
+CELLAR_JUDICIAL_TYPE = 'judicial_type_procedure'  # type of procedure with more info
+CELLAR_TYPE_PROCEDURE = 'type_procedure'  # type of procedure
+CELLAR_CONCLUSIONS = 'conclusions'  # opinion of the Advocate-General
+CELLAR_LEGAL_RESOURCE = 'legal_resource'  # source that the case interprets
+CELLAR_COUNTRY = 'origin_country'  # country of origin
+CELLAR_COUNTRY_OR_ROLE = 'origin_country_or_role_qualifier'  # country of origin with more info
+CELLAR_CELEX = 'celex'  # celex identifier
+CELLAR_REQUEST_DATE = 'date_of_request'  # date of request for an opinion of Advocate-General
+CELLAR_CREATION_OF_WORK = 'date_of_creation'  # date of latest modification in dataset
+CELLAR_BASED_ON_TREATY = 'based_on_treaty'  # treaty on which judgment is based
+CELLAR_NATIONAL_JUDGMENT = 'national_judgment'  # source of national case
+CELLAR_JOURNAL_ARTICLES = 'references_journals'  # references to journal articles
+CELLAR_SECTOR = 'sector'  # type of source
+CELLAR_RESOURCE_TYPE = 'resource_type'  # document type
+CELLAR_YEAR_OF_RESOURCE = 'judgment_year'  # judgment year
+CELLAR_LANGUAGE = 'language_procedure'  # language of procedure

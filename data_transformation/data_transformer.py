@@ -99,12 +99,13 @@ for input_path in input_paths:
     field_map = field_maps.get(input_path)
     tool_map = tool_maps.get(input_path)
     if CSV_CELLAR_CASES in input_path:
-        transform_cellar(input_path,15)
-    with open(output_path, 'a', newline='') as out_file:
+       transform_cellar(input_path,15)
+      # asdadasd=12
+    with open(output_path, 'a', newline='',encoding='utf-8') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()
 
-        with open(input_path, 'r', newline='') as in_file:
+        with open(input_path, 'r', newline='',encoding='utf-8') as in_file:
             reader = DictReader(in_file)
             # process input file by row
             for row in reader:
