@@ -54,7 +54,6 @@ def format_li_list(text):
 def format_rs_date(text):
     return dateutil.parser.parse(text).date()
 
-
 # converts string representation of a date into datetime
 # from original LI date format YYYYMMDD or YYYYMMDD.0 (if numeric date was accidentally stored as float)
 def format_li_date(text):

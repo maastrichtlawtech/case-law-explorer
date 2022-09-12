@@ -39,6 +39,7 @@ tool_map_li = {
 }
 tool_map_cellar = {
     'YEAR OF THE LEGAL RESOURCE' : format_cellar_year
+
 }
 tool_maps = {
     get_path_raw(CSV_RS_CASES): tool_map_rs,

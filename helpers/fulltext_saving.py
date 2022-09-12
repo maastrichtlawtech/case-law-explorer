@@ -40,8 +40,19 @@ Cellar specific, works for celex id's starting a 6 and 8
 
 
 def get_summary_html(celex):
+    if ";" in celex:
+        idss = celex.split(";")
+        for idsss in idss:
+            if "_" in idsss:
+                celex = idsss
+    else:
+        celex = celex
+    celex=celex.replace(" ","")
     if celex.startswith("6"):
-        link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere_SUM&qid=1657547189758&from=EN#SM'
+        if "INF" in celex:
+            link='https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere&qid=1657547189758&from=EN#SM'
+        else:
+            link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere_SUM&qid=1657547189758&from=EN#SM'
         sum_link = link.replace("cIdHere", celex)
         response = response_wrapper(sum_link)
         try:
@@ -124,16 +135,51 @@ input text : Crime rates - Potato and carrot prices - Labour costs
 output keywords: rates_Potato_prices_Labour
 
 """
-
-
+def get_words_from_keywords_em(text):
+    lines=text.split(sep="\n")
+    returner=set()
+    for line in lines:
+        if "—" in line:
+            line=line.replace('‛',"")
+            returner.update(line.split(sep="—"))
+    return ";".join(returner)
+def get_words_from_keywords_old(text):
+    lines=text.split(sep='\n')
+    returner = set()
+    starting = 1
+    current = 1
+    for line in lines:
+        if (str(starting)+".") in line:
+            if current==1:
+                number=current
+                current +=1
+                line=line.replace((str(number)+" ."),"")
+                line=line.replace((str(number)+"."),"")
+                line = line.replace("   ", "")
+                line = line.replace("  ", "")
+                if "–" in line:
+                    returner.update(line.split(sep=" – "))
+                if "-" in line:
+                    returner.update(line.split(sep=" - "))
+            else:
+                return ";".join(returner)
+        elif (str(current)+".") in line:
+            number = current
+            current += 1
+            line = line.replace((str(number) + " ."), "")
+            line = line.replace((str(number) + "."), "")
+            line=line.replace("   ","")
+            line=line.replace("  ","")
+            if "–" in line:
+                returner.update(line.split(sep=" – "))
+            if "-" in line:
+                returner.update(line.split(sep=" - "))
 def get_words_from_keywords(text):
-    text = text.replace(" - ", "-")
-    words = text.split()
-    result = set()
-    for word in words:
-        if "-" in word:
-            result.update(word.split(sep="-"))
-    return ";".join(result)
+    if "—" in text:
+        return get_words_from_keywords_em(text)
+    else :
+        return get_words_from_keywords_old(text)
+
 
 
 """
@@ -363,6 +409,12 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
     for i in range(len(celex)):
         j = start + i
         id = celex[j]
+
+        #if ";" in id:
+        #    ids = id.split(";")
+        #   for id_s in ids:
+        #        if "_" not in id_s:
+        #            id=id_s
         #html = get_html_by_celex_id_wrapper(id)
        # if html != "404":
           #  if "] not found." in html:
