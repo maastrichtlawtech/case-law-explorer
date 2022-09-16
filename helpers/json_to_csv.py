@@ -127,7 +127,10 @@ def read_csv(file_path):
     except Exception:
         print("Something went wrong when trying to open the csv file!")
         sys.exit(2)
+def transform_main_file():
 
+    json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
+    json_to_csv_main(json_files[0])
 
 def json_to_csv_main(filepath):
     i = filepath

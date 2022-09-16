@@ -141,44 +141,84 @@ def get_words_from_keywords_em(text):
     for line in lines:
         if "—" in line:
             line=line.replace('‛',"")
+            line = line.replace("(", "")
+            line = line.replace(")", "")
             returner.update(line.split(sep="—"))
+        elif "–" in line:
+            line = line.replace('‛', "")
+            line = line.replace("(", "")
+            line = line.replace(")", "")
+            returner.update(line.split(sep="–"))
+        elif " - " in line:
+            line = line.replace('‛', "")
+            line = line.replace("(","")
+            line = line.replace(")","")
+            returner.update(line.split(sep=" - "))
     return ";".join(returner)
+def add_lines(list,start,fragment):
+    fragment = fragment.replace((str(start))+".","")
+    fragment = fragment.replace((str(start)) + " .", "")
+    fragment=fragment.replace("\n"," ")
+    fragment=fragment.replace("Summary","")
+    try:
+        index=fragment.find("(")
+        fragment=fragment[:index]
+    except:
+        nothing="happens"
+    if "–" in fragment:
+        words_new=fragment.split(sep=" – ")
+    elif "-" in fragment:
+        words_new = fragment.split(sep=" - ")
+    else:
+        print(fragment)
+        words_new=[]
+    list.update(words_new)
+
 def get_words_from_keywords_old(text):
     lines=text.split(sep='\n')
     returner = set()
     starting = 1
     current = 1
+    number=1
+    fragment = ""
+    started=False
     for line in lines:
-        if (str(starting)+".") in line:
+        if (str(starting)+".") in line or (str(starting)+" .") in line:
             if current==1:
                 number=current
                 current +=1
-                line=line.replace((str(number)+" ."),"")
-                line=line.replace((str(number)+"."),"")
-                line = line.replace("   ", "")
-                line = line.replace("  ", "")
-                if "–" in line:
-                    returner.update(line.split(sep=" – "))
-                if "-" in line:
-                    returner.update(line.split(sep=" - "))
+                fragment=line
+
             else:
                 return ";".join(returner)
-        elif (str(current)+".") in line:
-            number = current
+        elif (str(current)+".") in line or (str(current)+" .") in line:
             current += 1
-            line = line.replace((str(number) + " ."), "")
-            line = line.replace((str(number) + "."), "")
-            line=line.replace("   ","")
-            line=line.replace("  ","")
-            if "–" in line:
-                returner.update(line.split(sep=" – "))
-            if "-" in line:
-                returner.update(line.split(sep=" - "))
+            add_lines(returner,number,fragment)
+            fragment=line
+        else:
+            fragment+=line
 def get_words_from_keywords(text):
+    if "Keywords"  in text:
+        try:
+            index=text.find("Keywords")
+            if "Summary" in text[index:index+25]:
+                text2=text.replace("Summary","",1)
+                try:
+                    indexer=text2.find("Summary")
+                    text=text[index:indexer]
+                except:
+                    text=text
+        except:
+            text=text
+    else:
+        if "Summary" in text:
+            index=text.find("Summary")
+            text=text[:index]
     if "—" in text:
         return get_words_from_keywords_em(text)
     else :
-        return get_words_from_keywords_old(text)
+        return get_words_from_keywords_em(text)
+        #return get_words_from_keywords_old(text)
 
 
 

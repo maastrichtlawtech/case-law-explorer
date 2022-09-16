@@ -4,7 +4,7 @@ import warnings
 import sys
 from os.path import dirname, abspath
 from definitions.storage_handler import CELLAR_DIR,DIR_DATA_RAW
-from helpers.json_to_csv import read_csv
+from helpers.json_to_csv import read_csv,transform_main_file
 from helpers.csv_manipulator import drop_columns
 from helpers.citations_adder import add_citations
 from helpers.fulltext_saving import add_sections
@@ -38,6 +38,8 @@ def transform_cellar(filepath,threads):
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
     print('\n--- START ---\n')
     start: float = time.time()
+    transform_main_file()
+
     data = read_csv(filepath)
     print("TRANSFORMATION OF CSV FILES INTO DATA PROCESSED DIR STARTED")
     print("REMOVING REDUNDANT COLUMNS AND NON-EU CASES")
