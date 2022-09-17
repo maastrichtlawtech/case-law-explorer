@@ -21,6 +21,7 @@ RS_ISSUED = LI_PUBLICATION_DATE = CELLAR_DATE_OF_DOCUMENT = 'date_publication'  
 RS_INHOUDSINDICATIE = LI_SUMMARY = CELLAR_SUMMARY =  'summary'  # case summary
 ECLI = RS_IDENTIFIER = 'ECLI'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
 
+
 # fields only in RS
 RS_LANGUAGE = 'language'
 RS_TYPE = 'document_type'  # 'uitspraak' (decision) or 'conclusie' (opinion)
@@ -32,6 +33,7 @@ RS_INFO = 'info'  # information about case, often not systematic or already capt
 ECLI_DECISION = 'ecli_decision'  # ecli of case decision corresponding to case opinion
 ECLI_OPINION = 'ecli_opinion'  # ecli of case opinion corresponding to case decision
 RS_FULL_TEXT = 'full_text'  # full text of case
+
 # fields only in LI
 LI_ID = 'document_id'  # internal document id in LI
 LI_DISPLAY_TITLE = 'display_title'  # title of document entry in LI
@@ -74,3 +76,4 @@ CELLAR_SECTOR = 'sector'  # type of source
 CELLAR_RESOURCE_TYPE = 'resource_type'  # document type
 CELLAR_YEAR_OF_RESOURCE = 'judgment_year'  # judgment year
 CELLAR_LANGUAGE = 'language_procedure'  # language of procedure
+

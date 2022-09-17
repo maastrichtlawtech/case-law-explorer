@@ -16,7 +16,6 @@ import argparse
 from ctypes import c_long, sizeof
 from dotenv import load_dotenv
 load_dotenv()
-
 #csv.field_size_l
 # imit(sys.maxsize) #appears to be system dependent so is replaced with:
 #from https://stackoverflow.com/questions/52475749/maximum-and-minimum-value-of-c-types-integers-from-python
@@ -24,6 +23,7 @@ signed = c_long(-1).value < c_long(0).value
 bit_size = sizeof(c_long)*8
 signed_limit = 2**(bit_size-1)
 csv.field_size_limit(signed_limit-1 if signed else 2*signed_limit-1)
+
 start = time.time()
 
 input_paths = [
@@ -31,6 +31,7 @@ input_paths = [
     get_path_processed(CSV_RS_OPINIONS),
     get_path_processed(CSV_LI_CASES),
     get_path_processed(CSV_CELLAR_CASES),
+
     get_path_raw(CSV_CASE_CITATIONS),
     get_path_raw(CSV_LEGISLATION_CITATIONS)
 ]
@@ -66,6 +67,19 @@ if args.partial is not None:
 else:
     ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
     args.partial="ddb"
+
+if args.partial != 'os':
+    ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
+if args.partial != 'ddb':
+    os_client = OpenSearchClient(
+        domain_name=os.getenv('OS_DOMAIN_NAME'),
+        index_name=os.getenv('OS_INDEX_NAME'),
+        instance_type='t3.small.search',
+        instance_count=1,
+        storage_size=40
+    )
+
+
 # evaluate input arguments
 if args.delete == 'ddb':
     # remove all items from table without deleting table itself
@@ -99,7 +113,6 @@ else:
         print(f'Processing {basename(input_path)} ...')
 
         # initialize row processors and counters
-
         if args.partial != 'os':
             ddb_rp = DynamoDBRowProcessor(input_path, ddb_client.table)
         if args.partial != 'ddb':
@@ -109,12 +122,12 @@ else:
         os_item_counter = 0
 
         # process csv by row
-
         with open(input_path, 'r', newline='',encoding="utf8") as in_file:
             reader = DictReader(in_file)
             for row in reader:
                  # skip empty rows and remove empty attributes
                  if row != '':
+
                     atts = list(row.items())
                     for att in atts:
                         if att[1] == '':
@@ -130,6 +143,7 @@ else:
                     case_counter += 1
                     if case_counter % 1000 == 0:
                         print(case_counter, 'rows processed.')
+
         if args.partial != 'ddb':
             os_client.es.indices.refresh(os_client.index_name)
         print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
@@ -137,7 +151,7 @@ else:
 end = time.time()
 print("\n--- DONE ---")
 print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-
 #table = ddb_client.table
 ##table.delete()
 print(ddb_client.table.scan())
+

@@ -11,6 +11,7 @@ import argparse
 from csv import DictReader, DictWriter
 from cellar_transformation import transform_cellar
 
+
 """
 Define tool_maps
 """
@@ -87,6 +88,7 @@ for input_path in input_paths:
         broken = True
     if broken:
         continue
+
     file_name = basename(input_path)
     output_path = get_path_processed(file_name)
     print(f'\n--- PREPARATION {file_name} ---\n')
@@ -107,6 +109,7 @@ for input_path in input_paths:
         writer.writeheader()
 
         with open(input_path, 'r', newline='',encoding='utf-8') as in_file:
+
             reader = DictReader(in_file)
             # process input file by row
             for row in reader:

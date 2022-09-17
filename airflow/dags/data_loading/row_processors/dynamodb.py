@@ -2,6 +2,7 @@ from definitions.terminology.attribute_names import ECLI, ECLI_DECISION, ECLI_OP
     LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE,CELLAR_CITATIONS,CELLAR_KEYWORDS,CELLAR_SUBJECT_MATTER,CELLAR_DIRECTORY_CODES
 from definitions.storage_handler import CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, CSV_CASE_CITATIONS, \
     CSV_LEGISLATION_CITATIONS, CSV_DDB_ECLIS_FAILED, get_path_raw, get_path_processed,CSV_CELLAR_CASES
+
 from definitions.terminology.attribute_values import ItemType, DocType, DataSource
 
 KEY_SEP = '_'               # used to separate compound key values
@@ -155,6 +156,7 @@ class DynamoDBRowProcessor:
                         key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value,
                         name[:-1]: val
                     })
+
         def row_processor_l_citations(row):
             update_set_items = [{
                 self.pk: row[ECLI],

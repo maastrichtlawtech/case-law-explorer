@@ -48,7 +48,6 @@ CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'     # cited legislation 
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
-
 CELLAR_METADATA = join(CELLAR_DIR, 'cellar_metadata.json')
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
 
@@ -82,6 +81,7 @@ class Storage:
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
         for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR,CELLAR_ARCHIVE_DIR]:
+
             makedirs(d, exist_ok=True)
 
         if self.location == 'aws':
@@ -272,6 +272,7 @@ class Storage:
                         return new_date
             if DIR_DATA_RAW  in file_path or DIR_DATA_PROCESSED in file_path:
                 return default_date(file_path)
+
             if file_path.endswith('.csv'):
                 import pandas as pd
                 try:

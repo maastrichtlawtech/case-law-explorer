@@ -8,6 +8,7 @@ import urllib.request
 import time, glob
 from datetime import datetime
 from definitions.storage_handler import CELLAR_DIR, Storage,CELLAR_ARCHIVE_DIR
+
 import argparse
 
 from SPARQLWrapper import SPARQLWrapper, JSON, POST
@@ -282,6 +283,7 @@ if __name__ == '__main__':
     source=json_files[0]
     outsource=source.replace(CELLAR_DIR,CELLAR_ARCHIVE_DIR)
     shutil.move(source,outsource)
+
     with open(output_path, 'w') as f:
         json.dump(all_eclis, f)
 
