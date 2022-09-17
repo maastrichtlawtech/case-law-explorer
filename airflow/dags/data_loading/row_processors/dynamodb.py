@@ -1,7 +1,8 @@
 from definitions.terminology.attribute_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, RS_RELATION, \
-    LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE
+    LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE,CELLAR_CITATIONS,CELLAR_KEYWORDS,CELLAR_SUBJECT_MATTER,CELLAR_DIRECTORY_CODES
 from definitions.storage_handler import CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, CSV_CASE_CITATIONS, \
-    CSV_LEGISLATION_CITATIONS, CSV_DDB_ECLIS_FAILED, get_path_raw, get_path_processed
+    CSV_LEGISLATION_CITATIONS, CSV_DDB_ECLIS_FAILED, get_path_raw, get_path_processed,CSV_CELLAR_CASES
+
 from definitions.terminology.attribute_values import ItemType, DocType, DataSource
 
 KEY_SEP = '_'               # used to separate compound key values
@@ -133,6 +134,28 @@ class DynamoDBRowProcessor:
                     'cited_by': {row[ECLI]}
                 }]
             return [], [], update_set_items
+        def row_processor_cellar_cases(row):
+            put_items=[]
+            update_items=[]
+            update_set_items=[]
+            for sets in [CELLAR_KEYWORDS,CELLAR_CITATIONS,CELLAR_SUBJECT_MATTER,CELLAR_DIRECTORY_CODES]:
+                add_separated(put_items,row,sets)
+            put_items.append({
+                self.pk: row[ECLI],
+                self.sk: ItemType.DATA.value,
+                key_sdd: DataSource.EURLEX.value + KEY_SEP + DocType.DEC.value,
+                **row
+            })
+            return put_items, update_items, update_set_items
+        def add_separated(list,row,name):
+            if name in row:
+                for val in row[name].split(SET_SEP):
+                    list.append({
+                        self.pk: row[ECLI],
+                        self.sk: ItemType.DOM.value + KEY_SEP + val,
+                        key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value,
+                        name[:-1]: val
+                    })
 
         def row_processor_l_citations(row):
             update_set_items = [{
@@ -146,6 +169,7 @@ class DynamoDBRowProcessor:
             get_path_processed(CSV_RS_CASES): row_processor_rs_cases,
             get_path_processed(CSV_RS_OPINIONS): row_processor_rs_opinions,
             get_path_processed(CSV_LI_CASES): row_processor_li_cases,
+            get_path_processed(CSV_CELLAR_CASES):row_processor_cellar_cases,
             get_path_raw(CSV_CASE_CITATIONS): row_processor_c_citations,
             get_path_raw(CSV_LEGISLATION_CITATIONS): row_processor_l_citations
         }

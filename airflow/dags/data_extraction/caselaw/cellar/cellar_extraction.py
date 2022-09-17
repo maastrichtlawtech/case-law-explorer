@@ -2,12 +2,13 @@ import json
 from os.path import dirname, abspath, basename, join
 from os import getenv
 import sys
-
+import shutil
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import urllib.request
-import time
+import time, glob
 from datetime import datetime
-from definitions.storage_handler import CELLAR_DIR, Storage
+from definitions.storage_handler import CELLAR_DIR, Storage,CELLAR_ARCHIVE_DIR
+
 import argparse
 
 from SPARQLWrapper import SPARQLWrapper, JSON, POST
@@ -277,6 +278,11 @@ if __name__ == '__main__':
     for i in range(0, len(eclis), args.concurrent_docs):
         new_eclis = get_raw_cellar_metadata(eclis[i:(i + args.concurrent_docs)])
         all_eclis = {**all_eclis, **new_eclis}
+
+    json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
+    source=json_files[0]
+    outsource=source.replace(CELLAR_DIR,CELLAR_ARCHIVE_DIR)
+    shutil.move(source,outsource)
 
     with open(output_path, 'w') as f:
         json.dump(all_eclis, f)

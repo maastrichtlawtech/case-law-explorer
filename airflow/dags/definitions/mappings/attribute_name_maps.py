@@ -24,7 +24,36 @@ MAP_RS = {
     JURISDICTION_COUNTRY: JURISDICTION_COUNTRY,  # not in original data, added through script
     SOURCE: SOURCE  # not in original data, added through script
 }
+MAP_CELLAR = {
+    'CASE LAW COMMENTED BY AGENT': CELLAR_COMMENTED_AGENT,  # which Member States submitted information
+    'celex_directory_codes': CELLAR_DIRECTORY_CODES,  # directory classification codes for case
+    'celex_subject_matter': CELLAR_SUBJECT_MATTER,  # subject matter
+    'celex_eurovoc': CELLAR_EUROVOC,  # eurovoc classification codes for case
+    'celex_keywords': CELLAR_KEYWORDS,  # keywords of case
+    'celex_summary': CELLAR_SUMMARY,  # summary of case
+    'WORK CITES WORK. CI / CJ':   CELLAR_CITATIONS,    # works cites by this work, works this work cites
+    'CASE LAW DELIVERED BY COURT FORMATION': CELLAR_DELIVERED_COURT,  # court (chamber) that delivered the judgment
+    'CASE LAW HAS A JUDICIAL PROCEDURE TYPE': CELLAR_JUDICIAL_TYPE ,  # type of procedure
+    'CASE LAW HAS A TYPE OF PROCEDURE': CELLAR_TYPE_PROCEDURE,  # type of procedure with more info
+    'CASE LAW HAS CONCLUSIONS': CELLAR_CONCLUSIONS,  # opinion of the Advocate-General
+    'CASE LAW INTERPRETS LEGAL RESOURCE': CELLAR_LEGAL_RESOURCE,  # the source that the case interprets
+    'CASE LAW ORIGINATES IN COUNTRY': CELLAR_COUNTRY,  # country of judgment
+    'CASE LAW ORIGINATES IN COUNTRY OR USES A ROLE QUALIFIER': CELLAR_COUNTRY_OR_ROLE,  # country of origin with more information
+    'CELEX IDENTIFIER': CELLAR_CELEX,   # celex identifier
+    'DATE OF DOCUMENT': CELLAR_DATE_OF_DOCUMENT,  # date of document
+    'DATE OF REQUEST FOR AN OPINION': CELLAR_REQUEST_DATE,  #date of request for on opinion of the Advocate-General
+    'ECLI': ECLI,  # European Case Law Identifier
+    'LEGACY DATE OF CREATION OF WORK': CELLAR_CREATION_OF_WORK,  # date of latest modification in dataset
+    'LEGAL RESOURCE BASED ON TREATY CONCEPT': CELLAR_BASED_ON_TREATY,  # treaty on which judgment is based
+    'LEGAL RESOURCE IS ABOUT SUBJECT MATTER': CELLAR_SUBJECT_MATTER,  # subject matter
+    'NATIONAL JUDGEMENT': CELLAR_NATIONAL_JUDGMENT,  #source of national case
+    'RELATED JOURNAL ARTICLE': CELLAR_JOURNAL_ARTICLES,  # references to journal articles
+    'SECTOR IDENTIFIER': CELLAR_SECTOR,  # indicates type of source
+    'WORK HAS RESOURCE TYPE': CELLAR_RESOURCE_TYPE,  # document type
+    'YEAR OF THE LEGAL RESOURCE': CELLAR_YEAR_OF_RESOURCE,  # judgment year
+    'CASE LAW USES LANGUAGE OF PROCEDURE' : CELLAR_LANGUAGE  # language of procedure
 
+}
 MAP_RS_OPINION = MAP_RS.copy()
 MAP_RS_OPINION[ECLI_DECISION] = ECLI_DECISION  # not in original data, added through script
 
