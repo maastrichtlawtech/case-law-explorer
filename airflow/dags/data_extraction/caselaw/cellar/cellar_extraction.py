@@ -152,7 +152,78 @@ def get_raw_cellar_metadata(eclis, get_labels=True, force_readable_cols=True, fo
 
     return metadata
 
+def download_locally():
+    print('\n--- PREPARATION ---\n')
+    print('OUTPUT DATA STORAGE:\t', args.storage)
+    print('OUTPUT:\t\t\t', output_path)
+    storage = Storage(location="local")
+    storage.setup_pipeline(output_paths=[output_path])
+    last_updated = storage.pipeline_last_updated
+    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
+    print('\n--- START ---\n')
+    date_time_obj = datetime.now()
+    date = str(date_time_obj.year) + '-' + str(date_time_obj.month) + '-' + str(date_time_obj.day)
+
+    print(f"Downloading {'all'} CELLAR documents")
+
+
+    print('Starting from the last update the script can find')
+    eclis = get_all_eclis(starting_date=last_updated.isoformat())
+
+    # print(args)
+
+    print(f"Found {len(eclis)} ECLIs")
+
+    if args.amount:
+        eclis = eclis[:args.amount]
+
+    all_eclis = {}
+
+    for i in range(0, len(eclis), args.concurrent_docs):
+        new_eclis = get_raw_cellar_metadata(eclis[i:(i + args.concurrent_docs)])
+        all_eclis = {**all_eclis, **new_eclis}
+
+    with open(output_path, 'w') as f:
+        json.dump(all_eclis, f)
+
+    """ Code for getting individual ECLIs
+    all_eclis = {}
+    new_eclis = {}
+
+    # Check if ECLI already exists
+    print(f'Checking for duplicate ECLIs')
+    duplicate = 0;
+    temp_eclis = []
+    for i in range(0, len(eclis)):
+    	temp_path = join(CELLAR_DIR, eclis[i] + '.json')
+    	if exists(temp_path):
+    	    duplicate = 1
+    	temp_eclis.append(eclis[i])
+
+
+    if duplicate == 1:
+    	print(f'Duplicate data found. Ignoring duplicate data.')
+    else:
+    	print(f'No duplicate data found.')
+
+    if len(temp_eclis) > 0:
+        for i in range(0, len(temp_eclis), args.concurrent_docs):
+        	new_eclis = get_raw_cellar_metadata(temp_eclis[i:(i + args.concurrent_docs)])
+        	# all_eclis = {**all_eclis, **new_eclis}
+        	temp_path = join(CELLAR_DIR, temp_eclis[i] + '.json')
+
+        	with open(temp_path, 'w') as f:
+        		json.dump(new_eclis, f, indent=4)
+        	new_eclis.clear()
+    """
+
+    print(f"\nUpdating {args.storage} storage ...")
+    storage.finish_pipeline()
+
+    end = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
 if __name__ == '__main__':
     # set up storage location
     parser = argparse.ArgumentParser()
