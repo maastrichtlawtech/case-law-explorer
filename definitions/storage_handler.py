@@ -36,6 +36,7 @@ DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
 DIR_ECHR = join(DIR_DATA, 'echr')
 CELLAR_DIR = join(DIR_DATA, 'cellar')
+CELLAR_ARCHIVE_DIR=join(CELLAR_DIR,'archive')
 CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'         # eclis and decision dates of OpenDataUitspraken files
 CSV_RS_CASES = 'RS_cases.csv'                               # metadata of RS cases
 CSV_RS_OPINIONS = 'RS_opinions.csv'                         # metadata of RS opinions
@@ -80,7 +81,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR]:
+        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR,CELLAR_ARCHIVE_DIR]:
             makedirs(d, exist_ok=True)
 
         if self.location == 'aws':
