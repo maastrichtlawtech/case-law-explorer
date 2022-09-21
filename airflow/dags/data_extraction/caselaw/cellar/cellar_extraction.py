@@ -153,40 +153,40 @@ def get_raw_cellar_metadata(eclis, get_labels=True, force_readable_cols=True, fo
 
     return metadata
 
-def download_locally():
-    print('\n--- PREPARATION ---\n')
-    print('OUTPUT DATA STORAGE:\t', args.storage)
-    print('OUTPUT:\t\t\t', output_path)
-    storage = Storage(location="local")
-    storage.setup_pipeline(output_paths=[output_path])
-    last_updated = storage.pipeline_last_updated
-    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+# def download_locally():
+#     print('\n--- PREPARATION ---\n')
+#     print('OUTPUT DATA STORAGE:\t', args.storage)
+#     print('OUTPUT:\t\t\t', output_path)
+#     storage = Storage(location="local")
+#     storage.setup_pipeline(output_paths=[output_path])
+#     last_updated = storage.pipeline_last_updated
+#     print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
-    print('\n--- START ---\n')
-    date_time_obj = datetime.now()
-    date = str(date_time_obj.year) + '-' + str(date_time_obj.month) + '-' + str(date_time_obj.day)
+#     print('\n--- START ---\n')
+#     date_time_obj = datetime.now()
+#     date = str(date_time_obj.year) + '-' + str(date_time_obj.month) + '-' + str(date_time_obj.day)
 
-    print(f"Downloading {'all'} CELLAR documents")
+#     print(f"Downloading {'all'} CELLAR documents")
 
 
-    print('Starting from the last update the script can find')
-    eclis = get_all_eclis(starting_date=last_updated.isoformat())
+#     print('Starting from the last update the script can find')
+#     eclis = get_all_eclis(starting_date=last_updated.isoformat())
 
-    # print(args)
+#     # print(args)
 
-    print(f"Found {len(eclis)} ECLIs")
+#     print(f"Found {len(eclis)} ECLIs")
 
-    if args.amount:
-        eclis = eclis[:args.amount]
+#     if args.amount:
+#         eclis = eclis[:args.amount]
 
-    all_eclis = {}
+#     all_eclis = {}
 
-    for i in range(0, len(eclis), args.concurrent_docs):
-        new_eclis = get_raw_cellar_metadata(eclis[i:(i + args.concurrent_docs)])
-        all_eclis = {**all_eclis, **new_eclis}
+#     for i in range(0, len(eclis), args.concurrent_docs):
+#         new_eclis = get_raw_cellar_metadata(eclis[i:(i + args.concurrent_docs)])
+#         all_eclis = {**all_eclis, **new_eclis}
 
-    with open(output_path, 'w') as f:
-        json.dump(all_eclis, f)
+#     with open(output_path, 'w') as f:
+#         json.dump(all_eclis, f)
 
     """ Code for getting individual ECLIs
     all_eclis = {}
@@ -219,13 +219,14 @@ def download_locally():
         	new_eclis.clear()
     """
 
-    print(f"\nUpdating {args.storage} storage ...")
-    storage.finish_pipeline()
+    # print(f"\nUpdating {args.storage} storage ...")
+    # storage.finish_pipeline()
 
-    end = time.time()
-    print("\n--- DONE ---")
-    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-if __name__ == '__main__':
+    # end = time.time()
+    # print("\n--- DONE ---")
+    # print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+
+def cellar_extract(args):
     # set up storage location
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
@@ -235,7 +236,7 @@ if __name__ == '__main__':
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads',
                         action='store_true')
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', args.storage)
@@ -324,3 +325,8 @@ if __name__ == '__main__':
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+
+if __name__ == '__main__':
+
+    #giving arguments to the funtion
+    cellar_extract(sys.args[1:])
