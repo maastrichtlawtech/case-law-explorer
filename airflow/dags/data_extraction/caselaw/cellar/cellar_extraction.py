@@ -330,4 +330,4 @@ def cellar_extract(args):
 if __name__ == '__main__':
 
     #giving arguments to the funtion
-    cellar_extract(sys.args[1:])
+    cellar_extract(sys.argv[1:])
