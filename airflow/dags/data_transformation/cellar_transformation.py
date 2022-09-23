@@ -3,12 +3,13 @@ import time
 import warnings
 import sys, os
 from os.path import dirname, abspath
-from definitions.storage_handler import DIR_DATA_RAW,get_path_processed,CSV_CELLAR_CASES
-from helpers.json_to_csv import read_csv,transform_main_file
+from definitions.storage_handler import DIR_DATA_RAW, get_path_processed, CSV_CELLAR_CASES
+from helpers.json_to_csv import read_csv, transform_main_file
 from helpers.csv_manipulator import drop_columns
 from helpers.citations_adder import add_citations
 from helpers.fulltext_saving import add_sections
 import pandas as pd
+
 warnings.filterwarnings("ignore")
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 
@@ -32,20 +33,23 @@ After all that is done, it saves the csv file in processed directory with "Proce
 *More detail available in separate functions.
 
 """
+
+
 def update_cellar(update_path):
     update = read_csv(update_path)
-    output=get_path_processed(CSV_CELLAR_CASES)
+    output = get_path_processed(CSV_CELLAR_CASES)
     main = read_csv(output)
-    main=pd.concat([main,update])
-    main.to_csv(output,index=False)
+    main = pd.concat([main, update])
+    main.to_csv(output, index=False)
     os.remove(update_path)
-def transform_cellar(filepath,threads):
+
+
+def transform_cellar(filepath, threads):
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
     print('\n--- START ---\n')
     start: float = time.time()
     transform_main_file()
-
     data = read_csv(filepath)
     print("TRANSFORMATION OF CSV FILES INTO DATA PROCESSED DIR STARTED")
     print("REMOVING REDUNDANT COLUMNS AND NON-EU CASES")
@@ -65,15 +69,18 @@ def transform_cellar(filepath,threads):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
+
+
 if __name__ == '__main__':
     print("Welcome to cellar transformation!")
-    json_files = (glob.glob( DIR_DATA_RAW+ "/" + "*.csv"))
+    json_files = (glob.glob(DIR_DATA_RAW + "/" + "*.csv"))
     for file in json_files:
         print(f"\nFound file {file}")
         print("\nShould this file be transformed? Answer Y/N please.")
         answer = str(input())
         if answer == "Y":
-            print("How many threads should the code use for this transformation? (15 should be safe, higher numbers might "
-                    "limit your internet heavily)")
+            print(
+                "How many threads should the code use for this transformation? (15 should be safe, higher numbers might "
+                "limit your internet heavily)")
             threads = int(input())
-            transform_cellar(file,threads)
+            transform_cellar(file, threads)

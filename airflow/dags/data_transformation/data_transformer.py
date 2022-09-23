@@ -80,6 +80,7 @@ print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for 
 # run data transformation for each input file
 for input_path in input_paths:
     broken = False
+    update=False
     if CSV_CELLAR_CASES in input_path:
        transform_cellar(input_path,15)
     try:
@@ -89,9 +90,11 @@ for input_path in input_paths:
         broken = True
     if broken:
         continue
-
     file_name = basename(input_path)
     output_path = get_path_processed(file_name)
+    if exists(output_path) and CSV_CELLAR_CASES in output_path:
+        output_path = get_path_processed(CSV_CELLAR_UPDATE)
+        update=True
     print(f'\n--- PREPARATION {file_name} ---\n')
     storage = Storage(location=args.storage)
     storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
@@ -102,9 +105,7 @@ for input_path in input_paths:
 
     field_map = field_maps.get(input_path)
     tool_map = tool_maps.get(input_path)
-    if exists(output_path) and CSV_CELLAR_CASES in output_path:
-        output_path = get_path_processed(CSV_CELLAR_UPDATE)
-        update=True
+
     with open(output_path, 'a', newline='',encoding='utf-8') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()

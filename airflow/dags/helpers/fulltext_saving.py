@@ -154,7 +154,7 @@ def get_words_from_keywords_em(text):
             line = line.replace("(","")
             line = line.replace(")","")
             returner.update(line.split(sep=" - "))
-    return ";".join(processed_set(returner))
+    return ";".join(returner)
 def processed_set(sets):
     first_list=list()
     for word in sets:
