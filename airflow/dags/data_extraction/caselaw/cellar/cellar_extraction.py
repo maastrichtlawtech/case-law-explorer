@@ -111,8 +111,10 @@ def get_raw_cellar_metadata(eclis, get_labels=True, force_readable_cols=True, fo
     sparql.setReturnFormat(JSON)
     sparql.setMethod(POST)
     sparql.setQuery(query)
-    ret = sparql.queryAndConvert()
-
+    try:
+        ret = sparql.queryAndConvert()
+    except:
+        return get_raw_cellar_metadata(eclis, get_labels, force_readable_cols, force_readable_vals)
     # Create one dict for each document
     metadata = {}
     for ecli in eclis:
@@ -281,7 +283,7 @@ def cellar_extract(args):
         all_eclis = {**all_eclis, **new_eclis}
 
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
-    if len(json_files) >0: #have to check if there is already a file or no
+    if len(json_files)>0: # Have to first check if there already is a file or no
         source=json_files[0]
         outsource=source.replace(CELLAR_DIR,CELLAR_ARCHIVE_DIR)
         shutil.move(source,outsource)

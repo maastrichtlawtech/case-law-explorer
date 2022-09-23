@@ -154,7 +154,22 @@ def get_words_from_keywords_em(text):
             line = line.replace("(","")
             line = line.replace(")","")
             returner.update(line.split(sep=" - "))
-    return ";".join(returner)
+    return ";".join(processed_set(returner))
+def processed_set(sets):
+    first_list=list()
+    for word in sets:
+        transformed=processed_word(word)
+        if transformed != "":
+            first_list.append(transformed)
+    return set(first_list)
+def processed_word(word):
+    while len(word)>0:
+        while word[0] == " " or word[0] == "1."or word[0] == "2."or word[0] == "3."or word[0] == "4."or word[0] == "5."\
+            or word[0] == "6."or word[0] == "7."or word[0] == "8."or word[0] == "9."or word[0] == "(" :
+            word = word[1:]
+        while word[-1] == " " or word[-1] == ")" or word[-1] == "." :
+            word=word[:-1]
+    return word
 def add_lines(list,start,fragment):
     fragment = fragment.replace((str(start))+".","")
     fragment = fragment.replace((str(start)) + " .", "")

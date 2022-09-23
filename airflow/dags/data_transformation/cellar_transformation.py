@@ -1,14 +1,14 @@
 import glob
 import time
 import warnings
-import sys
+import sys, os
 from os.path import dirname, abspath
-from definitions.storage_handler import DIR_DATA_RAW
+from definitions.storage_handler import DIR_DATA_RAW,get_path_processed,CSV_CELLAR_CASES
 from helpers.json_to_csv import read_csv,transform_main_file
 from helpers.csv_manipulator import drop_columns
 from helpers.citations_adder import add_citations
 from helpers.fulltext_saving import add_sections
-
+import pandas as pd
 warnings.filterwarnings("ignore")
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 
@@ -32,7 +32,13 @@ After all that is done, it saves the csv file in processed directory with "Proce
 *More detail available in separate functions.
 
 """
-
+def update_cellar(update_path):
+    update = read_csv(update_path)
+    output=get_path_processed(CSV_CELLAR_CASES)
+    main = read_csv(output)
+    main=pd.concat([main,update])
+    main.to_csv(output,index=False)
+    os.remove(update_path)
 def transform_cellar(filepath,threads):
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")

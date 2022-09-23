@@ -1,15 +1,15 @@
-from os.path import dirname, abspath, basename
+from os.path import dirname, abspath, basename, exists
 import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
 from definitions.storage_handler import  Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
-    get_path_raw, get_path_processed,CSV_CELLAR_CASES
+    get_path_raw, get_path_processed,CSV_CELLAR_CASES,CSV_CELLAR_UPDATE
 import time
 import argparse
 from csv import DictReader, DictWriter
-from cellar_transformation import transform_cellar
+from data_transformation.cellar_transformation import transform_cellar,update_cellar
 
 
 """
@@ -80,9 +80,10 @@ print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for 
 # run data transformation for each input file
 for input_path in input_paths:
     broken = False
+    if CSV_CELLAR_CASES in input_path:
+       transform_cellar(input_path,15)
     try:
-        with open(input_path, 'r', newline='') as in_file:
-            b = 2
+        open(input_path,'r',newline='')
     except:
         print(f"No such file found as {input_path}")
         broken = True
@@ -101,9 +102,9 @@ for input_path in input_paths:
 
     field_map = field_maps.get(input_path)
     tool_map = tool_maps.get(input_path)
-    if CSV_CELLAR_CASES in input_path:
-       transform_cellar(input_path,15)
-      # asdadasd=12
+    if exists(output_path) and CSV_CELLAR_CASES in output_path:
+        output_path = get_path_processed(CSV_CELLAR_UPDATE)
+        update=True
     with open(output_path, 'a', newline='',encoding='utf-8') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()
@@ -124,6 +125,8 @@ for input_path in input_paths:
                 writer.writerow(row_clean)
 
     print(f"\nUpdating {args.storage} storage ...")
+    if update:
+        update_cellar(output_path)
     storage.finish_pipeline()
 
 end = time.time()

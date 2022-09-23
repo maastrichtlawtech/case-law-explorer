@@ -41,6 +41,7 @@ CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'         # eclis and decision
 CSV_RS_CASES = 'RS_cases.csv'                               # metadata of RS cases
 CSV_RS_OPINIONS = 'RS_opinions.csv'                         # metadata of RS opinions
 CSV_CELLAR_CASES = 'cellar_csv_data.csv'                    # Metadata of CELLAR cases
+CSV_CELLAR_UPDATE = 'cellar_csv_update.csv'                 # Update file for the main cellar file
 CSV_RS_INDEX = 'RS_index.csv'                               # eclis, decision dates and relations of RS cases and opinions
 CSV_LI_CASES = 'LI_cases.csv'                               # metadata of LI cases
 CSV_CASE_CITATIONS = 'caselaw_citations.csv'                # citations of RS cases and opinions
@@ -109,9 +110,12 @@ class Storage:
         if self.pipeline_output_paths:
             print(f'\nFetching output data from {self.location} storage ...')
             for path in self.pipeline_output_paths:
-                if exists(path):
-                    logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
-                    sys.exit(2)
+                if exists(path) :
+                    if CSV_CELLAR_CASES in path:
+                        logging.error(f'{path} exists locally! It will be updated with the newest download.')
+                    else:
+                        logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
+                        sys.exit(2)
                 if path.endswith('.csv'):
                     self.fetch_data([path])
 
