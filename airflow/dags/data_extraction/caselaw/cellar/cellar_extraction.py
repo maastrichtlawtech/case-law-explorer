@@ -281,9 +281,10 @@ def cellar_extract(args):
         all_eclis = {**all_eclis, **new_eclis}
 
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
-    source=json_files[0]
-    outsource=source.replace(CELLAR_DIR,CELLAR_ARCHIVE_DIR)
-    shutil.move(source,outsource)
+    if len(json_files) >0: #have to check if there is already a file or no
+        source=json_files[0]
+        outsource=source.replace(CELLAR_DIR,CELLAR_ARCHIVE_DIR)
+        shutil.move(source,outsource)
 
     with open(output_path, 'w') as f:
         json.dump(all_eclis, f)
