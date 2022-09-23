@@ -44,8 +44,6 @@ with DAG(
     task1 = PythonOperator(
         task_id='cellar_extraction',
         python_callable=cellar_extract,
-        op_args = [['local','--amount','50']]
+        op_args = [['local']]
     )
-    
 
-    task1

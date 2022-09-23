@@ -6,7 +6,7 @@ from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
 from os.path import dirname, abspath
 sys.path.append (dirname(dirname(abspath(__file__))))
-from data_extraction.caselaw.cellar.cellar_transformation import transform_airflow # To be fixed
+from data_transformation.data_transformer import transform_data
 
 default_args = {
     'owner': 'none',
@@ -24,5 +24,6 @@ with DAG(
 ) as DAG:
     task1 = PythonOperator(
         task_id = 'cellar_transformation',
-        python_callable = transform_airflow
+        python_callable = transform_data,
+        op_args=[['local']]
     )

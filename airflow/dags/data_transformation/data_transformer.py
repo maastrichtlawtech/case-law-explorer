@@ -56,80 +56,80 @@ field_maps = {
     get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR
 }
 
+def transform_data(args):
+    """
+    Start processing
+    """
+    start = time.time()
 
-"""
-Start processing
-"""
-start = time.time()
+    input_paths = [
+        get_path_raw(CSV_RS_CASES),
+        get_path_raw(CSV_RS_OPINIONS),
+        get_path_raw(CSV_LI_CASES),
+        get_path_raw(CSV_CELLAR_CASES)
+    ]
 
-input_paths = [
-    get_path_raw(CSV_RS_CASES),
-    get_path_raw(CSV_RS_OPINIONS),
-    get_path_raw(CSV_LI_CASES),
-    get_path_raw(CSV_CELLAR_CASES)
-]
+    parser = argparse.ArgumentParser()
+    parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+    args = parser.parse_args()
 
-parser = argparse.ArgumentParser()
-parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-args = parser.parse_args()
+    print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
+    print('INPUTS:\t\t\t\t', [basename(input_path) for input_path in input_paths])
+    print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for input_path in input_paths], '\n')
 
-print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
-print('INPUTS:\t\t\t\t', [basename(input_path) for input_path in input_paths])
-print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for input_path in input_paths], '\n')
+    # run data transformation for each input file
+    for input_path in input_paths:
+        broken = False
+        update=False
+        if CSV_CELLAR_CASES in input_path:
+           transform_cellar(input_path,15)
+        try:
+            open(input_path,'r',newline='')
+        except:
+            print(f"No such file found as {input_path}")
+            broken = True
+        if broken:
+            continue
+        file_name = basename(input_path)
+        output_path = get_path_processed(file_name)
+        if exists(output_path) and CSV_CELLAR_CASES in output_path:
+            output_path = get_path_processed(CSV_CELLAR_UPDATE)
+            update=True
+        print(f'\n--- PREPARATION {file_name} ---\n')
+        storage = Storage(location=args.storage)
+        storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
+        last_updated = storage.pipeline_last_updated
+        print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
-# run data transformation for each input file
-for input_path in input_paths:
-    broken = False
-    update=False
-    if CSV_CELLAR_CASES in input_path:
-       transform_cellar(input_path,15)
-    try:
-        open(input_path,'r',newline='')
-    except:
-        print(f"No such file found as {input_path}")
-        broken = True
-    if broken:
-        continue
-    file_name = basename(input_path)
-    output_path = get_path_processed(file_name)
-    if exists(output_path) and CSV_CELLAR_CASES in output_path:
-        output_path = get_path_processed(CSV_CELLAR_UPDATE)
-        update=True
-    print(f'\n--- PREPARATION {file_name} ---\n')
-    storage = Storage(location=args.storage)
-    storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
-    last_updated = storage.pipeline_last_updated
-    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+        print(f'\n--- START {file_name} ---\n')
 
-    print(f'\n--- START {file_name} ---\n')
+        field_map = field_maps.get(input_path)
+        tool_map = tool_maps.get(input_path)
 
-    field_map = field_maps.get(input_path)
-    tool_map = tool_maps.get(input_path)
+        with open(output_path, 'a', newline='',encoding='utf-8') as out_file:
+            writer = DictWriter(out_file, fieldnames=list(field_map.values()))
+            writer.writeheader()
 
-    with open(output_path, 'a', newline='',encoding='utf-8') as out_file:
-        writer = DictWriter(out_file, fieldnames=list(field_map.values()))
-        writer.writeheader()
+            with open(input_path, 'r', newline='',encoding='utf-8') as in_file:
 
-        with open(input_path, 'r', newline='',encoding='utf-8') as in_file:
+                reader = DictReader(in_file)
+                # process input file by row
+                for row in reader:
+                    row_clean = dict.fromkeys(field_map.values())
+                    for col, value in row.items():
+                        if value:
+                            if col in tool_map:
+                                row_clean[field_map[col]] = tool_map[col](value.strip())
+                            else:
+                                row_clean[field_map[col]] = value.strip()
+                    # write processed row to output file
+                    writer.writerow(row_clean)
 
-            reader = DictReader(in_file)
-            # process input file by row
-            for row in reader:
-                row_clean = dict.fromkeys(field_map.values())
-                for col, value in row.items():
-                    if value:
-                        if col in tool_map:
-                            row_clean[field_map[col]] = tool_map[col](value.strip())
-                        else:
-                            row_clean[field_map[col]] = value.strip()
-                # write processed row to output file
-                writer.writerow(row_clean)
+        print(f"\nUpdating {args.storage} storage ...")
+        if update:
+            update_cellar(output_path)
+        storage.finish_pipeline()
 
-    print(f"\nUpdating {args.storage} storage ...")
-    if update:
-        update_cellar(output_path)
-    storage.finish_pipeline()
-
-end = time.time()
-print("\n--- DONE ---")
-print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+    end = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
