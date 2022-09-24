@@ -1,7 +1,7 @@
 import json, csv, re, glob
 from bs4 import BeautifulSoup
 import warnings
-
+from os import listdir
 warnings.filterwarnings("ignore")
 import sys
 from os.path import dirname, abspath, join
@@ -130,8 +130,12 @@ def read_csv(file_path):
 def transform_main_file():
 
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
+    print(f'FOUND FILES : {json_files}')
+    print(f"FILES FROM {CELLAR_DIR}")
+    for filename in listdir(CELLAR_DIR):
+        print(filename)
     json_to_csv_main(json_files[0])
-
+    return True
 def json_to_csv_main(filepath):
     i = filepath
     print(f"JSON TO CSV OF {filepath} HAS STARTED")

@@ -11,19 +11,19 @@ from data_transformation.data_transformer import transform_data
 default_args = {
     'owner': 'none',
     'retries': 5,
-    'retry_delay': timedelta(minutes=5)
+    'retry_delay': timedelta(minutes=1)
 }
 
 with DAG(
     dag_id='cellar_transformation',
     default_args = default_args,
     description =' Still in process',
-    start_date=datetime(2022,7,20),
-    schedule_interval='@weekly'
+    start_date=datetime(2022,9,24,hour=10,minute=15),
+    schedule_interval='15,25,35,45,55,05 * * * *'
 
 ) as DAG:
     task1 = PythonOperator(
-        task_id = 'cellar_transformation',
+        task_id = 'data_transformation',
         python_callable = transform_data,
         op_args=[['local']]
     )

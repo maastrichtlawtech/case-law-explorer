@@ -228,8 +228,9 @@ def get_raw_cellar_metadata(eclis, get_labels=True, force_readable_cols=True, fo
     # print("\n--- DONE ---")
     # print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
 
-def cellar_extract(args):
+def cellar_extract(argsT):
     # set up storage location
+
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
@@ -238,7 +239,7 @@ def cellar_extract(args):
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads',
                         action='store_true')
-    args = parser.parse_args(args)
+    args = parser.parse_args(argsT)
 
     print('\n--- PREPARATION ---\n')
     print('OUTPUT DATA STORAGE:\t', args.storage)

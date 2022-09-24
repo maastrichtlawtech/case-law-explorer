@@ -56,7 +56,7 @@ field_maps = {
     get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR
 }
 
-def transform_data(args):
+def transform_data(argsT):
     """
     Start processing
     """
@@ -68,10 +68,9 @@ def transform_data(args):
         get_path_raw(CSV_LI_CASES),
         get_path_raw(CSV_CELLAR_CASES)
     ]
-
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-    args = parser.parse_args()
+    args = parser.parse_args(args=argsT)
 
     print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
     print('INPUTS:\t\t\t\t', [basename(input_path) for input_path in input_paths])
@@ -81,8 +80,9 @@ def transform_data(args):
     for input_path in input_paths:
         broken = False
         update=False
+        storage = Storage(location=args.storage)
         if CSV_CELLAR_CASES in input_path:
-           transform_cellar(input_path,15)
+           broken = transform_cellar(input_path,15)
         try:
             open(input_path,'r',newline='')
         except:
@@ -96,7 +96,7 @@ def transform_data(args):
             output_path = get_path_processed(CSV_CELLAR_UPDATE)
             update=True
         print(f'\n--- PREPARATION {file_name} ---\n')
-        storage = Storage(location=args.storage)
+
         storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
         last_updated = storage.pipeline_last_updated
         print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
@@ -133,3 +133,8 @@ def transform_data(args):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+if __name__ == '__main__':
+
+    #giving arguments to the funtion
+    transform_data(sys.argv[1:])
+

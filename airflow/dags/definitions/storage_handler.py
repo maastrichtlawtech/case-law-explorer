@@ -26,7 +26,7 @@ b)  Define the terminology to be used throughout all data processing steps.
 """
 
 # local data folder structure
-DIR_ROOT = dirname(dirname(dirname(dirname(abspath(__file__)))))
+DIR_ROOT = dirname(dirname(dirname(abspath(__file__))))
 DIR_DATA = join(DIR_ROOT, 'data')
 DIR_DATA_RAW = join(DIR_DATA, 'raw')
 DIR_DATA_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak')
