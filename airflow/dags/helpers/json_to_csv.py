@@ -1,26 +1,13 @@
 import json, csv, re, glob
 from bs4 import BeautifulSoup
 import warnings
-from os import listdir
+
 warnings.filterwarnings("ignore")
 import sys
-from os.path import dirname, abspath, join
-
-# sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-from definitions.storage_handler import CELLAR_DIR, DIR_DATA_RAW,get_path_raw,CSV_CELLAR_CASES
+from definitions.storage_handler import CELLAR_DIR, DIR_DATA_RAW, get_path_raw, CSV_CELLAR_CASES
 
 WINDOWS_SYSTEM = False
 import pandas as pd
-
-if sys.platform == "win32":
-    WINDOWS_SYSTEM = True
-
-
-def windows_path(original):
-    return original.replace('\\', '/')
-
-
-# 'WORK_IS_CREATED_BY_AGENT_(AU)',_'CASE_LAW_COMMENTED_BY_AGENT',_'CASE_LAW_HAS_A_TYPE_OF_PROCEDURE',_'LEGAL_RESOURCE_USES_ORIGINALLY_LANGUAGE',_'CASE_LAW_USES_LANGUAGE_OF_PROCEDURE',_'CASE_LAW_HAS_A_JUDICIAL_PROCEDURE_TYPE',_'WORK_HAS_RESOURCE_TYPE',_'LEGAL_RESOURCE_BASED_ON_TREATY_CONCEPT',_'CASE_LAW_ORIGINATES_IN_COUNTRY_OR_USES_A_ROLE_QUALIFIER',_'CASE_LAW_ORIGINATES_IN_COUNTRY',_'CASE_LAW_DELIVERED_BY_COURT_FORMATION',_'LEGAL_RESOURCE_IS_ABOUT_SUBJECT_MATTER',_'RELATED_JOURNAL_ARTICLE',_'CASE_LAW_DELIVERED_BY_ADVOCATE_GENERAL',_'CASE_LAW_DELIVERED_BY_JUDGE',_'ECLI',_'CASE_LAW_INTERPRETS_LEGAL_RESOURCE',_'NATIONAL_JUDGEMENT',_'DATE_CREATION_LEGACY',_'DATETIME_NEGOTIATION',_'SEQUENCE_OF_VALUES',_'DATE_OF_REQUEST_FOR_AN_OPINION',_'CELEX_IDENTIFIER',_'SECTOR_IDENTIFIER',_'NATURAL_NUMBER_(CELEX)',_'TYPE_OF_LEGAL_RESOURCE',_'YEAR_OF_THE_LEGAL_RESOURCE',_'WORK_CITES_WORK._CI_/_CJ',_'LEGACY_DATE_OF_CREATION_OF_WORK',_'DATE_OF_DOCUMENT',_'IDENTIFIER_OF_DOCUMENT',_'WORK_VERSION',_'LAST_CMR_MODIFICATION_DATE',_'CASE_LAW_HAS_CONCLUSIONS'
 
 X = ['WORK IS CREATED BY AGENT (AU)', 'CASE LAW COMMENTED BY AGENT', 'CASE LAW HAS A TYPE OF PROCEDURE',
      'LEGAL RESOURCE USES ORIGINALLY LANGUAGE', 'CASE LAW USES LANGUAGE OF PROCEDURE',
@@ -122,31 +109,37 @@ Reads a csv file and returns it.
 def read_csv(file_path):
     try:
         data = pd.read_csv(file_path, sep=",", encoding='utf-8')
-        # print(data)
         return data
     except Exception:
         print("Something went wrong when trying to open the csv file!")
         sys.exit(2)
-def transform_main_file():
 
+
+"""
+Used for cellar transformation, transforms newest json download to csv.
+"""
+
+
+def transform_main_file():
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
-    print(f'FOUND FILES : {json_files}')
-    print(f"FILES FROM {CELLAR_DIR}")
-    for filename in listdir(CELLAR_DIR):
-        print(filename)
     json_to_csv_main(json_files[0])
     return True
+
+
+"""
+Main method of json_to_csv, transforms the entire json file and saves in raw folder of data, 
+ready for further transformations.
+"""
+
+
 def json_to_csv_main(filepath):
     i = filepath
     print(f"JSON TO CSV OF {filepath} HAS STARTED")
     json_data = read_json(i)
-
     if json_data:
         final_data = json_to_csv(json_data)
 
         if final_data:
-            if WINDOWS_SYSTEM:
-                i = windows_path(i)
             filename = CSV_CELLAR_CASES
             filepath = get_path_raw(CSV_CELLAR_CASES)
 
@@ -168,4 +161,4 @@ if __name__ == '__main__':
         print("\nShould this file be transformed? Answer Y/N please.")
         answer = str(input())
         if answer == "Y":
-           json_to_csv_main(i)
+            json_to_csv_main(i)

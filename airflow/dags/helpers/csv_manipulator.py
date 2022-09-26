@@ -1,7 +1,4 @@
-import glob, sys
-from os.path import dirname, abspath
-
-# sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
+import glob
 from definitions.storage_handler import DIR_DATA_PROCESSED
 from helpers.json_to_csv import read_csv
 
@@ -22,7 +19,7 @@ Y = ['LEGAL RESOURCE HAS TYPE OF ACT', 'WORK HAS RESOURCE TYPE', 'CASE LAW ORIGI
      'TYPE OF LEGAL RESOURCE', 'YEAR OF THE LEGAL RESOURCE', 'WORK IS CREATED BY AGENT (AU)',
      'LEGACY DATE OF CREATION OF WORK', 'DATE OF DOCUMENT', 'IDENTIFIER OF DOCUMENT', 'WORK TITLE', 'CMR CREATION DATE',
      'LAST CMR MODIFICATION DATE', 'CASE LAW DELIVERED BY NATIONAL COURT', 'REFERENCE TO A EUROPEAN ACT IN FREE TEXT',
-     'CASE LAW BASED ON A LEGAL INSTRUMENT', 'PARTIES OF THE CASE LAW','index']
+     'CASE LAW BASED ON A LEGAL INSTRUMENT', 'PARTIES OF THE CASE LAW', 'index']
 
 COLS = set(X + Y)
 COLS = sorted(COLS)
@@ -60,17 +57,6 @@ if __name__ == '__main__':
     print("")
     print("TRANSFORMATION OF CSV FILES IN DATA PROCESSED DIR STARTED")
     print("")
-    # csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
-    # print(f"FOUND {len(csv_files)} CSV FILES")
-
-    # for i in range(len(csv_files)):
-    #    if("Transformed" not in csv_files[i] and "Citations" not in csv_files[i] and "Extracted" not in csv_files[i]):
-    #        print("")
-    #        print(f"TRANSFORMING {csv_files[i]} ")
-    #        data=read_csv(csv_files[i])
-    #       drop_columns(data,data_to_drop)
-    #        output_path=csv_files[i].replace(".csv","_Transformed.csv")
-    #       data.to_csv(output_path,index=False)
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     for i in range(len(csv_files)):
         if ("test" in csv_files[i]):

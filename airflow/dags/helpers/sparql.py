@@ -1,4 +1,5 @@
 from SPARQLWrapper import SPARQLWrapper, JSON, CSV, POST
+
 """
 Method acquired from a different law and tech project for getting the citations of a source_celex.
 Unlike get_citations_csv, only works for one source celex at once. Returns a set containing all the works cited by
@@ -60,7 +61,7 @@ def get_citations_csv(celex):
     endpoint = 'https://publications.europa.eu/webapi/rdf/sparql'
     input_celex = '", "'.join(celex)
     query = '''
-           prefix cdm: <http://publications.europa.eu/ontology/cdm#>
+           prefix cdm: <https://publications.europa.eu/ontology/cdm#>
  prefix xsd: <http://www.w3.org/2001/XMLSchema#>
 
         SELECT DISTINCT * WHERE

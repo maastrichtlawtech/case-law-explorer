@@ -1,13 +1,8 @@
-import glob, sys
-from os.path import dirname, abspath
+import glob
 import argparse
-
-# sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_RAW
 from helpers.json_to_csv import read_csv
 
-
-# In this list, we would insert headings of all the columns we want removed from the data
 
 def extract_rows(data, number):
     try:
@@ -37,7 +32,7 @@ if __name__ == '__main__':
             print(f"EXTRACTING FROM {csv_files[i]} ")
             data = read_csv(csv_files[i])
             output = extract_rows(data, number)
-            output_path = DIR_DATA_RAW+"/tester_100.csv"
+            output_path = DIR_DATA_RAW + "/tester_100.csv"
             output.to_csv(output_path, index=False)
     print("")
     print(f"Extraction DONE")

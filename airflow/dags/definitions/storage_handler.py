@@ -111,7 +111,7 @@ class Storage:
             print(f'\nFetching output data from {self.location} storage ...')
             for path in self.pipeline_output_paths:
                 if exists(path) :
-                    if get_path_processed(CSV_CELLAR_CASES) in path:
+                    if get_path_processed(CSV_CELLAR_CASES) in path: # Modification added for cellar updating
                         logging.error(f'{path} exists locally! It will be updated with the newest download.')
                     else:
                         logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')

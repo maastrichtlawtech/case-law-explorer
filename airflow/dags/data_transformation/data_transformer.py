@@ -1,16 +1,16 @@
 from os.path import dirname, abspath, basename, exists
 import sys
+
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
-from definitions.storage_handler import  Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
-    get_path_raw, get_path_processed,CSV_CELLAR_CASES,CSV_CELLAR_UPDATE
+from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
+    get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_CELLAR_UPDATE
 import time
 import argparse
 from csv import DictReader, DictWriter
-from data_transformation.cellar_transformation import transform_cellar,update_cellar
-
+from data_transformation.cellar_transformation import transform_cellar, update_cellar
 
 """
 Define tool_maps
@@ -39,14 +39,14 @@ tool_map_li = {
     'SearchNumbers': format_li_list
 }
 tool_map_cellar = {
-    'YEAR OF THE LEGAL RESOURCE' : format_cellar_year
+    'YEAR OF THE LEGAL RESOURCE': format_cellar_year
 
 }
 tool_maps = {
     get_path_raw(CSV_RS_CASES): tool_map_rs,
     get_path_raw(CSV_RS_OPINIONS): tool_map_rs,
     get_path_raw(CSV_LI_CASES): tool_map_li,
-    get_path_raw(CSV_CELLAR_CASES) : tool_map_cellar
+    get_path_raw(CSV_CELLAR_CASES): tool_map_cellar
 }
 
 field_maps = {
@@ -55,6 +55,7 @@ field_maps = {
     get_path_raw(CSV_LI_CASES): MAP_LI,
     get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR
 }
+
 
 def transform_data(argsT):
     """
@@ -69,7 +70,8 @@ def transform_data(argsT):
         get_path_raw(CSV_CELLAR_CASES)
     ]
     parser = argparse.ArgumentParser()
-    parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+    parser.add_argument('storage', choices=['local', 'aws'],
+                        help='location to take input data from and save output data to')
     args = parser.parse_args(args=argsT)
 
     print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
@@ -78,13 +80,13 @@ def transform_data(argsT):
 
     # run data transformation for each input file
     for input_path in input_paths:
-        broken = False
-        update=False
+        broken = False  # Flag for if the file doesn't exist
+        update = False  # Flag for cellar cases updating of main file
         storage = Storage(location=args.storage)
         if CSV_CELLAR_CASES in input_path:
-           broken = transform_cellar(input_path,15)
+            broken = transform_cellar(input_path, 15)  # if the cellar transformation part succeeds, goes through
         try:
-            open(input_path,'r',newline='')
+            open(input_path, 'r', newline='')
         except:
             print(f"No such file found as {input_path}")
             broken = True
@@ -92,25 +94,23 @@ def transform_data(argsT):
             continue
         file_name = basename(input_path)
         output_path = get_path_processed(file_name)
-        if exists(output_path) and CSV_CELLAR_CASES in output_path:
+        if exists(output_path) and CSV_CELLAR_CASES in output_path:  # If there exists a final file already, update it
             output_path = get_path_processed(CSV_CELLAR_UPDATE)
-            update=True
+            update = True
         print(f'\n--- PREPARATION {file_name} ---\n')
-
         storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
         last_updated = storage.pipeline_last_updated
         print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
-
         print(f'\n--- START {file_name} ---\n')
 
         field_map = field_maps.get(input_path)
         tool_map = tool_maps.get(input_path)
 
-        with open(output_path, 'a', newline='',encoding='utf-8') as out_file:
+        with open(output_path, 'a', newline='', encoding='utf-8') as out_file:
             writer = DictWriter(out_file, fieldnames=list(field_map.values()))
             writer.writeheader()
 
-            with open(input_path, 'r', newline='',encoding='utf-8') as in_file:
+            with open(input_path, 'r', newline='', encoding='utf-8') as in_file:
 
                 reader = DictReader(in_file)
                 # process input file by row
@@ -127,14 +127,14 @@ def transform_data(argsT):
 
         print(f"\nUpdating {args.storage} storage ...")
         if update:
-            update_cellar(output_path)
+            update_cellar(output_path)  # Updates the main cellar file with the update file
         storage.finish_pipeline()
 
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+
+
 if __name__ == '__main__':
-
-    #giving arguments to the funtion
+    # giving arguments to the funtion
     transform_data(sys.argv[1:])
-

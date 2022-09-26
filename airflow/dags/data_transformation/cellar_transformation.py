@@ -21,14 +21,14 @@ if sys.platform == "win32":
 """
 This is the main method for cellar file transformation.
 
-It accepts a filepath to a .json file and does the following to it:
+It accepts a filepath to a .csv file and does the following to it:
 
-Transforms it to csv format*
+Transforms the freshest json download and transforms it to the csv.
 Removes data we decided not to need *
 Adds citations for every separate case*
 Adds multiple sections as columns, introducing new columns*
 
-After all that is done, it saves the csv file in processed directory with "Processed" in its name.
+After all that is done, it saves the csv file in raw directory as the csv path provided.
 
 *More detail available in separate functions.
 
@@ -50,6 +50,7 @@ def transform_cellar(filepath, threads):
     print('\n--- START ---\n')
     start: float = time.time()
     done = transform_main_file()
+    # Airflow modification, makes sure that it wont restart when this failed
     if done:
         data = read_csv(filepath)
         print("TRANSFORMATION OF CSV FILES INTO DATA PROCESSED DIR STARTED")

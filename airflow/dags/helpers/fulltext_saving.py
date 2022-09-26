@@ -1,8 +1,5 @@
-import glob, sys
-from os.path import dirname, abspath
+import glob
 import pandas as pd
-
-# sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_PROCESSED
 from bs4 import BeautifulSoup
 import requests
@@ -11,14 +8,18 @@ import time
 import threading
 from helpers.json_to_csv import read_csv
 
+"""
+Method for detecting code-words for case law directory codes for cellar.
+"""
+
 
 def is_code(word):
     return word.replace(".", "0").replace("-", "0")[1:].isdigit()
 
 
 """
-Wrapped method for requests.get()
-After 5 retries, it gives up and returns a "404" string
+Wrapped method for requests.get().
+After 5 retries, it gives up and returns a "404" string.
 """
 
 
@@ -35,7 +36,7 @@ def response_wrapper(link, num=1):
 
 """
 This method returns the html of a summary page.
-Cellar specific, works for celex id's starting a 6 and 8
+Cellar specific, works for celex id's starting a 6 and 8.
 """
 
 
@@ -47,10 +48,10 @@ def get_summary_html(celex):
                 celex = idsss
     else:
         celex = celex
-    celex=celex.replace(" ","")
+    celex = celex.replace(" ", "")
     if celex.startswith("6"):
         if "INF" in celex:
-            link='https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere&qid=1657547189758&from=EN#SM'
+            link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere&qid=1657547189758&from=EN#SM'
         else:
             link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere_SUM&qid=1657547189758&from=EN#SM'
         sum_link = link.replace("cIdHere", celex)
@@ -75,7 +76,7 @@ def get_summary_html(celex):
 
 """
 Method used to extract the summary from a html page.
-Cellar specific, uses get_words_from_keywords
+Cellar specific, uses get_words_from_keywords.
 Currently only walking for celex id's starting with a 6 ( EU cases).
 """
 
@@ -106,7 +107,7 @@ def get_summary_from_html(html, starting):
 
 """
 Method used to extract the keywords from a html page.
-Cellar specific, uses get_words_from_keywords
+Cellar specific, uses get_words_from_keywords.
 """
 
 
@@ -135,12 +136,14 @@ input text : Crime rates - Potato and carrot prices - Labour costs
 output keywords: rates_Potato_prices_Labour
 
 """
+
+
 def get_words_from_keywords_em(text):
-    lines=text.split(sep="\n")
-    returner=set()
+    lines = text.split(sep="\n")
+    returner = set()
     for line in lines:
         if "—" in line:
-            line=line.replace('‛',"")
+            line = line.replace('‛', "")
             line = line.replace("(", "")
             line = line.replace(")", "")
             returner.update(line.split(sep="—"))
@@ -151,95 +154,104 @@ def get_words_from_keywords_em(text):
             returner.update(line.split(sep="–"))
         elif " - " in line:
             line = line.replace('‛', "")
-            line = line.replace("(","")
-            line = line.replace(")","")
+            line = line.replace("(", "")
+            line = line.replace(")", "")
             returner.update(line.split(sep=" - "))
     return ";".join(returner)
+
+
 def processed_set(sets):
-    first_list=list()
+    first_list = list()
     for word in sets:
-        transformed=processed_word(word)
+        transformed = processed_word(word)
         if transformed != "":
             first_list.append(transformed)
     return set(first_list)
+
+
 def processed_word(word):
-    while len(word)>0:
-        while word[0] == " " or word[0] == "1."or word[0] == "2."or word[0] == "3."or word[0] == "4."or word[0] == "5."\
-            or word[0] == "6."or word[0] == "7."or word[0] == "8."or word[0] == "9."or word[0] == "(" :
+    while len(word) > 0:
+        while word[0] == " " or word[0] == "1." or word[0] == "2." or word[0] == "3." or word[0] == "4." or word[
+            0] == "5." \
+                or word[0] == "6." or word[0] == "7." or word[0] == "8." or word[0] == "9." or word[0] == "(":
             word = word[1:]
-        while word[-1] == " " or word[-1] == ")" or word[-1] == "." :
-            word=word[:-1]
+        while word[-1] == " " or word[-1] == ")" or word[-1] == ".":
+            word = word[:-1]
     return word
-def add_lines(list,start,fragment):
-    fragment = fragment.replace((str(start))+".","")
+
+
+def add_lines(list, start, fragment):
+    fragment = fragment.replace((str(start)) + ".", "")
     fragment = fragment.replace((str(start)) + " .", "")
-    fragment=fragment.replace("\n"," ")
-    fragment=fragment.replace("Summary","")
+    fragment = fragment.replace("\n", " ")
+    fragment = fragment.replace("Summary", "")
     try:
-        index=fragment.find("(")
-        fragment=fragment[:index]
+        index = fragment.find("(")
+        fragment = fragment[:index]
     except:
-        nothing="happens"
+        nothing = "happens"
     if "–" in fragment:
-        words_new=fragment.split(sep=" – ")
+        words_new = fragment.split(sep=" – ")
     elif "-" in fragment:
         words_new = fragment.split(sep=" - ")
     else:
         print(fragment)
-        words_new=[]
+        words_new = []
     list.update(words_new)
 
+
 def get_words_from_keywords_old(text):
-    lines=text.split(sep='\n')
+    lines = text.split(sep='\n')
     returner = set()
     starting = 1
     current = 1
-    number=1
+    number = 1
     fragment = ""
-    started=False
+    started = False
     for line in lines:
-        if (str(starting)+".") in line or (str(starting)+" .") in line:
-            if current==1:
-                number=current
-                current +=1
-                fragment=line
+        if (str(starting) + ".") in line or (str(starting) + " .") in line:
+            if current == 1:
+                number = current
+                current += 1
+                fragment = line
 
             else:
                 return ";".join(returner)
-        elif (str(current)+".") in line or (str(current)+" .") in line:
+        elif (str(current) + ".") in line or (str(current) + " .") in line:
             current += 1
-            add_lines(returner,number,fragment)
-            fragment=line
+            add_lines(returner, number, fragment)
+            fragment = line
         else:
-            fragment+=line
+            fragment += line
+
+
 def get_words_from_keywords(text):
-    if "Keywords"  in text:
+    if "Keywords" in text:
         try:
-            index=text.find("Keywords")
-            if "Summary" in text[index:index+25]:
-                text2=text.replace("Summary","",1)
+            index = text.find("Keywords")
+            if "Summary" in text[index:index + 25]:
+                text2 = text.replace("Summary", "", 1)
                 try:
-                    indexer=text2.find("Summary")
-                    text=text[index:indexer]
+                    indexer = text2.find("Summary")
+                    text = text[index:indexer]
                 except:
-                    text=text
+                    text = text
         except:
-            text=text
+            text = text
     else:
         if "Summary" in text:
-            index=text.find("Summary")
-            text=text[:index]
+            index = text.find("Summary")
+            text = text[:index]
     if "—" in text:
         return get_words_from_keywords_em(text)
-    else :
+    else:
         return get_words_from_keywords_em(text)
-        #return get_words_from_keywords_old(text)
-
+        # return get_words_from_keywords_old(text)
 
 
 """
-  This method turns the html code from the summary page into text
-  It has different cases depending on the first character of the CELEX ID
+  This method turns the html code from the summary page into text.
+  It has different cases depending on the first character of the CELEX ID.
   Universal method, also replaces all "," with "_".
 """
 
@@ -364,6 +376,12 @@ def get_entire_page(celex):
         return "No data available"
 
 
+"""
+This Method gets the subject matter from a fragment of code containing them.
+Used for extracting subject matter for cellar cases only.
+"""
+
+
 def get_subject(text):
     try:
         index_matter = text.index("Subject matter:")
@@ -378,6 +396,12 @@ def get_subject(text):
     except Exception:
         subject = ""
     return subject
+
+
+"""
+This Method extracts all eurovocs, from a fragment containing them.
+Used for extracting eurovoc for cellar cases.
+"""
 
 
 def get_eurovoc(text):
@@ -405,6 +429,11 @@ def get_eurovoc(text):
             return ";".join(lists)
     except:
         return ""
+
+
+"""
+Method for getting all of the case directory codes for each cellar case.
+"""
 
 
 def get_codes(text):
@@ -464,20 +493,6 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
     for i in range(len(celex)):
         j = start + i
         id = celex[j]
-
-        #if ";" in id:
-        #    ids = id.split(";")
-        #   for id_s in ids:
-        #        if "_" not in id_s:
-        #            id=id_s
-        #html = get_html_by_celex_id_wrapper(id)
-       # if html != "404":
-          #  if "] not found." in html:
-           #     full[j] = ""
-           # else:
-           #     text = get_full_text_from_html(html)
-            #    full[j] = text
-
         summary = get_summary_html(id)
         if summary != "No summary available":
             text = get_keywords_from_html(summary, id[0])
@@ -502,7 +517,7 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
         case_codes[j] = code
     list_sum.append(sum)
     list_key.append(key)
-   # list_full.append(full)
+    # list_full.append(full)
     list_codes.append(case_codes)
     list_subject.append(subject_matter)
     list_eurovoc.append(eurovocs)
@@ -547,9 +562,14 @@ def add_sections(data, threads):
     add_column_frow_list(data, "celex_summary", list_sum)
     add_column_frow_list(data, "celex_keywords", list_key)
     add_column_frow_list(data, "celex_eurovoc", list_eurovoc)
-   # add_column_frow_list(data,"celex_full_text",list_full)
+    # add_column_frow_list(data,"celex_full_text",list_full)
     add_column_frow_list(data, "celex_subject_matter", list_subject)
     add_column_frow_list(data, "celex_directory_codes", list_codes)
+
+
+"""
+Used for adding columns easier to a dataframe for add_sections().
+"""
 
 
 def add_column_frow_list(data, name, list):
@@ -568,7 +588,7 @@ if __name__ == '__main__':
             print("")
             print(f"WORKING ON  {csv_files[i]} ")
             data = read_csv(csv_files[i])
-            # add_sections(data)
+            add_sections(data)
             add_keywords(data)
             data.to_csv(csv_files[i].replace("Extracted", "With Summary"), index=False)
     print("WORK FINISHED SUCCESSFULLY!")
