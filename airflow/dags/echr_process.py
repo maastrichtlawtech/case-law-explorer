@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.bash import BashOperator
+from echr_process
 
 default_args = {
     'owner': 'none',
@@ -18,4 +19,11 @@ with DAG(
     schedule_interval='@daily'
 
 ) as DAG:
-    task1 =
+   task1 = PythonOperator(
+        task_id='echr_extraction',
+        python_callable=cellar_extract,
+        op_args = [['local','--amount','50']]
+    )
+ 
+
+    task1

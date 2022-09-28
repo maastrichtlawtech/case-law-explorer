@@ -12,25 +12,6 @@ default_args = {
     #'retries': 5,
     #'retry_delay': timedelta(minutes=1)
 }
-import pendulum
-# def extraction():
-#     cellar_extract(['local','--amount','50'])
-# def test(args):
-#     import argparse
-#     parser = argparse.ArgumentParser(description='Description of your program')
-#     parser.add_argument('-f','--foo', help='Description for foo argument', required=True)
-#     parser.add_argument('-b','--bar', help='Description for bar argument', required=True)
-#     args = vars(parser.parse_args(args))
-#     if args['foo'] == 'Hello':
-#         # code here
-#         print('hello')
-
-#     if args['bar'] == 'World':
-#         # code here
-#         print('world')
-
-# if __name__ =='__main__':
-#     test(args)
 
 
 with DAG(
@@ -44,6 +25,8 @@ with DAG(
     task1 = PythonOperator(
         task_id='cellar_extraction',
         python_callable=cellar_extract,
-        op_args=[['local']]
+        op_args=[['local','--amount','50']]
     )
+    
+    task1
 
