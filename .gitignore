@@ -229,3 +229,4 @@ ignore/
 
 # ignore log files
 **/logs
+airflow/logs/scheduler/*
