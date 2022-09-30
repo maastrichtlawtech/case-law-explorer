@@ -1,5 +1,7 @@
-from os.path import basename, dirname, abspath, join, exists, relpath, isfile
-from os import makedirs, getenv, listdir
+from os.path import basename, dirname, abspath, join, exists, relpath, isfile, getsize, getmtime
+from os import makedirs, getenv, listdir, walk
+from concurrent.futures import ThreadPoolExecutor
+import hashlib
 import re
 import boto3
 from botocore.exceptions import ClientError
@@ -51,6 +53,29 @@ def get_path_raw(file_name):
 def get_path_processed(file_name):
     return join(DIR_DATA_PROCESSED, file_name.split('.csv')[0] + '_clean.csv')
 
+def md5sum_file(file_path):
+    hash_md5 = hashlib.md5()
+    with open(file_path, "rb") as local_file:
+        for chunk in iter(lambda: local_file.read(4096), b""):
+            hash_md5.update(chunk)
+
+    return '"' + hash_md5.hexdigest() + '"'
+
+class FileStats:
+    def __init__(self, time, size, digest):
+        self.date = time
+        self.size = size
+        self.digest = digest
+
+    def __eq__(self, other):
+        return (self.date == other.date and self.size == other.size
+                and self.digest == other.digest)
+
+def stats_from_path(filepath):
+    return FileStats(getmtime(filepath), getsize(filepath), md5sum_file(filepath))
+
+def stats_from_aws_obj_summary(obj):
+    return FileStats(obj.last_modified, obj.size, obj.e_tag)
 
 class Storage:
     def __init__(self, location):
@@ -141,36 +166,20 @@ class Storage:
             else:
                 print('Local data ready.')
 
-        def fetch_data_aws(file_path):
+        def fetch_data_aws(objs, file_path):
             if exists(file_path):
-                logging.error(f'{file_path} exists locally! Move/rename local file before fetching data from aws.')
-                sys.exit(2)
+                if objs[file_path] != stats_from_path(file_path):
+                    logging.error(f'{file_path} exists locally with different data! Move/rename local file before fetching data from aws.')
+                    sys.exit(2)
+                print(f'{basename(file_path)} already downloaded.')
+                return
 
-            if file_path == DIR_RECHTSPRAAK:
-                # paginate through all items listed in folder
-                paginator = self.s3_client.get_paginator('list_objects_v2')
-                folder_name = relpath(file_path, DIR_ROOT) + '/'
-                pages = paginator.paginate(Bucket=self.s3_bucket_name, Prefix=folder_name)
-                empty = True
-                for page in pages:
-                    empty = False
-                    if 'Contents' in page:
-                        for obj in page['Contents']:
-                            yearmonth = dirname(relpath(obj['Key'], folder_name)).split('/')[1]
-                            if date(int(yearmonth[:4]), int(yearmonth[4:]), 1) > self.pipeline_last_updated:
-                                key = obj['Key']
-                                makedirs(dirname(join(DIR_ROOT, key)), exist_ok=True)
-                                self.s3_bucket.download_file(key, join(DIR_ROOT, key))
-                if empty:
+            try:
+                makedirs(dirname(file_path), exist_ok=True)
+                self.s3_bucket.download_file(relpath(file_path, DIR_ROOT), file_path)
+            except ClientError as e:
+                if e.response['Error']['Code'] == '404':
                     not_found(file_path)
-
-            else:
-                try:
-                    makedirs(dirname(file_path), exist_ok=True)
-                    self.s3_bucket.download_file(relpath(file_path, DIR_ROOT), file_path)
-                except ClientError as e:
-                    if e.response['Error']['Code'] == '404':
-                        not_found(file_path)
 
             print(f'{basename(file_path)} fetched.')
 
@@ -178,24 +187,52 @@ class Storage:
             for path in paths:
                 fetch_data_local(path)
         elif self.location == 'aws':
-            for path in paths:
-                fetch_data_aws(path)
+            with ThreadPoolExecutor() as executor:
+                for path in paths:
+                    rel_dir = relpath(path, DIR_ROOT)
+                    objs = {}
+                    for obj in self.s3_bucket.objects.filter(Prefix=rel_dir):
+                        objs[obj.key] = stats_from_aws_obj_summary(obj)
+
+                    executor.map(lambda name: fetch_data_aws(objs, name), objs)
 
     def upload_data(self, paths):
-        def upload_to_aws(file_path):
-            if isfile(file_path):
-                try:
-                    self.s3_bucket.upload_file(file_path, relpath(file_path, DIR_ROOT))
-                except ClientError as e:
-                    logging.error(e)
-            else:
-                for sub_path in listdir(file_path):
-                    upload_to_aws(join(file_path, sub_path))
+        def upload_to_aws(objs, rel_dir, file_name):
+            file_path = join(rel_dir, file_name)
+            if file_path in objs:
+                file_size = getsize(file_path)
+                if file_size == objs[file_path].size:
+                    digest = md5sum_file(join(DIR_ROOT, file_path))
+                    if digest == objs[file_path].digest:
+                        return
+
+                    print("Different file contents for:", file_path)
+                else:
+                    print("Different file sizes for:", file_path)
+
+            try:
+                self.s3_bucket.upload_file(join(DIR_ROOT, file_path), file_path)
+            except ClientError as e:
+                logging.error(e)
+
+        def handle_dir(executor, root, files):
+            rel_dir = relpath(root, DIR_ROOT)
+            objs = {}
+            for obj in self.s3_bucket.objects.filter(Prefix=rel_dir):
+                objs[obj.key] = stats_from_aws_obj_summary(obj)
+
+            executor.map(lambda name: upload_to_aws(objs, rel_dir, name), files)
 
         if self.location == 'aws':
-            for path in paths:
-                upload_to_aws(path)
-                print(basename(path), 'loaded to aws.')
+            with ThreadPoolExecutor() as executor:
+                for path in paths:
+                    for root, _, files in walk(path):
+                        if len(files) == 0:
+                            continue
+
+                        executor.submit(handle_dir, executor, root, files)
+
+                    print(basename(path), 'loaded to aws.')
         else:
             print('Local data updated.')
 
