@@ -24,10 +24,3 @@ with DAG(
         python_callable=rechspraak_downloader,
         op_args=[['--max', '10', '--starting-date', '2022-08-28']]
     )
-    task2 = PythonOperator(
-        task_id='Rechtspraak_data_transformation',
-        python_callable=transform_data,
-        op_args =[['local']]
-    )
-
-    task1 >> task2
