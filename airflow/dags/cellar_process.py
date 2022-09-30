@@ -17,14 +17,14 @@ with DAG(
     dag_id='cellar_extraction',
     default_args = default_args,
     description ='local working need to check aws',
-    start_date=datetime(2022,9,24,hour=10,minute=15),
+    start_date=datetime.now(),
     schedule_interval='10 * * * *'
 
 ) as DAG:
     task1 = PythonOperator(
         task_id='cellar_extraction',
         python_callable=cellar_extract,
-        op_args=[['local','--amount','50']]
+        op_args=[['airflow','local']]
     )
 
 

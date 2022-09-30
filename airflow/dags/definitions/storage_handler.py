@@ -81,7 +81,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR,CELLAR_ARCHIVE_DIR]:
+        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR,CELLAR_ARCHIVE_DIR,DIR_ECHR]:
 
             makedirs(d, exist_ok=True)
 

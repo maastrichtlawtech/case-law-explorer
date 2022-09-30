@@ -152,7 +152,7 @@ class DynamoDBRowProcessor:
                 for val in row[name].split(SET_SEP):
                     list.append({
                         self.pk: row[ECLI],
-                        self.sk: ItemType.DOM.value + KEY_SEP + val,
+                        self.sk: ItemType.DATA.value + KEY_SEP + val,
                         key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value,
                         name[:-1]: val
                     })
@@ -193,6 +193,11 @@ class DynamoDBRowProcessor:
         # retrieve lists of items to put and update
         put_items, update_items, update_set_items = self.row_processor(row)
 
+        ##TESTING
+        print(put_items)
+        print(update_items)
+        print(update_set_items)
+        b=2
         # add items
         for item in put_items:
             try:

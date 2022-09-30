@@ -64,10 +64,11 @@ def get_search_query(query, filters=None):
 
     documents = []
 
-    #try:
+   # try:
     initial_response = requests.get(link, headers=headers, params=params)
-    #except:
+   # except:
     #    print(f'RETRIEVAL PAGE ${1} FAILED')
+
 
     n_requests += 1
     print(initial_response)

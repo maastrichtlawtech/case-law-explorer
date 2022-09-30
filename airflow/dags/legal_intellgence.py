@@ -13,7 +13,7 @@ with DAG(
     dag_id='legal_intelligence',
     default_args = default_args,
     description =' Still in process',
-    start_date=datetime(2022,7,20),
+    start_date=datetime.now(),
     schedule_interval='@daily'
 
 )  as DAG:

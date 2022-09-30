@@ -6,7 +6,7 @@ import shutil
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import urllib.request
 import time, glob
-from datetime import datetime
+from datetime import datetime,timedelta
 from definitions.storage_handler import CELLAR_DIR, Storage,CELLAR_ARCHIVE_DIR
 
 import argparse
@@ -230,6 +230,10 @@ def get_raw_cellar_metadata(eclis, get_labels=True, force_readable_cols=True, fo
 
 def cellar_extract(args):
     # set up storage location
+    if "airflow" in args:
+        run_date = (datetime.now()+timedelta(hours=2)).isoformat(timespec='seconds')
+        output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
+        args.remove("airflow")
 
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')

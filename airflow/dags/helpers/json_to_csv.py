@@ -121,9 +121,11 @@ Used for cellar transformation, transforms newest json download to csv.
 
 
 def transform_main_file():
-    json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
-    json_to_csv_main(json_files[0])
-    return True
+    try:
+        json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
+        return json_to_csv_main(json_files[0])
+    except:
+        return False
 
 
 """
@@ -146,9 +148,11 @@ def json_to_csv_main(filepath):
             create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
         else:
             print("Error creating CSV file. Data is empty.")
+            return False
     else:
         print("Error reading json file. Please make sure json file exists and contains data.")
-    return read_csv(filepath)
+        return False
+    return True
 
 
 if __name__ == '__main__':
