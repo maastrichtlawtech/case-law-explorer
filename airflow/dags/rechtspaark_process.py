@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow import DAG
-from airflow.operators.python_operator import PythonOperator
-from airflow.operators.bash_operator import BashOperator
+from airflow.operators.python import PythonOperator
 from data_extraction.caselaw.rechtspraak.rechtspraak_api import rechspraak_downloader
 from data_transformation.data_transformer import transform_data
 default_args = {

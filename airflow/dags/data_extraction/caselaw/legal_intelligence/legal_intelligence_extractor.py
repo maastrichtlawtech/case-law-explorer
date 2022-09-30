@@ -72,6 +72,7 @@ def get_search_query(query, filters=None):
     n_requests += 1
     print(initial_response)
     # total number of cases retrieved by the given query
+    print(initial_response.json())
     count = initial_response.json()["Count"]
     print("case count : " + str(count))
 
@@ -146,62 +147,64 @@ def get_ecli(case_number):
     return None
 
 # # Main Method
+def li_extract(argv):
+    start = time.time()
 
-start = time.time()
+    output_path = get_path_raw(CSV_LI_CASES)
 
-output_path = get_path_raw(CSV_LI_CASES)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
+    args = parser.parse_args(argv)
+    print('\n--- PREPARATION ---\n')
+    print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
+    print('OUTPUTS:\t\t\t', f'{basename(output_path)}\n')
+    storage = Storage(location=args.storage)
+    storage.setup_pipeline(output_paths=[output_path])
+    last_updated = storage.pipeline_last_updated
+    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 
-parser = argparse.ArgumentParser()
-parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-args = parser.parse_args()
-print('\n--- PREPARATION ---\n')
-print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
-print('OUTPUTS:\t\t\t', f'{basename(output_path)}\n')
-storage = Storage(location=args.storage)
-storage.setup_pipeline(output_paths=[output_path])
-last_updated = storage.pipeline_last_updated
-print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+    print('\n--- START ---\n')
 
-print('\n--- START ---\n')
+    counter = 0
+    large_summaries = 0
 
-counter = 0
-large_summaries = 0
+    # get all return documents for given ecli from LI
+    search_results = get_search_query('*', ['Jurisdiction_HF%3A2|010_Nederland|010_Rechtspraak|250_Uitspraak'])
 
-# get all return documents for given ecli from LI
-search_results = get_search_query('*', ['Jurisdiction_HF%3A2|010_Nederland|010_Rechtspraak|250_Uitspraak'])
+    df = pd.DataFrame(search_results['Documents'])
+    df.to_csv(output_path.split('.csv')[0] + '_unfiltered.csv', index=False)
 
-df = pd.DataFrame(search_results['Documents'])
-df.to_csv(output_path.split('.csv')[0] + '_unfiltered.csv', index=False)
+    # add ecli number for each document
+    df['ecli'] = df['CaseNumber'].apply(get_ecli)
+    # drop rows with no valid ecli
+    df.dropna(subset=['ecli'], inplace=True)
+    # drop irrelevant column and adjust data types
+    df.drop('UrlWithAutoLogOnToken', axis=1, inplace=True)
+    # drop duplicate entries
+    # convert all columns to type str (in case more attributes are added by LI inthe future)
+    df = df.loc[df.astype(str).drop_duplicates(set(df.columns) - {'Url'}).index]
+    #df.drop_duplicates(set(df.columns) - {'Url'}, inplace=True)
 
-# add ecli number for each document
-df['ecli'] = df['CaseNumber'].apply(get_ecli)
-# drop rows with no valid ecli
-df.dropna(subset=['ecli'], inplace=True)
-# drop irrelevant column and adjust data types
-df.drop('UrlWithAutoLogOnToken', axis=1, inplace=True)
-# drop duplicate entries
-# convert all columns to type str (in case more attributes are added by LI inthe future)
-df = df.loc[df.astype(str).drop_duplicates(set(df.columns) - {'Url'}).index]
-#df.drop_duplicates(set(df.columns) - {'Url'}, inplace=True)
+    # group by ecli number, select most relevant entry
+    df = df.groupby('ecli').apply(select_entry).reset_index(drop=True)
+    df['PublicationDate'] = df['PublicationDate'].astype(int)
+    df['EnactmentDate'] = df['EnactmentDate'].astype(int)
+    df['DateAdded'] = df['DateAdded'].astype(int)
 
-# group by ecli number, select most relevant entry
-df = df.groupby('ecli').apply(select_entry).reset_index(drop=True)
-df['PublicationDate'] = df['PublicationDate'].astype(int)
-df['EnactmentDate'] = df['EnactmentDate'].astype(int)
-df['DateAdded'] = df['DateAdded'].astype(int)
+    # save dataframe to csv (append to existing if applicable):
+    if not os.path.exists(output_path):
+        header = True
+    else:
+        header = False
+    df.to_csv(output_path, mode='a', index=False, header=header)
 
-# save dataframe to csv (append to existing if applicable):
-if not os.path.exists(output_path):
-    header = True
-else:
-    header = False
-df.to_csv(output_path, mode='a', index=False, header=header)
+    print(f'LI dataframe shape: {df.shape}')
 
-print(f'LI dataframe shape: {df.shape}')
+    print(f"\nUpdating {args.storage} storage ...")
+    storage.finish_pipeline()
 
-print(f"\nUpdating {args.storage} storage ...")
-storage.finish_pipeline()
-
-end = time.time()
-print("\n--- DONE ---")
-print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+    end = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+if __name__ ==  '__main__':
+    li_extract(sys.argv[1:])

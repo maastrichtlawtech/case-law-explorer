@@ -10,4 +10,3 @@ COPY requirements.txt ./requirements.txt
 RUN python3 -m pip install --upgrade pip
 RUN pip3 install -r ./requirements.txt
 RUN pip3 uninstall -y argparse
-RUN sudo chmod u=rwx,g=rwx,o=rwx /opt/airflow/data

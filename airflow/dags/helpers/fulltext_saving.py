@@ -540,8 +540,11 @@ It operates with multiple threads, using that feature is recommended as it speed
 def add_sections(data, threads):
     name = 'CELEX IDENTIFIER'
     celex = data.loc[:, name]
-    at_once_threads = int(celex.size / threads)
     length = celex.size
+    if length > 100:
+        at_once_threads = int(length / threads)
+    else:
+        at_once_threads=length
     threads = []
     list_sum = list()
     list_key = list()

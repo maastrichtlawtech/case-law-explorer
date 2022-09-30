@@ -39,8 +39,12 @@ Uses a query to get the citations in a csv format from the endpoint. *
 def add_citations(data, threads):
     name = "WORK CITES WORK. CI / CJ"
     celex = data.loc[:, "CELEX IDENTIFIER"]
+
     length = celex.size
-    at_once_threads = int(length / threads)
+    if length > 100:
+        at_once_threads = int(length / threads)
+    else:
+        at_once_threads=length
     all_csv = list()
     threads = []
     for i in range(0, length, at_once_threads):

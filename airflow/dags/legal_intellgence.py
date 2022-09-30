@@ -2,8 +2,7 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.operators.bash import BashOperator
-
+from data_extraction.caselaw.legal_intelligence.legal_intelligence_extractor import li_extract
 default_args = {
     'owner': 'none',
     'retries': 5,
@@ -11,11 +10,15 @@ default_args = {
 }
 
 with DAG(
-    dag_id='legal intelligence',
+    dag_id='legal_intelligence',
     default_args = default_args,
     description =' Still in process',
     start_date=datetime(2022,7,20),
     schedule_interval='@daily'
 
-) as DAG:
-    task1 =
+)  as DAG:
+    task1 = PythonOperator(
+        task_id='legal_intelligence_extraction',
+        python_callable=li_extract,
+        op_args=[['local']]
+    )
