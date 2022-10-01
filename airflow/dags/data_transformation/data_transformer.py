@@ -127,7 +127,9 @@ def transform_data(argsT):
 
         print(f"\nUpdating {args.storage} storage ...")
         if update:
-            update_cellar(output_path)  # Updates the main cellar file with the update file
+            #update_cellar(output_path)  # Updates the main cellar file with the update file
+            print("Update not to be used in general, only temporary measure when testing")
+            print("Update not executed!")
         storage.finish_pipeline()
 
     end = time.time()
