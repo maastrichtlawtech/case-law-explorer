@@ -1,8 +1,5 @@
-from definitions.terminology.attribute_names import ECLI, ECLI_DECISION, ECLI_OPINION, RS_SUBJECT, LI_LAW_AREA, RS_RELATION, \
-    LIDO_JURISPRUDENTIE, RS_REFERENCES, LIDO_ARTIKEL_TITLE, RS_DATE,CELLAR_CITATIONS,CELLAR_KEYWORDS,CELLAR_SUBJECT_MATTER,CELLAR_DIRECTORY_CODES
-from definitions.storage_handler import CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, CSV_CASE_CITATIONS, \
-    CSV_LEGISLATION_CITATIONS, CSV_DDB_ECLIS_FAILED, get_path_raw, get_path_processed,CSV_CELLAR_CASES
-
+from definitions.terminology.attribute_names import *
+from definitions.storage_handler import *
 from definitions.terminology.attribute_values import ItemType, DocType, DataSource
 
 KEY_SEP = '_'               # used to separate compound key values
@@ -138,7 +135,7 @@ class DynamoDBRowProcessor:
             put_items=[]
             update_items=[]
             update_set_items=[]
-            for sets in [CELLAR_KEYWORDS,CELLAR_CITATIONS,CELLAR_SUBJECT_MATTER,CELLAR_DIRECTORY_CODES]:
+            for sets in [CELLAR_KEYWORDS,CELLAR_CITATIONS,CELLAR_SUBJECT_MATTER,CELLAR_DIRECTORY_CODES,CELLAR_COMMENTED_AGENT]:
                 add_separated(put_items,row,sets)
             put_items.append({
                 self.pk: row[ECLI],
@@ -152,7 +149,7 @@ class DynamoDBRowProcessor:
                 for val in row[name].split(SET_SEP):
                     list.append({
                         self.pk: row[ECLI],
-                        self.sk: ItemType.DATA.value + KEY_SEP + val,
+                        self.sk: ItemType.DATA.value,
                         key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value,
                         name[:-1]: val
                     })
@@ -194,10 +191,10 @@ class DynamoDBRowProcessor:
         put_items, update_items, update_set_items = self.row_processor(row)
 
         ##TESTING
-        print(put_items)
-        print(update_items)
-        print(update_set_items)
-        b=2
+       # print(put_items)
+       # print(update_items)
+        #print(update_set_items)
+        #b=2
         # add items
         for item in put_items:
             try:

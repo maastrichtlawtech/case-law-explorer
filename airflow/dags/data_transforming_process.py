@@ -15,7 +15,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id='cellar_transformation',
+    dag_id='data_transformation',
     default_args = default_args,
     description ='works well',
     start_date=datetime.now(),

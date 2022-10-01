@@ -89,6 +89,8 @@ class Storage:
             # create an S3 bucket in the region of the configured AWS IAM user account
             try:
                 region = getenv('AWS_REGION')
+                print(region)
+                print("##################################")
                 s3_client = boto3.client('s3', region_name=region)
                 aws_location = {'LocationConstraint': region}
                 s3_client.create_bucket(Bucket=self.s3_bucket_name, CreateBucketConfiguration=aws_location)
@@ -159,9 +161,9 @@ class Storage:
         def fetch_data_aws(file_path):
             if exists(file_path):
                 logging.error(f'{file_path} exists locally! Move/rename local file before fetching data from aws.')
-                sys.exit(2)
+                #sys.exit(2)
 
-            if file_path == DIR_RECHTSPRAAK:
+            elif file_path == DIR_RECHTSPRAAK:
                 # paginate through all items listed in folder
                 paginator = self.s3_client.get_paginator('list_objects_v2')
                 folder_name = relpath(file_path, DIR_ROOT) + '/'

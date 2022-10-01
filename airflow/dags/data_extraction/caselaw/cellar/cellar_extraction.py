@@ -16,11 +16,6 @@ from os.path import exists
 
 start = time.time()
 
-# We set the filename to the current date/time for later reference if we want to incrementally build.
-run_date = datetime.now().isoformat(timespec='seconds')
-output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
-
-
 def get_all_eclis(starting_ecli=None, starting_date=None):
     """Gets a list of all ECLIs in CELLAR. If this needs to be picked up from a previous run,
     the last ECLI parsed in that run can be used as starting point for this run
@@ -234,6 +229,10 @@ def cellar_extract(args):
         run_date = (datetime.now()+timedelta(hours=2)).isoformat(timespec='seconds')
         output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
         args.remove("airflow")
+    else:
+        # We set the filename to the current date/time for later reference if we want to incrementally build.
+        run_date = datetime.now().isoformat(timespec='seconds')
+        output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
 
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')

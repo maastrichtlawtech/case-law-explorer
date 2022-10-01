@@ -11,7 +11,7 @@ default_args = {
 }
 
 with DAG(
-    dag_id='rechtspaark_process',
+    dag_id='rechtspaark_extraction',
     default_args = default_args,
     description =' Still in process',
     start_date=datetime.now(),
@@ -19,7 +19,7 @@ with DAG(
 
 ) as DAG:
     task1 = PythonOperator(
-        task_id='Rechtspraak_data_extract',
+        task_id='rechtspraak_extraction',
         python_callable=rechspraak_downloader,
         op_args=[[]]
     )
