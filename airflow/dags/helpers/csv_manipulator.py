@@ -47,7 +47,7 @@ def drop_columns(data):
     for i in range(len(columns)):
         try:
             data.pop(columns[i])
-        except:
+        except Exception:
             print(f"Column titled {columns[i]} does not exist in the file!")
     data.drop(data[-data.ECLI.str.contains("ECLI:EU")].index, inplace=True)
     data.reset_index(inplace=True, drop=True)
@@ -59,7 +59,7 @@ if __name__ == '__main__':
     print("")
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     for i in range(len(csv_files)):
-        if ("test" in csv_files[i]):
+        if "test" in csv_files[i]:
             data = read_csv(csv_files[i])
             b = 3
     b = 2

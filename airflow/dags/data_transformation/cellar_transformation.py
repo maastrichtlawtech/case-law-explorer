@@ -1,14 +1,17 @@
 import glob
+import os
+import sys
 import time
 import warnings
-import sys, os
 from os.path import dirname, abspath
-from definitions.storage_handler import DIR_DATA_RAW, get_path_processed, CSV_CELLAR_CASES
-from helpers.json_to_csv import read_csv, transform_main_file
-from helpers.csv_manipulator import drop_columns
-from helpers.citations_adder import add_citations
-from helpers.fulltext_saving import add_sections
+
 import pandas as pd
+
+from definitions.storage_handler import DIR_DATA_RAW, get_path_processed, CSV_CELLAR_CASES
+from helpers.citations_adder import add_citations
+from helpers.csv_manipulator import drop_columns
+from helpers.fulltext_saving import add_sections
+from helpers.json_to_csv import read_csv, transform_main_file
 
 warnings.filterwarnings("ignore")
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
@@ -50,7 +53,7 @@ def transform_cellar(filepath, threads):
     print('\n--- START ---\n')
     start: float = time.time()
     done = transform_main_file()
-    # Airflow modification, makes sure that it wont restart when this failed
+    # Airflow modification, makes sure that it won't restart when this failed
     if done:
         data = read_csv(filepath)
         print("TRANSFORMATION OF CSV FILES INTO DATA PROCESSED DIR STARTED")
@@ -86,7 +89,7 @@ if __name__ == '__main__':
         answer = str(input())
         if answer == "Y":
             print(
-                "How many threads should the code use for this transformation? (15 should be safe, higher numbers might "
-                "limit your internet heavily)")
-            threads = int(input())
-            transform_cellar(file, threads)
+                "How many threads should the code use for this transformation? (15 should be safe, higher numbers might"
+                " limit your internet heavily)")
+            thread = int(input())
+            transform_cellar(file, thread)

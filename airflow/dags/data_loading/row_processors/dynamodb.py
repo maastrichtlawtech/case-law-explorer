@@ -144,6 +144,7 @@ class DynamoDBRowProcessor:
                 **row
             })
             return put_items, update_items, update_set_items
+        # Method to add items separately, when in the data row they are a list
         def add_separated(list,row,name):
             if name in row:
                 for val in row[name].split(SET_SEP):
@@ -189,13 +190,6 @@ class DynamoDBRowProcessor:
         item_counter = 0
         # retrieve lists of items to put and update
         put_items, update_items, update_set_items = self.row_processor(row)
-
-        ##TESTING
-       # print(put_items)
-       # print(update_items)
-        #print(update_set_items)
-        #b=2
-        # add items
         for item in put_items:
             try:
                 self.table.put_item(Item=item)

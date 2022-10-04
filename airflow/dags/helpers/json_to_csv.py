@@ -1,13 +1,14 @@
-import json, csv, re, glob
-from bs4 import BeautifulSoup
+import csv
+import glob
+import json
+import re
 import warnings
-
-warnings.filterwarnings("ignore")
+from bs4 import BeautifulSoup
 import sys
 from definitions.storage_handler import CELLAR_DIR, DIR_DATA_RAW, get_path_raw, CSV_CELLAR_CASES
-
-WINDOWS_SYSTEM = False
 import pandas as pd
+
+warnings.filterwarnings("ignore")
 
 X = ['WORK IS CREATED BY AGENT (AU)', 'CASE LAW COMMENTED BY AGENT', 'CASE LAW HAS A TYPE OF PROCEDURE',
      'LEGAL RESOURCE USES ORIGINALLY LANGUAGE', 'CASE LAW USES LANGUAGE OF PROCEDURE',
@@ -65,8 +66,8 @@ Cellar specific, sets specific columns with names defined at the beginning of fi
 
 def json_to_csv(json_data):
     final_data = []
-    for i in json_data:
-        ecli_data = json_data[i]
+    for data in json_data:
+        ecli_data = json_data[data]
 
         data = [''] * len(COLS)
 
@@ -124,7 +125,7 @@ def transform_main_file():
     try:
         json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
         return json_to_csv_main(json_files[0])
-    except:
+    except Exception:
         return False
 
 
@@ -135,16 +136,14 @@ ready for further transformations.
 
 
 def json_to_csv_main(filepath):
-    i = filepath
     print(f"JSON TO CSV OF {filepath} HAS STARTED")
-    json_data = read_json(i)
+    json_data = read_json(filepath)
     if json_data:
         final_data = json_to_csv(json_data)
 
         if final_data:
             filename = CSV_CELLAR_CASES
             filepath = get_path_raw(CSV_CELLAR_CASES)
-
             create_csv(filepath=filepath, encoding="UTF8", data=final_data, filename=filename)
         else:
             print("Error creating CSV file. Data is empty.")
@@ -156,7 +155,7 @@ def json_to_csv_main(filepath):
 
 
 if __name__ == '__main__':
-    json_data = '';
+    json_data = ''
 
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
 

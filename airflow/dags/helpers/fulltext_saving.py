@@ -53,7 +53,8 @@ def get_summary_html(celex):
         if "INF" in celex:
             link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere&qid=1657547189758&from=EN#SM'
         else:
-            link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere_SUM&qid=1657547189758&from=EN#SM'
+            link = 'https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere_SUM&qid=1657547189758&from' \
+                   '=EN#SM '
         sum_link = link.replace("cIdHere", celex)
         response = response_wrapper(sum_link)
         try:
@@ -185,11 +186,9 @@ def add_lines(list, start, fragment):
     fragment = fragment.replace((str(start)) + " .", "")
     fragment = fragment.replace("\n", " ")
     fragment = fragment.replace("Summary", "")
-    try:
+    if "(" in fragment:
         index = fragment.find("(")
         fragment = fragment[:index]
-    except:
-        nothing = "happens"
     if "–" in fragment:
         words_new = fragment.split(sep=" – ")
     elif "-" in fragment:
@@ -207,7 +206,6 @@ def get_words_from_keywords_old(text):
     current = 1
     number = 1
     fragment = ""
-    started = False
     for line in lines:
         if (str(starting) + ".") in line or (str(starting) + " .") in line:
             if current == 1:
@@ -234,9 +232,9 @@ def get_words_from_keywords(text):
                 try:
                     indexer = text2.find("Summary")
                     text = text[index:indexer]
-                except:
+                except Exception:
                     text = text
-        except:
+        except Exception:
             text = text
     else:
         if "Summary" in text:
@@ -409,13 +407,13 @@ def get_eurovoc(text):
         start = text.find("EUROVOC")
         try:
             ending = text.find("Subject matter")
-        except:
+        except Exception:
             try:
                 ending = text.find("Directory code")
-            except:
+            except Exception:
                 try:
                     ending = text.find("Miscellaneous information")
-                except:
+                except Exception:
                     ending = start
         if ending is start:
             return ""
@@ -427,12 +425,13 @@ def get_eurovoc(text):
                 if "EUROVOC" not in t and t != "":
                     lists.append(t)
             return ";".join(lists)
-    except:
+    except Exception:
         return ""
 
 
 """
 Method for getting all of the case directory codes for each cellar case.
+Extracts them from a string containing the eurlex website containing all document information.
 """
 
 
@@ -469,7 +468,7 @@ def get_codes(text):
 
             codes_result.append(code_text.replace("\n", ""))
         code = ";".join(codes_result)
-    except:
+    except Exception:
         code = ""
     return code
 
@@ -517,7 +516,7 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
         case_codes[j] = code
     list_sum.append(sum)
     list_key.append(key)
-    # list_full.append(full)
+    # list_full.append(full)  # Currently turned off, as we will find another way to save full data
     list_codes.append(case_codes)
     list_subject.append(subject_matter)
     list_eurovoc.append(eurovocs)
@@ -541,10 +540,10 @@ def add_sections(data, threads):
     name = 'CELEX IDENTIFIER'
     celex = data.loc[:, name]
     length = celex.size
-    if length > 100:
+    if length > 100:  # to avoid getting problems with small files
         at_once_threads = int(length / threads)
     else:
-        at_once_threads=length
+        at_once_threads = length
     threads = []
     list_sum = list()
     list_key = list()
@@ -565,7 +564,8 @@ def add_sections(data, threads):
     add_column_frow_list(data, "celex_summary", list_sum)
     add_column_frow_list(data, "celex_keywords", list_key)
     add_column_frow_list(data, "celex_eurovoc", list_eurovoc)
-    # add_column_frow_list(data,"celex_full_text",list_full)
+    # add_column_frow_list(data,"celex_full_text",list_full)  # Currently turned off, as we will find another way to
+    # save full data
     add_column_frow_list(data, "celex_subject_matter", list_subject)
     add_column_frow_list(data, "celex_directory_codes", list_codes)
 
@@ -587,7 +587,7 @@ if __name__ == '__main__':
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     print(f"FOUND {len(csv_files)} CSV FILES")
     for i in range(len(csv_files)):
-        if ("Extracted" in csv_files[i]):
+        if "Extracted" in csv_files[i]:
             print("")
             print(f"WORKING ON  {csv_files[i]} ")
             data = read_csv(csv_files[i])

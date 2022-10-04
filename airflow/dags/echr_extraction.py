@@ -11,15 +11,15 @@ default_args = {
 }
 
 with DAG(
-    dag_id='echr_extraction',
-    default_args = default_args,
-    description =' Still in process',
-    start_date=datetime.now(),
-    schedule_interval='@daily'
+        dag_id='echr_extraction',
+        default_args=default_args,
+        description=' Still in process',
+        start_date=datetime.now(),
+        schedule_interval='@daily'
 
 ) as DAG:
-   task1 = PythonOperator(
+    task1 = PythonOperator(
         task_id='echr_extraction',
         python_callable=echr_extract,
-        op_args = [['local']]
+        op_args=[['local']]
     )

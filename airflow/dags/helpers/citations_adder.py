@@ -1,14 +1,17 @@
-import glob, sys, time
+import glob
+import sys
+import threading
+import time
+from io import StringIO
 from os.path import dirname, abspath
+
 import pandas as pd
 
-sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 from definitions.storage_handler import DIR_DATA_PROCESSED
-from helpers.sparql import get_citations_csv
 from helpers.json_to_csv import read_csv
-from io import StringIO
-import threading
+from helpers.sparql import get_citations_csv
 
+sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 """
 Method used by separate threads for the multi-threading method of adding citations to the dataframe
 Sends a query which returns a csv file containing the the celex identifiers of cited works for each case.
@@ -41,10 +44,10 @@ def add_citations(data, threads):
     celex = data.loc[:, "CELEX IDENTIFIER"]
 
     length = celex.size
-    if length > 100:
+    if length > 100:  # to avoid getting problems with small files
         at_once_threads = int(length / threads)
     else:
-        at_once_threads=length
+        at_once_threads = length
     all_csv = list()
     threads = []
     for i in range(0, length, at_once_threads):
@@ -73,7 +76,7 @@ if __name__ == '__main__':
     csv_files = (glob.glob(DIR_DATA_PROCESSED + "/" + "*.csv"))
     print(f"FOUND {len(csv_files)} CSV FILES")
     for i in range(len(csv_files)):
-        if ("Extracted" not in csv_files[i]):
+        if "Extracted" not in csv_files[i]:
             print("")
             start: float = time.time()
             print(f"EXTRACTING FROM {csv_files[i]} ")

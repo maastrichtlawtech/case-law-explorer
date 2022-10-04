@@ -83,20 +83,25 @@ def transform_data(argsT):
         broken = False  # Flag for if the file doesn't exist
         update = False  # Flag for cellar cases updating of main file
         storage = Storage(location=args.storage)
+
         if CSV_CELLAR_CASES in input_path:
             broken = transform_cellar(input_path, 15)  # if the cellar transformation part succeeds, goes through
-        try:
-            open(input_path, 'r', newline='')
-        except:
+            # with rest of transformation in this file
+
+        if not exists(input_path):
             print(f"No such file found as {input_path}")
             broken = True
+
         if broken:
-            continue
+            continue # Skips file if it does not exist
+
         file_name = basename(input_path)
         output_path = get_path_processed(file_name)
+
         if exists(output_path) and CSV_CELLAR_CASES in output_path:  # If there exists a final file already, update it
-            output_path = get_path_processed(CSV_CELLAR_UPDATE)
+            output_path = get_path_processed(CSV_CELLAR_UPDATE)      # Cellar temporary update feature
             update = True
+
         print(f'\n--- PREPARATION {file_name} ---\n')
         storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
         last_updated = storage.pipeline_last_updated
@@ -127,9 +132,8 @@ def transform_data(argsT):
 
         print(f"\nUpdating {args.storage} storage ...")
         if update:
-            #update_cellar(output_path)  # Updates the main cellar file with the update file
-            print("Update not to be used in general, only temporary measure when testing")
-            print("Update not executed!")
+            update_cellar(output_path)  # Updates the main cellar file with the update file
+            print("Update not to be in final product, only temporary measure when testing cellar airflow")
         storage.finish_pipeline()
 
     end = time.time()

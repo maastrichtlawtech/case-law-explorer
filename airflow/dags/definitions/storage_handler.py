@@ -89,8 +89,6 @@ class Storage:
             # create an S3 bucket in the region of the configured AWS IAM user account
             try:
                 region = getenv('AWS_REGION')
-                print(region)
-                print("##################################")
                 s3_client = boto3.client('s3', region_name=region)
                 aws_location = {'LocationConstraint': region}
                 s3_client.create_bucket(Bucket=self.s3_bucket_name, CreateBucketConfiguration=aws_location)
