@@ -32,6 +32,8 @@ MAP_CELLAR = {
     'celex_keywords': CELLAR_KEYWORDS,  # keywords of case
     'celex_summary': CELLAR_SUMMARY,  # summary of case
     'WORK CITES WORK. CI / CJ':   CELLAR_CITATIONS,    # works cites by this work, works this work cites
+    'citing' : CELLAR_CITING,#  works this work cites
+    'cited_by' : CELLAR_CITED_BY, #  works cites by this work,
     'CASE LAW DELIVERED BY COURT FORMATION': CELLAR_DELIVERED_COURT,  # court (chamber) that delivered the judgment
     'CASE LAW HAS A JUDICIAL PROCEDURE TYPE': CELLAR_JUDICIAL_TYPE ,  # type of procedure
     'CASE LAW HAS A TYPE OF PROCEDURE': CELLAR_TYPE_PROCEDURE,  # type of procedure with more info

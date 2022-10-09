@@ -2,10 +2,10 @@ from definitions.terminology.attribute_names import *
 from definitions.storage_handler import *
 from definitions.terminology.attribute_values import ItemType, DocType, DataSource
 
-KEY_SEP = '_'               # used to separate compound key values
-key_sdd = 'SourceDocDate'   # name of secondary sort key
-LI = '_li'                  # suffix of attributes from LI data
-SET_SEP = '; '              # used to separate set items in string
+KEY_SEP = '_'  # used to separate compound key values
+key_sdd = 'SourceDocDate'  # name of secondary sort key
+LI = '_li'  # suffix of attributes from LI data
+SET_SEP = '; '  # used to separate set items in string
 
 
 class DynamoDBRowProcessor:
@@ -131,12 +131,14 @@ class DynamoDBRowProcessor:
                     'cited_by': {row[ECLI]}
                 }]
             return [], [], update_set_items
+
         def row_processor_cellar_cases(row):
-            put_items=[]
-            update_items=[]
-            update_set_items=[]
-            for sets in [CELLAR_KEYWORDS,CELLAR_CITATIONS,CELLAR_SUBJECT_MATTER,CELLAR_DIRECTORY_CODES,CELLAR_COMMENTED_AGENT]:
-                add_separated(put_items,row,sets)
+            put_items = []
+            update_items = []
+            update_set_items = []
+            for sets in [CELLAR_KEYWORDS, CELLAR_CITING, CELLAR_CITED_BY, CELLAR_SUBJECT_MATTER, CELLAR_DIRECTORY_CODES,
+                         CELLAR_COMMENTED_AGENT]:
+                add_separated(put_items, row, sets)
             put_items.append({
                 self.pk: row[ECLI],
                 self.sk: ItemType.DATA.value,
@@ -144,8 +146,9 @@ class DynamoDBRowProcessor:
                 **row
             })
             return put_items, update_items, update_set_items
+
         # Method to add items separately, when in the data row they are a list
-        def add_separated(list,row,name):
+        def add_separated(list, row, name):
             if name in row:
                 for val in row[name].split(SET_SEP):
                     list.append({
@@ -167,7 +170,7 @@ class DynamoDBRowProcessor:
             get_path_processed(CSV_RS_CASES): row_processor_rs_cases,
             get_path_processed(CSV_RS_OPINIONS): row_processor_rs_opinions,
             get_path_processed(CSV_LI_CASES): row_processor_li_cases,
-            get_path_processed(CSV_CELLAR_CASES):row_processor_cellar_cases,
+            get_path_processed(CSV_CELLAR_CASES): row_processor_cellar_cases,
             get_path_raw(CSV_CASE_CITATIONS): row_processor_c_citations,
             get_path_raw(CSV_LEGISLATION_CITATIONS): row_processor_l_citations
         }

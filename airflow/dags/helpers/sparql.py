@@ -227,3 +227,57 @@ def get_citations_csv(celex):
     except Exception:
         return get_citations_csv(celex)
     return ret.decode("utf-8")
+def get_citing(celex,cites_depth):
+    endpoint = 'https://publications.europa.eu/webapi/rdf/sparql'
+    input_celex = '", "'.join(celex)
+    query = '''
+           prefix cdm: <https://publications.europa.eu/ontology/cdm#>
+ prefix xsd: <http://www.w3.org/2001/XMLSchema#>
+
+        SELECT DISTINCT * WHERE
+        {
+            SELECT ?celex ?citedD WHERE {
+                ?doc cdm:resource_legal_id_celex ?celex
+                 FILTER(STR(?celex) in ("%s")).
+                ?doc cdm:work_cites_work{1,%i} ?cited .
+                ?cited cdm:resource_legal_id_celex ?citedD .
+            }  
+}
+       ''' % (input_celex, cites_depth)
+
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setReturnFormat(CSV)
+    sparql.setMethod(POST)
+    sparql.setQuery(query)
+    try:
+        ret = sparql.queryAndConvert()
+    except Exception:
+        return get_citing(celex,cites_depth)
+    return ret.decode("utf-8")
+def get_cited(celex,cited_depth):
+    endpoint = 'https://publications.europa.eu/webapi/rdf/sparql'
+    input_celex = '", "'.join(celex)
+    query = '''
+           prefix cdm: <https://publications.europa.eu/ontology/cdm#>
+ prefix xsd: <http://www.w3.org/2001/XMLSchema#>
+
+        SELECT DISTINCT * WHERE
+        {
+            SELECT ?celex ?citedD WHERE {
+                ?doc cdm:resource_legal_id_celex ?celex
+                 FILTER(STR(?celex) in ("%s")).
+                ?cited cdm:work_cites_work{1,%i} ?doc .
+                ?cited cdm:resource_legal_id_celex ?citedD .
+            }
+}
+       ''' % (input_celex, cited_depth)
+
+    sparql = SPARQLWrapper(endpoint)
+    sparql.setReturnFormat(CSV)
+    sparql.setMethod(POST)
+    sparql.setQuery(query)
+    try:
+        ret = sparql.queryAndConvert()
+    except Exception:
+        return get_cited(celex,cited_depth)
+    return ret.decode("utf-8")

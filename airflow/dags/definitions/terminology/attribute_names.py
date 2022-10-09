@@ -56,7 +56,6 @@ LIDO_ARTIKEL_TITLE = 'legal_provision'  # title of cited legislation
 CELLAR_COMMENTED_AGENT = 'commented_by_agent'  # which Member States submitted information
 CELLAR_DIRECTORY_CODES = 'directory_codes'  # directory classification codes for case
 CELLAR_SUBJECT_MATTER = 'subject_matter'  # subject matter of case
-CELLAR_CITATIONS = 'citations'  # works cited by work and works citing work
 CELLAR_EUROVOC = 'eurovoc'  # eurovoc classification codes for the case
 CELLAR_KEYWORDS = 'keywords'  # keywords for case
 CELLAR_DELIVERED_COURT = 'delivered_by_court_formation'  # court (chamber) that delivered the judgment
@@ -76,4 +75,6 @@ CELLAR_SECTOR = 'sector'  # type of source
 CELLAR_RESOURCE_TYPE = 'resource_type'  # document type
 CELLAR_YEAR_OF_RESOURCE = 'judgment_year'  # judgment year
 CELLAR_LANGUAGE = 'language_procedure'  # language of procedure
-
+CELLAR_CITED_BY = 'cited_by'   # works citing the work
+CELLAR_CITING = 'citing'   # works cited in work
+CELLAR_CITATIONS='citations' # all work cited and works citing the work

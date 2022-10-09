@@ -8,7 +8,7 @@ from os.path import dirname, abspath
 import pandas as pd
 
 from definitions.storage_handler import DIR_DATA_RAW, get_path_processed, CSV_CELLAR_CASES
-from helpers.citations_adder import add_citations
+from helpers.citations_adder import add_citations,add_citations_separate
 from helpers.csv_manipulator import drop_columns
 from helpers.fulltext_saving import add_sections
 from helpers.json_to_csv import read_csv, transform_main_file
@@ -64,6 +64,7 @@ def transform_cellar(filepath, threads):
         print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(first - start)))
         print("ADDING CITATIONS IN CELEX FORMAT")
         add_citations(data, threads)
+        add_citations_separate(data,threads)
         second = time.time()
         print("\n--- DONE ---")
         print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(second - first)))
