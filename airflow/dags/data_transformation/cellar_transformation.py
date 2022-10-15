@@ -10,7 +10,7 @@ import pandas as pd
 from definitions.storage_handler import DIR_DATA_RAW, get_path_processed, CSV_CELLAR_CASES
 from helpers.citations_adder import add_citations,add_citations_separate
 from helpers.csv_manipulator import drop_columns
-from helpers.fulltext_saving import add_sections
+from helpers.fulltext_saving import add_sections,add_sections_pool
 from helpers.json_to_csv import read_csv, transform_main_file
 
 warnings.filterwarnings("ignore")
@@ -53,6 +53,7 @@ def transform_cellar(filepath, threads):
     print('\n--- START ---\n')
     start: float = time.time()
     done = transform_main_file()
+
     # Airflow modification, makes sure that it won't restart when this failed
     if done:
         data = read_csv(filepath)
@@ -61,15 +62,17 @@ def transform_cellar(filepath, threads):
         drop_columns(data)
         first = time.time()
         print("\n--- DONE ---")
+
         print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(first - start)))
         print("ADDING CITATIONS IN CELEX FORMAT")
         add_citations(data, threads)
-        add_citations_separate(data,threads)
+       # add_citations_separate(data,threads)
         second = time.time()
         print("\n--- DONE ---")
         print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(second - first)))
         print("ADDING FULL TEXT, SUMMARY, KEYWORDS, SUBJECT MATTER AND CASE LAW DIRECTORY CODES")
         add_sections(data, threads)
+        #add_sections_pool(data,threads)
         data.to_csv(filepath, index=False)
         print("WORK FINISHED SUCCESSFULLY!")
         end = time.time()

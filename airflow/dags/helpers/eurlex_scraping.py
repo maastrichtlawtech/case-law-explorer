@@ -19,12 +19,12 @@ def is_code(word):
 
 """
 Wrapped method for requests.get().
-After 5 retries, it gives up and returns a "404" string.
+After 10 retries, it gives up and returns a "404" string.
 """
 
 
 def response_wrapper(link, num=1):
-    if num == 5:
+    if num == 20:
         return "404"
     try:
         response = requests.get(link)
@@ -58,7 +58,10 @@ def get_summary_html(celex):
         response = response_wrapper(sum_link)
         try:
             if response.status_code == 200:
-                return response.text
+                if "The requested document does not exist." in response.text:
+                    return "No summary available"
+                else:
+                    return response.text
             else:
                 return "No summary available"
         except Exception:
@@ -68,7 +71,10 @@ def get_summary_html(celex):
         sum_link = link.replace(CELEX_SUBSTITUTE, celex)
         response = response_wrapper(sum_link)
         if response.status_code == 200:
-            return response.text
+            if "The requested document does not exist." in response.text:
+                return "No summary available"
+            else:
+                return response.text
         else:
             return "No summary available"
 
@@ -258,14 +264,14 @@ def add_summary_and_keywords(data):
     for i in range(len(ids)):
         id = ids[i]
         summary = get_summary_html(id)
-        if summary != "No summary available":
-            text = get_summary_from_html(summary, id[0])
-            text2 = get_keywords_from_html(summary, id[0])
-            s1[i] = text
-            s2[i] = text2
+        if summary != "No summary available" and "The requested document does not exist." not in summary:
+                text = get_summary_from_html(summary, id[0])
+                text2 = get_keywords_from_html(summary, id[0])
+                s1[i] = text
+                s2[i] = text2
         else:
-            s1[i] = summary
-            s2[i] = summary
+            s1[i] = "No summary available"
+            s2[i] = "No summary available"
     data.insert(1, "Summary", s1)
     data.inser(1, "Keywords", s2)
 
@@ -282,11 +288,11 @@ def add_keywords(data):
     for i in range(len(ids)):
         id = ids[i]
         summary = get_summary_html(id)
-        if summary != "No summary available":
+        if summary != "No summary available" and "The requested document does not exist." not in summary:
             text = get_keywords_from_html(summary, id[0])
             s1[i] = text
         else:
-            s1[i] = summary
+            s1[i] = "No summary available"
     data.insert(1, "Keywords", s1)
 
 
@@ -318,7 +324,7 @@ this method waits a bit and tries again for up to 5 tries.
 
 
 def get_html_by_celex_id_wrapper(id, num=1):
-    if num == 5:
+    if num == 20:
         return "404"
     try:
         html = get_html_by_celex_id(id)
@@ -340,7 +346,10 @@ def get_entire_page(celex):
     response = response_wrapper(sum_link)
     try:
         if response.status_code == 200:
-            return response.text
+            if "The requested document does not exist." in response.text:
+                return "No data available"
+            else:
+                return response.text
         else:
             return "No data available"
     except Exception:

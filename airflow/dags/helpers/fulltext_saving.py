@@ -5,7 +5,7 @@ import threading
 from helpers.json_to_csv import read_csv
 from helpers.eurlex_scraping import get_summary_from_html, get_summary_html, get_keywords_from_html, get_entire_page, \
     get_full_text_from_html, get_subject, get_codes, get_eurovoc
-
+from concurrent.futures import ThreadPoolExecutor
 """
 This is the method executed by individual threads by the add_sections method.
 
@@ -94,6 +94,33 @@ def add_sections(data, threads):
         t.start()
     for t in threads:
         t.join()
+    add_column_frow_list(data, "celex_summary", list_sum)
+    add_column_frow_list(data, "celex_keywords", list_key)
+    add_column_frow_list(data, "celex_eurovoc", list_eurovoc)
+    # add_column_frow_list(data,"celex_full_text",list_full)  # Currently turned off, as we will find another way to
+    # save full data
+    add_column_frow_list(data, "celex_subject_matter", list_subject)
+    add_column_frow_list(data, "celex_directory_codes", list_codes)
+def add_sections_pool(data, threads):
+    name = 'CELEX IDENTIFIER'
+    celex = data.loc[:, name]
+    length = celex.size
+    if length > 100:  # to avoid getting problems with small files
+        at_once_threads = int(length / threads)
+    else:
+        at_once_threads = length
+    threads = []
+    list_sum = list()
+    list_key = list()
+    list_full = list()
+    list_codes = list()
+    list_subject = list()
+    list_eurovoc = list()
+    with ThreadPoolExecutor() as executor:
+        for i in range(0, length, at_once_threads):
+            curr_celex = celex[i:(i + at_once_threads)]
+            executor.submit(execute_sections_threads,curr_celex,i,list_sum,list_key,list_full,list_subject,list_codes,list_eurovoc)
+    executor.shutdown()
     add_column_frow_list(data, "celex_summary", list_sum)
     add_column_frow_list(data, "celex_keywords", list_key)
     add_column_frow_list(data, "celex_eurovoc", list_eurovoc)

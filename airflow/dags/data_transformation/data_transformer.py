@@ -99,9 +99,9 @@ def transform_data(argsT):
         output_path = get_path_processed(file_name)
 
         if exists(output_path) and CSV_CELLAR_CASES in output_path:  # If there exists a final file already, update it
-            output_path = get_path_processed(CSV_CELLAR_UPDATE)      # Cellar temporary update feature
-            update = True
-
+            #output_path = get_path_processed(CSV_CELLAR_UPDATE)      # Cellar temporary update feature
+            #update = True
+            b=2
         print(f'\n--- PREPARATION {file_name} ---\n')
         storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
         last_updated = storage.pipeline_last_updated
