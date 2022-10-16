@@ -1,7 +1,6 @@
 import pandas as pd
 from bs4 import BeautifulSoup
 import requests
-from eurlex import get_html_by_celex_id
 import time
 from dotenv import load_dotenv
 load_dotenv()
@@ -25,13 +24,14 @@ After 10 retries, it gives up and returns a "404" string.
 
 def response_wrapper(link, num=1):
     if num == 20:
+        #print(f"too many retries for link {link}")
         return "404"
     try:
         response = requests.get(link)
         return response
     except Exception:
         time.sleep(0.5 * num)
-        return response_wrapper(id, num + 1)
+        return response_wrapper(link, num + 1)
 
 
 """
@@ -172,7 +172,7 @@ def add_lines(list, start, fragment):
     elif "-" in fragment:
         words_new = fragment.split(sep=" - ")
     else:
-        print(fragment)
+       # print(fragment)
         words_new = []
     list.update(words_new)
 
@@ -233,11 +233,11 @@ def get_words_from_keywords(text):
 """
 
 
-def get_full_text_from_html(html):
+def get_full_text_from_html(html_text):
     # This method turns the html code from the summary page into text
     # It has different cases depending on the first character of the CELEX ID
     # Should only be used for summaries extraction
-    soup = BeautifulSoup(html, "html.parser")
+    soup = BeautifulSoup(html_text, "html.parser")
     for script in soup(["script", "style"]):
         script.extract()  # rip it out
     text = soup.get_text()
@@ -306,7 +306,7 @@ def add_fulltext(data):
     ids = data.loc[:, name]
     s1 = pd.Series([], dtype='string')
     for i in range(len(ids)):
-        html = get_html_by_celex_id_wrapper(ids[i])
+        html = get_html_text_by_celex_id(ids[i])
         if "] not found." in html:
             # print(f"Full text not found for {Ids[i]}" )
             s1[i] = "No full text in english available"
@@ -322,17 +322,23 @@ Sometimes thew websites do not load because of too many connections at once,
 this method waits a bit and tries again for up to 5 tries.
 """
 
+def get_html_text_by_celex_id(id):
+    link = os.getenv("EURLEX_FULL_TEXT")
+    final=id
+    if ";" in id:
+        ids = id.split(";")
+        for id_s in ids:
+            if "INF" not in id_s:
+                final=id_s
+                break
 
-def get_html_by_celex_id_wrapper(id, num=1):
-    if num == 20:
+    final_link=link.replace(CELEX_SUBSTITUTE,final)
+    html = response_wrapper(final_link)
+    if "The requested document does not exist." in html.text:
+        #print(f"document didnt exist for {final} with full as {id}")
         return "404"
-    try:
-        html = get_html_by_celex_id(id)
-        return html
-    except Exception:
-        time.sleep(0.5 * num)
-        return get_html_by_celex_id_wrapper(id, num + 1)
-
+    else:
+        return html.text
 
 """
 This method gets the page containing all document details for extracting the subject matter and

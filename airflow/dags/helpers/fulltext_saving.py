@@ -1,11 +1,12 @@
 import glob
 import pandas as pd
-from definitions.storage_handler import DIR_DATA_PROCESSED
+from definitions.storage_handler import DIR_DATA_PROCESSED,JSON_FULL_TEXT_CELLAR
 import threading
 from helpers.json_to_csv import read_csv
 from helpers.eurlex_scraping import get_summary_from_html, get_summary_html, get_keywords_from_html, get_entire_page, \
-    get_full_text_from_html, get_subject, get_codes, get_eurovoc
+    get_full_text_from_html, get_subject, get_codes, get_eurovoc,get_html_text_by_celex_id
 from concurrent.futures import ThreadPoolExecutor
+import json
 """
 This is the method executed by individual threads by the add_sections method.
 
@@ -18,13 +19,27 @@ after all the threads are done the individual parts are put together.
 def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_subject, list_codes, list_eurovoc):
     sum = pd.Series([], dtype='string')
     key = pd.Series([], dtype='string')
-    full = pd.Series([], dtype='string')
+    full = list()
     subject_matter = pd.Series([], dtype='string')
     case_codes = pd.Series([], dtype='string')
     eurovocs = pd.Series([], dtype='string')
     for i in range(len(celex)):
         j = start + i
         id = celex[j]
+        html = get_html_text_by_celex_id(id)
+        if html != "404":
+            text = get_full_text_from_html(html)
+            json_text={
+                'celex':str(id),
+                'text':text
+            }
+            full.append(json_text)
+        else:
+            json_text = {
+                'celex': str(id),
+                'text': ""
+            }
+            full.append(json_text)
         summary = get_summary_html(id)
         if summary != "No summary available":
             text = get_keywords_from_html(summary, id[0])
@@ -49,7 +64,7 @@ def execute_sections_threads(celex, start, list_sum, list_key, list_full, list_s
         case_codes[j] = code
     list_sum.append(sum)
     list_key.append(key)
-    # list_full.append(full)  # Currently turned off, as we will find another way to save full data
+    list_full.append(full)
     list_codes.append(case_codes)
     list_subject.append(subject_matter)
     list_eurovoc.append(eurovocs)
@@ -97,10 +112,12 @@ def add_sections(data, threads):
     add_column_frow_list(data, "celex_summary", list_sum)
     add_column_frow_list(data, "celex_keywords", list_key)
     add_column_frow_list(data, "celex_eurovoc", list_eurovoc)
-    # add_column_frow_list(data,"celex_full_text",list_full)  # Currently turned off, as we will find another way to
-    # save full data
     add_column_frow_list(data, "celex_subject_matter", list_subject)
     add_column_frow_list(data, "celex_directory_codes", list_codes)
+    with open(JSON_FULL_TEXT_CELLAR,'w',encoding='utf-8') as f:
+        for l in list_full:
+            if len(l)>0:
+                json.dump(l,f)
 def add_sections_pool(data, threads):
     name = 'CELEX IDENTIFIER'
     celex = data.loc[:, name]
