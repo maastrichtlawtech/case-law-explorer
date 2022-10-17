@@ -11,7 +11,7 @@ Current main usage - Setting up Storage -> Setting up all the folders in root di
 
 
 
-
+import requests
 from dotenv import load_dotenv
 load_dotenv()
 from helpers.csv_manipulator import *
@@ -36,13 +36,22 @@ def get_html_by_celex_id(id):
     final_link=link.replace(CELEX_SUBSTITUTE,final)
     return requests.get(final_link)
 
-
 if __name__ == '__main__':
 
-    #link = "https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:62000CJ0136_SUM&qid=1657547189758&from=EN#SM"
-    #html=response_wrapper(link)
-    #text = get_full_text_from_html(html.text)
-    #b=2
-    hey= get_html_by_celex_id("62020CO0099_INF; 62020CO0099")
-    b=2
-    #storage=Storage("local")
+   """
+   CELEXES FOR TESTING USE
+   62021CO0659
+   62020CO0099
+   62021CO0221
+   They all have keywords and a summary
+   """
+
+   celex="62021CO0659"
+   username=os.getenv("EURLEX_WEBSERVICE_USERNAME")
+   password=os.getenv("EURLEX_WEBSERVICE_PASSWORD")
+   celexes=["62021CO0659","62020CO0099","62021CO0221"]
+   response = get_keywords_from_celexes(celexes,username,password)
+
+
+
+   b=2
