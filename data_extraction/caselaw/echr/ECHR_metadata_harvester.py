@@ -1,12 +1,10 @@
-from os.path import dirname, abspath
-from socket import timeout
-
 import sys
 import requests
 import time
 import argparse
-
 import pandas as pd
+from os.path import dirname, abspath
+from socket import timeout
 
 current_dir = dirname(dirname(abspath(__file__)))
 correct_dir = ('\\').join(current_dir.replace('\\', '/').split('/')[:-2])
@@ -46,51 +44,6 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     """
 
     data = []
-    """ # replaced by basing fields off ECHR_MAP
-    fields = ['itemid',
-              'applicability',
-              'application',
-              'appno',
-              'article',
-              'conclusion',
-              'decisiondate',
-              'docname',
-              'documentcollectionid',
-              'documentcollectionid2',
-              'doctype',
-              'doctypebranch',
-              'ecli',
-              'externalsources',
-              'extractedappno',
-              'importance',
-              'introductiondate',
-              'isplaceholder',
-              'issue',
-              'judgementdate',
-              'kpdate',
-              'kpdateAsText',
-              'kpthesaurus',
-              'languageisocode',
-              'meetingnumber',
-              'originatingbody',
-              'publishedby',
-              'Rank',
-              'referencedate',
-              'reportdate',
-              'representedby',
-              'resolutiondate',
-              'resolutionnumber',
-              'respondent',
-              'respondentOrderEng',
-              'rulesofcourt',
-              'separateopinion',
-              'scl',
-              'sharepointid',
-              'typedescription',
-              'nonviolation',
-              'violation',
-              ]
-    """
     fields = MAP_ECHR.keys()
     META_URL = 'http://hudoc.echr.coe.int/app/query/results' \
         '?query=(contentsitename=ECHR) AND ' \
@@ -99,6 +52,7 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
         '&select={select}' + \
         '&sort=itemid Ascending' + \
         '&start={start}&length={length}'
+
     META_URL = META_URL.replace(' ', '%20')
     META_URL = META_URL.replace('"', '%22')
     # example url: "https://hudoc.echr.coe.int/app/query/results?query=(contentsitename=ECHR)%20AND%20(documentcollectionid2:%22JUDGMENTS%22%20OR%20documentcollectionid2:%22COMMUNICATEDCASES%22)&select=itemid,applicability,application,appno,article,conclusion,decisiondate,docname,documentcollectionid,%20documentcollectionid2,doctype,doctypebranch,ecli,externalsources,extractedappno,importance,introductiondate,%20isplaceholder,issue,judgementdate,kpdate,kpdateAsText,kpthesaurus,languageisocode,meetingnumber,%20originatingbody,publishedby,Rank,referencedate,reportdate,representedby,resolutiondate,%20resolutionnumber,respondent,respondentOrderEng,rulesofcourt,separateopinion,scl,sharepointid,typedescription,%20nonviolation,violation&sort=itemid%20Ascending&start=0&length=2"
@@ -108,7 +62,7 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     r = requests.get(url)
     resultcount = r.json()['resultcount']
 
-    print(resultcount)
+    print("available results: ", resultcount)
 
     if not end_id:
         end_id = resultcount
@@ -122,11 +76,12 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
             url = META_URL.format(select=','.join(fields), start=i, length=500)
             if verbose:
                 print(url)
+            r = requests.get(url)
             
-            try:
-                r_get_timeout(url=url, timeout=10, retry=3, verbose=verbose)
-            except ContinueException:
-                continue
+            #try:
+            #    r_get_timeout(url=url, timeout=10, retry=3, verbose=verbose)
+            #except ContinueException:
+            #    continue
 
             # try:
             #     r = requests.get(url, timeout=10)
@@ -183,15 +138,14 @@ print("--- Extract ECHR data")
 arg_end_id = args.count if args.count else None
 df, resultcount = read_echr_metadata(end_id=arg_end_id, fields=['itemid', 'documentcollectionid2', 'languageisocode'], verbose=True)
 
-print(df)
 print(f'ECHR data shape: {df.shape}')
 print(f'Columns extracted: {list(df.columns)}')
 
 print("--- Filter ECHR data")
 df_eng = df.loc[df['languageisocode'] == 'ENG']
 
-print(f'df before: {df.shape}')
-print(f'df after: {df_eng.shape}')
+print(f'df before language filtering: {df.shape}')
+print(f'df after language filtering: {df_eng.shape}')
 
 print("--- Load ECHR data")
 
