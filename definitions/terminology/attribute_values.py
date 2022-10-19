@@ -142,3 +142,4 @@ class ItemType(Enum):
     DATA = 'DATA'
     DOM = 'DOM'             # associated domain
     DOM_LI = 'DOM-LI'
+

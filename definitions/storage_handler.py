@@ -1,5 +1,5 @@
 from os.path import basename, dirname, abspath, join, exists, relpath, isfile
-from os import makedirs, getenv, listdir
+from os import makedirs, getenv, listdir, remove
 import re
 import boto3
 from botocore.exceptions import ClientError
@@ -40,6 +40,8 @@ CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
+CSV_ECHR_CASES_NODES = join(DIR_ECHR, 'ECHR_nodes.csv')
+CSV_ECHR_CASES_EDGES = join(DIR_ECHR, 'ECHR_edges.csv')
 
 
 # raw data:
@@ -49,7 +51,7 @@ def get_path_raw(file_name):
 
 # processed data
 def get_path_processed(file_name):
-    last_slash_index = file_name.rfind('\\')+1 #this is necissary when a path is passed as a file name
+    last_slash_index = file_name.rfind('\\')+1 # This is necissary when a path is passed as a file name.
     if last_slash_index != 0:
         file_name = file_name[last_slash_index:]
     return join(DIR_DATA_PROCESSED, file_name.split('.csv')[0] + '_clean.csv')
@@ -106,9 +108,12 @@ class Storage:
                     sys.exit(2)
                 if path.endswith('.csv'):
                     self.fetch_data([path])
-
+            
             # retrieve output date of last update
             self.pipeline_last_updated = self.fetch_last_updated(self.pipeline_output_paths)
+            if self.location == "aws":
+                for path in self.pipeline_output_paths:
+                    remove(path)
 
         # fetch input data
         if self.pipeline_input_path:
@@ -121,11 +126,19 @@ class Storage:
             if last_updated_input < self.pipeline_last_updated:
                 logging.error(f'Input data {basename(self.pipeline_input_path)} is older than output data. '
                               f'Please update input data first.')
+                remove(self.pipeline_input_path)
                 sys.exit(2)
 
     def finish_pipeline(self):
         if self.pipeline_output_paths:
             self.upload_data(self.pipeline_output_paths)
+            to_remove = self.pipeline_output_paths+[self.pipeline_input_path]
+        else:
+            to_remove = [self.pipeline_input_path]
+        to_remove = [path for path in to_remove if path is not None]
+        if self.location == "aws":
+            for path in to_remove:
+                remove(path)
 
     def fetch_data(self, paths):
         def not_found(file_path):

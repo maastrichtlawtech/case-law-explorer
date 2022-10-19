@@ -1,5 +1,6 @@
-from os.path import dirname, abspath, basename
+from os.path import dirname, abspath, basename, exists
 import sys
+import logging
 import pandas as pd
 sys.path.append(dirname(dirname(abspath(__file__))))
 
@@ -64,9 +65,9 @@ Start processing
 start = time.time()
 
 input_paths = [
-    #get_path_raw(CSV_RS_CASES),
-    #get_path_raw(CSV_RS_OPINIONS),
-    #get_path_raw(CSV_LI_CASES),
+    get_path_raw(CSV_RS_CASES),
+    get_path_raw(CSV_RS_OPINIONS),
+    get_path_raw(CSV_LI_CASES),
     get_path_raw(CSV_ECHR_CASES)
 ]
 
@@ -95,10 +96,18 @@ for input_path in input_paths:
     print(file_name)
     print(output_path)
 
+    """
+    TODO
+    Find a nicer way to do this which does not involve treating ECHR differently. This will
+    involve checking how the other data sources do their file management.
+    """
+    if output_path == get_path_processed(CSV_ECHR_CASES) and exists(output_path):
+        logging.error(f'{output_path} exists locally! Move/rename local file before transformation.')
+        sys.exit(2)
+
     with open(output_path, 'a', newline='') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()
-
         with open(input_path, 'r', newline='') as in_file:
             reader = DictReader(in_file)
             # process input file by row
@@ -111,7 +120,7 @@ for input_path in input_paths:
                         else:
                             row_clean[field_map[col]] = value.strip()
                 # write processed row to output file
-                writer.writerow(row_clean)
+                writer.writerow(row_clean)        
 
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
@@ -119,3 +128,4 @@ for input_path in input_paths:
 end = time.time()
 print("\n--- DONE ---")
 print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+

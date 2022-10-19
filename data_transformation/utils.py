@@ -59,7 +59,7 @@ def format_rs_date(text):
 
 
 # converts string representation of a date into datetime (YYYY-MM-DD)
-# from original RS date format DD-MM-YYYY
+# from original ECHR date format DD-MM-YYYY
 def format_echr_date(text):
     return dateutil.parser.parse(text).date()
 

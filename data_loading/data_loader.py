@@ -24,12 +24,12 @@ csv.field_size_limit(signed_limit-1 if signed else 2*signed_limit-1)
 start = time.time()
 
 input_paths = [
-    #get_path_processed(CSV_RS_CASES),
-    #get_path_processed(CSV_RS_OPINIONS),
-    #get_path_processed(CSV_LI_CASES),
+    get_path_processed(CSV_RS_CASES),
+    get_path_processed(CSV_RS_OPINIONS),
+    get_path_processed(CSV_LI_CASES),
     get_path_processed(CSV_ECHR_CASES),
-    #get_path_raw(CSV_CASE_CITATIONS),
-    #get_path_raw(CSV_LEGISLATION_CITATIONS)
+    get_path_raw(CSV_CASE_CITATIONS),
+    get_path_raw(CSV_LEGISLATION_CITATIONS)
 ]
 
 # parse input arguments
@@ -44,13 +44,14 @@ parser.add_argument(
     choices=['ddb', 'os'],
     help='delete content from DynamoDB table/OpenSearch index'
 )
+parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
 args = parser.parse_args()
-print('INPUT/OUTPUT DATA STORAGE: aws')
+print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
 print('INPUT:\t\t\t\t', [basename(input_path) for input_path in input_paths])
 
 # set up clients
 if args.partial != 'os':
-    ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
+    ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'), storage=args.storage)
 if args.partial != 'ddb':
     os_client = OpenSearchClient(
         domain_name=os.getenv('OS_DOMAIN_NAME'),
@@ -75,8 +76,7 @@ else:
 
         # prepare storage
         print(f'\n--- PREPARATION {basename(input_path)} ---\n')
-        storage = Storage(location='aws')
-        #storage = Storage(location='local') #for local testing
+        storage = Storage(location = args.storage)
         storage.fetch_data([input_path])
         last_updated = storage.fetch_last_updated([input_path])
         print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
@@ -116,11 +116,9 @@ else:
         if args.partial != 'ddb':
             os_client.es.indices.refresh(os_client.index_name)
         print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
+        if storage == "aws":
+            os.remove(input_path)
 
 end = time.time()
 print("\n--- DONE ---")
 print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-
-#table = ddb_client.table
-#table.delete()
-print(ddb_client.table.scan())
