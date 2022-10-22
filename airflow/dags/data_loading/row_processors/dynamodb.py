@@ -158,6 +158,33 @@ class DynamoDBRowProcessor:
                         name[:-1]: val
                     })
 
+        def row_processor_echr_cases(row):
+            put_items = []
+            update_set_items = []
+            # split set attributes (domain, case citations, legislation citations)
+            if ECHR_ARTICLES in row:
+                for val in row[ECHR_ARTICLES].split(SET_SEP):
+                    put_items.append({
+                        self.pk: row[ECLI],
+                        self.sk: ItemType.DOM.value + KEY_SEP + val,
+                        key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[
+                            ECHR_JUDGEMENT_DATE],
+                        ECHR_ARTICLES[:-1]: val
+                    })
+            for attribute in [ECHR_ARTICLES]:
+                if attribute in row:
+                    update_set_items.append({
+                        self.pk: row[ECLI],
+                        self.sk: ItemType.DATA.value,
+                        attribute: set(row[attribute].split(SET_SEP))
+                    })
+                    row.pop(attribute)
+            put_items.append({
+                self.sk: ItemType.DATA.value,
+                key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[ECHR_JUDGEMENT_DATE],
+                **row
+            })
+            return put_items, [],
         def row_processor_l_citations(row):
             update_set_items = [{
                 self.pk: row[ECLI],
@@ -171,6 +198,7 @@ class DynamoDBRowProcessor:
             get_path_processed(CSV_RS_OPINIONS): row_processor_rs_opinions,
             get_path_processed(CSV_LI_CASES): row_processor_li_cases,
             get_path_processed(CSV_CELLAR_CASES): row_processor_cellar_cases,
+            get_path_processed(CSV_ECHR_CASES): row_processor_echr_cases,
             get_path_raw(CSV_CASE_CITATIONS): row_processor_c_citations,
             get_path_raw(CSV_LEGISLATION_CITATIONS): row_processor_l_citations
         }

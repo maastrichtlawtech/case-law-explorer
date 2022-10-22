@@ -71,3 +71,8 @@ xmltodict == 0.13.0
 # Argparse creates conflict with airflow. Need to figure out another way to dealing with rechtspraak.
 beautifulsoup4~=4.9.3
 python-dateutil~=2.8.1
+# case-law-explorer/network_analysis/correlation_calculator: 5
+matplotlib == 3.0
+
+# case-law-explorer/data_extraction/caselaw/echr: 6-11
+Selenium == 4.4.3

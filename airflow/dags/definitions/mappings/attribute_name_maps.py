@@ -84,3 +84,74 @@ MAP_LI = {
     'Sources': LI_SOURCES,  # alternative publishing institutions
     'SearchNumbers': LI_SEARCH_NUMBERS  # @ TODO: what is this?
 }
+MAP_ECHR = {
+    'itemid': ECHR_DOCUMENT_ID,  # unique document identifier
+#   'applicability': ECHR_APPLICABLE_ARTICLES,  # which articles are applicable
+    'appno': ECHR_APPLICANTS,  # applicant numbers (could be of use)
+    'article': ECHR_ARTICLES,  # alleged violated articles
+    'conclusion': ECHR_CONCLUSION,  # violated/Non-violated articles
+    'docname': ECHR_TITLE,  # name of the case
+    'doctype': ECHR_DOCUMENT_TYPE,  # type of document
+    'doctypebranch': ECHR_BRANCH,  # branch of court
+    'ecli': ECLI,  # European Case Law Identifier
+    'importance': ECHR_IMPORTANCE,  # case importance from 1 (least) to 4 (most)
+    'judgementdate': ECHR_JUDGEMENT_DATE,  # date and time of judgement
+    'languageisocode': ECHR_LANGUAGE,  # language of document
+    'originatingbody': ECHR_DIVISION,  # division of court
+#   'representedby': ECHR_REPRESENTATION,  # representation of the case (could be of use)
+#   'respondent': ECHR_RESPONDENT,  # defender of the case (could be of use)
+#   'separateopinion': ECHR_SEPARATE_OPINION,  # presence of concurring or dissenting opinions (could be of use)
+#   'sharepointid': ECHR_SHAREPOINT_ID,  # identifier for microsoft sharepoint (could be of use)
+#   'violation': ECHR_VIOLATIONS,  # violated articles (could be of use)
+#   'nonviolation': ECHR_NON_VIOLATIONS,  # unsure what this is, always empty (could be of use)
+    'publishedby': ECHR_PUBLISHED_BY,  # publications which contain the case
+#   'externalsources': ECHR_SOURCES,  # relevent international acts or previous outcomes (could be of use)
+    'extractedappno': ECHR_PARTICIPANTS,  # applicant numbers of all applicants mentioned in the case (could be of use)
+#   'issue': ECHR_ISSUES,  # domestic laws in questions
+#   'referencedate': ECHR_REFERENCE_DATE,  # date and time that the case was referred to the ECHR (could be of use)
+#   'rulesofcourt': ECHR_RULES_OF_COURT,  # rules of court which needed to be invoked (could be of use)
+#   'scl': ECHR_CITATIONS,  # Strasburg case law citations
+#   'DocId': ECHR_DOCID,
+#   'WorkId': ECHR_WORKID,
+#   'Rank': ECHR_RANK,
+#   'Author': ECHR_AUTHOR,
+#   'Size': ECHR_SIZE,
+#   'Path': ECHR_PATH,
+#   'Description': ECHR_DESCRIPTION,
+#   'Write': ECHR_WRITE,
+#   'CollapsingStatus': ECHR_COLLAPSINGSTATUS,
+#   'HighlightedSummary': ECHR_HIGHLIGHTEDSUMMARY,
+#   'HighlightedProperties': ECHR_HIGHLIGHTEDPROPERTIES,
+#   'contentclass': ECHR_CONTENTCLASS,
+#   'PictureThumbnailURL': ECHR_PICTURETHUMBNAIL,
+#   'ServerRedirectedURL': ECHR_SERVERREDIRECTEDURL,
+#   'ServerRedirectedEmbedURL': ECHR_SERVERREDIRECTEDEMBEDURL,
+#   'ServerRedirectedPreviewURL': ECHR_SERVERREDIRECTEDPREVIEWURL,
+#   'FileExtension': ECHR_FILEEXTENSION,
+#   'ContentTypeId': ECHR_CONTENTTYPEID,
+#   'ParentLink': ECHR_PARENTLINK,
+#   'ViewsLifeTime': ECHR_VIEWSLIFETIME,
+#   'ViewsRecent': ECHR_VIEWSRECENT,
+#   'SectionNames': ECHR_SECTIONNAMES,
+#   'SectionIndexes': ECHR_SECTIONINDEXES,
+#   'SiteLogo': ECHR_SITELOGO,
+#   'SiteDescription': ECHR_SITEDESCRIPTION,
+#   'deeplinks': ECHR_DEEPLINKS,
+#   'SiteName': ECHR_SITENAME,
+#   'IsDocument': ECHR_ISDOCUMENT,
+#   'LastModifiedTime': ECHR_LASTMODIFIEDTIME,
+#   'FileType': ECHR_FILETYPE,
+#   'IsContainer': ECHR_ISCONTAINER,
+#   'WebTemplate': ECHR_WEBTEMPLATE,
+#   'SecondaryFileExtension': ECHR_SECONDARYFILEEXTENSION,
+#   'docaclmeta': ECHR_DOCACLMETA,
+#   'OriginalPath': ECHR_ORIGINALPATH,
+#   'EditorOWSUSER': ECHR_EDITOROWSUSER,
+#   'DisplayAuthor': ECHR_DISPLAYAUTHOR,
+#   'ResultTypeIdList': ECHR_RESULTTYPEIDLIST,
+#   'PartitionId': ECHR_PARTITIONID,
+#   'UrlZone': ECHR_URLZONE,
+#   'AAMEnabledManagedProperties': ECHR_AAMENABLEDMANAGEDPROPERTIES,
+#   'ResultTypeId': ECHR_RESULTTYPEID,
+#   'rendertemplateid': ECHR_RENDERTEMPLATEID
+}

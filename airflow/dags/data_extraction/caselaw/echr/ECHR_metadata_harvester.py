@@ -1,19 +1,22 @@
-from socket import timeout
+import sys
 import requests
 import time
 import argparse
-
 import pandas as pd
+from os.path import dirname, abspath
+from socket import timeout
 
-from os.path import dirname, abspath, basename, join
-from os import getenv
-import sys
-sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-
+current_dir = dirname(dirname(abspath(__file__)))
+correct_dir = ('\\').join(current_dir.replace('\\', '/').split('/')[:-2])
+sys.path.append(correct_dir)
 from definitions.storage_handler import Storage, CSV_ECHR_CASES
+from definitions.mappings.attribute_name_maps import MAP_ECHR
+
 
 # TODO find a better way to do this.....
 class ContinueException(Exception): pass
+
+
 def r_get_timeout(url, timeout, retry, verbose):
     returned = False
     count = 0
@@ -32,7 +35,8 @@ def r_get_timeout(url, timeout, retry, verbose):
                 pass
 
     return r
-    
+
+
 def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     """
     Read ECHR metadata into a Pandas DataFrame.
@@ -44,56 +48,15 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     """
 
     data = []
-    fields = ['itemid',
-              'applicability',
-              'application',
-              'appno',
-              'article',
-              'conclusion',
-              'decisiondate',
-              'docname',
-              'documentcollectionid',
-              'documentcollectionid2',
-              'doctype',
-              'doctypebranch',
-              'ecli',
-              'externalsources',
-              'extractedappno',
-              'importance',
-              'introductiondate',
-              'isplaceholder',
-              'issue',
-              'judgementdate',
-              'kpdate',
-              'kpdateAsText',
-              'kpthesaurus',
-              'languageisocode',
-              'meetingnumber',
-              'originatingbody',
-              'publishedby',
-              'Rank',
-              'referencedate',
-              'reportdate',
-              'representedby',
-              'resolutiondate',
-              'resolutionnumber',
-              'respondent',
-              'respondentOrderEng',
-              'rulesofcourt',
-              'separateopinion',
-              'scl',
-              'sharepointid',
-              'typedescription',
-              'nonviolation',
-              'violation',
-              ]
+    fields = MAP_ECHR.keys()
     META_URL = 'http://hudoc.echr.coe.int/app/query/results' \
-        '?query=(contentsitename=ECHR) AND ' \
+               '?query=(contentsitename=ECHR) AND ' \
                '(documentcollectionid2:"JUDGMENTS" OR documentcollectionid2:"COMMUNICATEDCASES") AND' \
                '(languageisocode:"ENG")' \
-        '&select={select}' + \
-        '&sort=itemid Ascending' + \
-        '&start={start}&length={length}'
+               '&select={select}' + \
+               '&sort=itemid Ascending' + \
+               '&start={start}&length={length}'
+
     META_URL = META_URL.replace(' ', '%20')
     META_URL = META_URL.replace('"', '%22')
     # example url: "https://hudoc.echr.coe.int/app/query/results?query=(contentsitename=ECHR)%20AND%20(documentcollectionid2:%22JUDGMENTS%22%20OR%20documentcollectionid2:%22COMMUNICATEDCASES%22)&select=itemid,applicability,application,appno,article,conclusion,decisiondate,docname,documentcollectionid,%20documentcollectionid2,doctype,doctypebranch,ecli,externalsources,extractedappno,importance,introductiondate,%20isplaceholder,issue,judgementdate,kpdate,kpdateAsText,kpthesaurus,languageisocode,meetingnumber,%20originatingbody,publishedby,Rank,referencedate,reportdate,representedby,resolutiondate,%20resolutionnumber,respondent,respondentOrderEng,rulesofcourt,separateopinion,scl,sharepointid,typedescription,%20nonviolation,violation&sort=itemid%20Ascending&start=0&length=2"
@@ -103,25 +66,26 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
     r = requests.get(url)
     resultcount = r.json()['resultcount']
 
-    print(resultcount)
+    print("available results: ", resultcount)
 
     if not end_id:
         end_id = resultcount
     end_id = start_id + end_id
 
-    if start_id+end_id > 500:  # HUDOC does not allow fetching more than 500 items at the same time
+    if start_id + end_id > 500:  # HUDOC does not allow fetching more than 500 items at the same time
         for i in range(start_id, end_id, 500):
-            print(" - Fetching information from cases {} to {}.".format(i, i+500))
+            print(" - Fetching information from cases {} to {}.".format(i, i + 500))
 
             # Fromat URL based on the incremented index
             url = META_URL.format(select=','.join(fields), start=i, length=500)
             if verbose:
                 print(url)
-            
-            try:
-                r_get_timeout(url=url, timeout=10, retry=3, verbose=verbose)
-            except ContinueException:
-                continue
+            r = requests.get(url)
+
+            # try:
+            #    r_get_timeout(url=url, timeout=10, retry=3, verbose=verbose)
+            # except ContinueException:
+            #    continue
 
             # try:
             #     r = requests.get(url, timeout=10)
@@ -153,12 +117,11 @@ def read_echr_metadata(start_id=0, end_id=None, fields=None, verbose=True):
 
     return pd.DataFrame.from_records(data), resultcount
 
-
-def echr_extract(argv):
-    # set up script arguments
+def echr_download(argv):
+# set up script arguments
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
-    parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
+    parser.add_argument('--count', help='number of documents to retrieve', type=int, required=False)
     args = parser.parse_args(argv)
 
     # set up locations
@@ -176,18 +139,18 @@ def echr_extract(argv):
     start = time.time()
 
     print("--- Extract ECHR data")
-    arg_end_id = args.amount if args.amount else None
-    df, resultcount = read_echr_metadata(end_id=arg_end_id, fields=['itemid', 'documentcollectionid2', 'languageisocode'], verbose=True)
+    arg_end_id = args.count if args.count else None
+    df, resultcount = read_echr_metadata(end_id=arg_end_id, fields=['itemid', 'documentcollectionid2', 'languageisocode'],
+                                         verbose=True)
 
-    print(df)
     print(f'ECHR data shape: {df.shape}')
     print(f'Columns extracted: {list(df.columns)}')
 
     print("--- Filter ECHR data")
     df_eng = df.loc[df['languageisocode'] == 'ENG']
 
-    print(f'df before: {df.shape}')
-    print(f'df after: {df_eng.shape}')
+    print(f'df before language filtering: {df.shape}')
+    print(f'df after language filtering: {df_eng.shape}')
 
     print("--- Load ECHR data")
 
@@ -204,5 +167,7 @@ def echr_extract(argv):
     # Avarage time for 35k cases: 00:04:50
     # TODO manage aws
     # TODO manage the last update
+
 if __name__ == '__main__':
-    echr_extract(sys.argv[1:])
+    # giving arguments to the funtion
+    echr_download(sys.argv[1:])

@@ -58,6 +58,10 @@ def format_rs_date(text):
 # from original LI date format YYYYMMDD or YYYYMMDD.0 (if numeric date was accidentally stored as float)
 def format_li_date(text):
     return dateutil.parser.parse(str(int(float(text)))).date()
+# converts string representation of a date into datetime (YYYY-MM-DD)
+# from original ECHR date format DD-MM-YYYY
+def format_echr_date(text):
+    return dateutil.parser.parse(text).date()
 
 
 def format_domains(text):

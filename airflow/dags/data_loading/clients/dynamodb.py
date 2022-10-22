@@ -5,15 +5,18 @@ import logging
 class DynamoDBClient:
     def __init__(
             self, table_name,
+            storage="aws",
             hash_key_name='ecli',
             range_key_name='ItemType',
             hash_key_type='S',
             range_key_type='S'
     ):
+        if storage =='local':
+            ddb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000", region_name="eu-central-1",
+                                           aws_access_key_id = "local", aws_secret_access_key = "local")
+        else:
+            ddb = boto3.resource('dynamodb')
 
-        ddb = boto3.resource('dynamodb')
-        #ddb = boto3.resource("dynamodb", endpoint_url = "http://localhost:8000", region_name = "eu-central-1",
-                 #             aws_access_key_id = "local", aws_secret_access_key = "local")                                     #for local testing
 
         if table_name not in [table.name for table in ddb.tables.all()]:
             ddb.create_table(

@@ -1,12 +1,12 @@
 from os.path import dirname, abspath, basename, exists
 import sys
-
+import logging
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
-    get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_CELLAR_UPDATE
+    get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_CELLAR_UPDATE,CSV_ECHR_CASES
 import time
 import argparse
 from csv import DictReader, DictWriter
@@ -42,18 +42,23 @@ tool_map_cellar = {
     'YEAR OF THE LEGAL RESOURCE': format_cellar_year
 
 }
+tool_map_echr = {
+    'judgementdate': format_echr_date
+}
 tool_maps = {
     get_path_raw(CSV_RS_CASES): tool_map_rs,
     get_path_raw(CSV_RS_OPINIONS): tool_map_rs,
     get_path_raw(CSV_LI_CASES): tool_map_li,
-    get_path_raw(CSV_CELLAR_CASES): tool_map_cellar
+    get_path_raw(CSV_CELLAR_CASES): tool_map_cellar,
+    get_path_raw(CSV_ECHR_CASES): tool_map_echr
 }
 
 field_maps = {
     get_path_raw(CSV_RS_CASES): MAP_RS,
     get_path_raw(CSV_RS_OPINIONS): MAP_RS_OPINION,
     get_path_raw(CSV_LI_CASES): MAP_LI,
-    get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR
+    get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR,
+    get_path_raw(CSV_ECHR_CASES): MAP_ECHR
 }
 
 
@@ -67,7 +72,8 @@ def transform_data(argsT):
         get_path_raw(CSV_RS_CASES),
         get_path_raw(CSV_RS_OPINIONS),
         get_path_raw(CSV_LI_CASES),
-        get_path_raw(CSV_CELLAR_CASES)
+        get_path_raw(CSV_CELLAR_CASES),
+        get_path_raw(CSV_ECHR_CASES)
     ]
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'],
@@ -80,20 +86,18 @@ def transform_data(argsT):
 
     # run data transformation for each input file
     for input_path in input_paths:
-        broken = False  # Flag for if the file doesn't exist
         update = False  # Flag for cellar cases updating of main file
         storage = Storage(location=args.storage)
-
         if CSV_CELLAR_CASES in input_path:
             broken = transform_cellar(input_path, 15)  # if the cellar transformation part succeeds, goes through
+            if broken:
+                print("CELLAR TRANSFORMATION PART UNSUCCESSFUL")
+                sys.exit(2)
             # with rest of transformation in this file
-
         if not exists(input_path):
             print(f"No such file found as {input_path}")
-            broken = True
+            continue
 
-        if broken:
-            continue # Skips file if it does not exist
 
         file_name = basename(input_path)
         output_path = get_path_processed(file_name)

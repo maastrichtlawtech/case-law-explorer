@@ -10,7 +10,7 @@ from data_loading.row_processors.opensearch import OpenSearchRowProcessor
 from data_loading.clients.dynamodb import DynamoDBClient
 from data_loading.clients.opensearch import OpenSearchClient
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
-    CSV_LEGISLATION_CITATIONS, get_path_processed, get_path_raw,CSV_CELLAR_CASES
+    CSV_LEGISLATION_CITATIONS, get_path_processed, get_path_raw,CSV_CELLAR_CASES,CSV_ECHR_CASES
 import time
 import argparse
 from ctypes import c_long, sizeof
@@ -30,8 +30,8 @@ def load_data(argv):
         get_path_processed(CSV_RS_CASES),
         get_path_processed(CSV_RS_OPINIONS),
         get_path_processed(CSV_LI_CASES),
+        get_path_processed(CSV_ECHR_CASES),
         get_path_processed(CSV_CELLAR_CASES),
-
         get_path_raw(CSV_CASE_CITATIONS),
         get_path_raw(CSV_LEGISLATION_CITATIONS)
     ]
@@ -67,7 +67,7 @@ def load_data(argv):
                 storage_size=40
             )
     else:
-        ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
+        ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'),storage=args.storage)
         args.partial="ddb"
 
     if args.partial != 'os':
@@ -94,14 +94,8 @@ def load_data(argv):
     else:
         # process each input csv
         for input_path in input_paths:
-            broken=False
-            try:
-                with open(input_path, 'r', newline='') as in_file:
-                    b = 2
-            except:
-                print(f"No such file found as {input_path}")
-                broken=True
-            if broken:
+            if not os.path.exists(input_path):
+                print(f"FILE {input_path} DOES NOT EXIST")
                 continue
 
             # prepare storage
@@ -147,7 +141,8 @@ def load_data(argv):
             if args.partial != 'ddb':
                 os_client.es.indices.refresh(os_client.index_name)
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
-
+            if args.storage =="aws":
+                os.remove(input_path)
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
