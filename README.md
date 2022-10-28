@@ -67,14 +67,60 @@ We plan to extend the data to other international courts.
         </a>
     </td>
     <td align="center">
+        <a href="https://github.com/pranavnbapat">
+            <img src="https://avatars.githubusercontent.com/u/7271334?v=4" width="100;" alt="pranavnbapat"/>
+            <br />
+            <sub><b>Pranav Bapat</b></sub>
+        </a>
+    </td>
+</tr>
+<tr>
+    <td align="center">
+        <a href="https://github.com/Cloud956">
+            <img src="https://avatars.githubusercontent.com/u/24865274?v=4" width="100;" alt="Cloud956"/>
+            <br />
+            <sub><b>Piotr Lewandowski</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/brodriguesdemiranda">
+            <img src="https://avatars.githubusercontent.com/u/35369949?v=4" width="100;" alt="brodriguesdemiranda"/>
+            <br />
+            <sub><b>Benjamin Rodrigues de Miranda</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/ChloeCro">
+            <img src="https://avatars.githubusercontent.com/u/99276050?v=4" width="100;" alt="ChloeCro"/>
+            <br />
+            <sub><b>Chloe Crombach</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/running-machin">
+            <img src="https://avatars.githubusercontent.com/u/60750154?v=4" width="100;" alt="running-machin"/>
+            <br />
+            <sub><b>running-machin</b></sub>
+        </a>
+    </td>
+    <td align="center">
+        <a href="https://github.com/shashankmc">
+            <img src="https://avatars.githubusercontent.com/u/3445114?v=4" width="100;" alt="shashankmc"/>
+            <br />
+            <sub><b>shashankmc</b></sub>
+        </a>
+    </td>
+    <td align="center">
         <a href="https://github.com/gijsvd">
             <img src="https://avatars.githubusercontent.com/u/31765316?v=4" width="100;" alt="gijsvd"/>
             <br />
             <sub><b>gijsvd</b></sub>
         </a>
-    </td></tr>
+    </td>
+</tr>
 </table>
 <!-- readme: contributors,gijsvd -end -->
+
 
 ## License 
 
