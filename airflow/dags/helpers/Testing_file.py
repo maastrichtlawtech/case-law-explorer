@@ -40,9 +40,9 @@ if __name__ == '__main__':
 
    """
    CELEXES FOR TESTING USE
-   62021CO0659
-   62020CO0099
-   62021CO0221
+   62005TJ0321
+   62006CO0415
+    62000CJ0129
    They all have keywords and a summary
    """
 
@@ -50,7 +50,8 @@ if __name__ == '__main__':
    username=os.getenv("EURLEX_WEBSERVICE_USERNAME")
    password=os.getenv("EURLEX_WEBSERVICE_PASSWORD")
    celexes=["62021CO0659","62020CO0099","62021CO0221"]
-   response = get_keywords_from_celexes(celexes,username,password)
+   query= "SELECT DN WHERE DN = 62000CJ0129"
+   response = get_keywords_from_celex(query,username,password)
 
 
 

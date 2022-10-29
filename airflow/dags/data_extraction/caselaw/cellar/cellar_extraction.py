@@ -8,7 +8,7 @@ from datetime import datetime,timedelta
 from definitions.storage_handler import CELLAR_DIR, Storage,CELLAR_ARCHIVE_DIR
 import argparse
 from helpers.sparql import get_all_eclis, get_raw_cellar_metadata
-
+from cellar_text_extraction import transform_cellar
 
 def cellar_extract(args):
     # set up storage location
@@ -104,7 +104,11 @@ def cellar_extract(args):
         		json.dump(new_eclis, f, indent=4)
         	new_eclis.clear()
     """
-
+    print("Downloading full text and others...")
+    if (transform_cellar(output_path, 15)):
+        print("Additional extraction successful!")
+    else:
+        print("Something went wrong with the additional cellar extraction!")
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
 

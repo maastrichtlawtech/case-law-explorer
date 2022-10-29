@@ -1,6 +1,6 @@
 from SPARQLWrapper import SPARQLWrapper, JSON, CSV, POST
 import requests
-def get_keywords_from_celexes(celexes,username,password):
+def get_keywords_from_celexes(query_input,username,password):
     target = "https://eur-lex.europa.eu/EURLexWebService?wsdl"
     query = '''<soap:Envelope xmlns:soap="http://www.w3.org/2003/05/soap-envelope" xmlns:sear="http://eur-lex.europa.eu/search">
       <soap:Header>
@@ -13,13 +13,13 @@ def get_keywords_from_celexes(celexes,username,password):
       </soap:Header>
       <soap:Body>
         <sear:searchRequest>
-          <sear:expertQuery><![CDATA[SELECT IX,DN WHERE DN = %s]]></sear:expertQuery>
+          <sear:expertQuery><![CDATA[%s]]></sear:expertQuery>
           <sear:page>1</sear:page>
           <sear:pageSize>10</sear:pageSize>
           <sear:searchLanguage>en</sear:searchLanguage>
         </sear:searchRequest>
       </soap:Body>
-    </soap:Envelope>''' % (username, password," OR ".join(celexes))
+    </soap:Envelope>''' % (username, password,query_input)
     return  requests.request("POST", target, data=query, allow_redirects=True)
 
 

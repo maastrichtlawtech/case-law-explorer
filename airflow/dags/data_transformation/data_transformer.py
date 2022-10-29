@@ -1,16 +1,16 @@
 from os.path import dirname, abspath, basename, exists
 import sys
-import logging
+
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
-    get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_CELLAR_UPDATE,CSV_ECHR_CASES
+    get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES
 import time
 import argparse
 from csv import DictReader, DictWriter
-from data_transformation.cellar_transformation import transform_cellar, update_cellar
+from data_extraction.caselaw.cellar.cellar_text_extraction import transform_cellar, update_cellar
 
 """
 Define tool_maps
@@ -86,26 +86,12 @@ def transform_data(argsT):
 
     # run data transformation for each input file
     for input_path in input_paths:
-        update = False  # Flag for cellar cases updating of main file
         storage = Storage(location=args.storage)
-        if CSV_CELLAR_CASES in input_path:
-            broken = transform_cellar(input_path, 15)  # if the cellar transformation part succeeds, goes through
-            if broken:
-                print("CELLAR TRANSFORMATION PART UNSUCCESSFUL")
-                sys.exit(2)
-            # with rest of transformation in this file
         if not exists(input_path):
             print(f"No such file found as {input_path}")
             continue
-
-
         file_name = basename(input_path)
         output_path = get_path_processed(file_name)
-
-        if exists(output_path) and CSV_CELLAR_CASES in output_path:  # If there exists a final file already, update it
-            #output_path = get_path_processed(CSV_CELLAR_UPDATE)      # Cellar temporary update feature
-            #update = True
-            b=2
         print(f'\n--- PREPARATION {file_name} ---\n')
         storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
         last_updated = storage.pipeline_last_updated
@@ -135,11 +121,6 @@ def transform_data(argsT):
                     writer.writerow(row_clean)
 
         print(f"\nUpdating {args.storage} storage ...")
-        if update:
-            update_cellar(output_path)  # Updates the main cellar file with the update file
-            print("Update not to be in final product, only temporary measure when testing cellar airflow")
-        storage.finish_pipeline()
-
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

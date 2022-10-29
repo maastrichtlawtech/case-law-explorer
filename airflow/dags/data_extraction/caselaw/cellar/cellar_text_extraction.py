@@ -52,8 +52,8 @@ def transform_cellar(filepath, threads):
     print('OUTPUT DATA STORAGE:\t', "PROCESSED DIR")
     print('\n--- START ---\n')
     start: float = time.time()
-    done = transform_main_file()
 
+    done = transform_main_file()
     # Airflow modification, makes sure that it won't restart when this failed
     if done:
         data = read_csv(filepath)
@@ -62,7 +62,6 @@ def transform_cellar(filepath, threads):
         drop_columns(data)
         first = time.time()
         print("\n--- DONE ---")
-
         print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(first - start)))
         print("ADDING CITATIONS IN CELEX FORMAT")
         add_citations(data, threads)
@@ -78,10 +77,10 @@ def transform_cellar(filepath, threads):
         end = time.time()
         print("\n--- DONE ---")
         print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - second)))
-        return False
+        return True
     else:
         print("CELLAR TRANSFORMATION FAILED -> EMPTY JSON FILE")
-        return True
+        return False
 
 
 if __name__ == '__main__':
