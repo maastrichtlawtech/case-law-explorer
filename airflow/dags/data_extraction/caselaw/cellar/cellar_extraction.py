@@ -1,26 +1,25 @@
-import json
 from os.path import dirname, abspath, join
 import sys
+import json
 import shutil
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time, glob
 from datetime import datetime,timedelta
-from definitions.storage_handler import CELLAR_DIR, Storage,CELLAR_ARCHIVE_DIR
+from definitions.storage_handler import CELLAR_DIR, Storage,CELLAR_ARCHIVE_DIR,get_path_raw,JSON_FULL_TEXT_CELLAR,CSV_CELLAR_CASES
 import argparse
-from helpers.sparql import get_all_eclis, get_raw_cellar_metadata
-from cellar_text_extraction import transform_cellar
+from helpers.csv_manipulator import drop_columns
+import cellar_extractor as cell
 
 def cellar_extract(args):
     # set up storage location
     if "airflow" in args:
         run_date = (datetime.now()+timedelta(hours=2)).isoformat(timespec='seconds')
-        output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
         args.remove("airflow")
     else:
         # We set the filename to the current date/time for later reference if we want to incrementally build.
         run_date = datetime.now().isoformat(timespec='seconds')
-        output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
 
+    output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
@@ -41,76 +40,38 @@ def cellar_extract(args):
     print('\n--- START ---\n')
     start = time.time()
     print(f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents")
+    if args.amount is None:
+        amount=1000000
+    else:
+        amount=args.amount
     if args.fresh:
-        print('Starting a fresh download')
-        eclis = get_all_eclis()
+       df,json_file = cell.get_cellar_extra(save_file='n',max_ecli=amount,sd="1880-01-01",threads=15)
     elif args.starting_date:
         print(f'Starting from manually specified date: {args.starting_date}')
-        eclis = get_all_eclis(
-            starting_date=args.starting_date
-        )
+        df,json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date, threads=15)
     else:
         print('Starting from the last update the script can find')
-        eclis = get_all_eclis(
-            starting_date=last_updated.isoformat()
-        )
-    print(f"Found {len(eclis)} ECLIs")
-
-    if args.amount:
-        eclis = eclis[:args.amount]
-
-    all_eclis = {}
-
-    for i in range(0, len(eclis), args.concurrent_docs):
-        new_eclis = get_raw_cellar_metadata(eclis[i:(i + args.concurrent_docs)])
-        all_eclis = {**all_eclis, **new_eclis}
+        df,json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated.isoformat(), threads=15)
 
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
     if len(json_files)>0: # Have to first check if there already is a file or no
         source=json_files[0]
         outsource=source.replace(CELLAR_DIR,CELLAR_ARCHIVE_DIR)
         shutil.move(source,outsource)
-
-    with open(output_path, 'w') as f:
-        json.dump(all_eclis, f)
-
-    """ Code for getting individual ECLIs
-    all_eclis = {}
-    new_eclis = {}
-
-    # Check if ECLI already exists
-    print(f'Checking for duplicate ECLIs')
-    duplicate = 0;
-    temp_eclis = []
-    for i in range(0, len(eclis)):
-    	temp_path = join(CELLAR_DIR, eclis[i] + '.json')
-    	if exists(temp_path):
-    	    duplicate = 1
-    	temp_eclis.append(eclis[i])
-
-
-    if duplicate == 1:
-    	print(f'Duplicate data found. Ignoring duplicate data.')
-    else:
-    	print(f'No duplicate data found.')
-
-    if len(temp_eclis) > 0:
-        for i in range(0, len(temp_eclis), args.concurrent_docs):
-        	new_eclis = get_raw_cellar_metadata(temp_eclis[i:(i + args.concurrent_docs)])
-        	# all_eclis = {**all_eclis, **new_eclis}
-        	temp_path = join(CELLAR_DIR, temp_eclis[i] + '.json')
-
-        	with open(temp_path, 'w') as f:
-        		json.dump(new_eclis, f, indent=4)
-        	new_eclis.clear()
-    """
-    print("Downloading full text and others...")
-    if (transform_cellar(output_path, 15)):
-        print("Additional extraction successful!")
-    else:
-        print("Something went wrong with the additional cellar extraction!")
+    open(output_path,'w')
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
+    drop_columns(df)
+    df_filepath = get_path_raw(CSV_CELLAR_CASES)
+    df.to_csv(df_filepath,index=False)
+    json_filepath=get_path_raw(JSON_FULL_TEXT_CELLAR)
+    final_jsons=[]
+    for jsons in json_file:
+        celex = jsons.get('celex')
+        if not celex.startswith("8"):
+            final_jsons.append(jsons)
+    with open(json_filepath,'w') as f:
+        json.dump(final_jsons,f)
 
     end = time.time()
     print("\n--- DONE ---")
