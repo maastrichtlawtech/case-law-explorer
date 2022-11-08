@@ -1,17 +1,18 @@
 from datetime import datetime, timedelta
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from data_extraction.caselaw.rechtspraak.rechtspraak_api import rechspraak_downloader
-from rechtspraak_extractor import get_rechtspraak_metadata 
+
+from data_extraction.caselaw.rechtspraak.rechtspraak import get_rechtspraak
+
 default_args = {
     'owner': 'none',
     'retries': 5,
-    'retry_delay': timedelta(minutes=5)
+    'retry_delay': timedelta(minutes=2)
 }
 
 
 with DAG(
-        dag_id='rechtspaark_extraction',
+        dag_id='rechtspraak',
         default_args=default_args,
         description=' Still in process',
         start_date=datetime.now(),
@@ -20,8 +21,9 @@ with DAG(
 ) as DAG:
     task1 = PythonOperator(
         task_id='rechtspraak_extraction',
-        python_callable=get_rechtspraak_metadata,
-        op_kwargs={'max_ecli':'50',
-                    'sd':'2022-08-01',
-                    'save_file':'y'}
+        python_callable=get_rechtspraak(),
+        
+        # op_kwargs={'max_ecli': 50,
+        #            'sd': '2022-08-01',
+        #             'save_file': 'y'}
     )
