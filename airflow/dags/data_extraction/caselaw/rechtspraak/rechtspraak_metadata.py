@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor
 import platform
 import shutil
 
-from rechtspraak_extractor.rechtspraak_functions import *
+from helpers.rechtspraak_functions import *
 
 # Define base url
 RECHTSPRAAK_METADATA_API_BASE_URL = "https://uitspraken.rechtspraak.nl/InzienDocument?id="

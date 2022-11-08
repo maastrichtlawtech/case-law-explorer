@@ -75,3 +75,4 @@ python-dateutil~=2.8.1
 # case-law-explorer/data_extraction/caselaw/echr: 6-11
 Selenium == 4.4.3
 cellar-extractor ==1.0.14
+rechtspraak_extractor==1.1
