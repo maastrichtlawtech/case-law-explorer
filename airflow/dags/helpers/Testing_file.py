@@ -47,16 +47,9 @@ if __name__ == '__main__':
    """
    link="https://ereader.cambridge.org/wr/viewer.html#book/8130a37c-c063-43ad-847f-9ac5428123f1/doc1"
    celex="62021CO0659"
-   username="n00ac9w5"
-   password="JpIX3gVNNpm"
+   username=""
+   password=""
    celexes=["62021CO0659","62020CO0099","62021CO0221"]
    query= "SELECT DN WHERE DN = 62000CJ0129"
-   #response = get_keywords_from_celex(query,username,password)
-
-
-   response = requests.get(link)
-   b=2
-   driver=webdriver.Chrome()
-   driver.implicitly_wait(3)
-   driver.get(link)
+   response = get_keywords_from_celex(query,username,password)
    b=2
