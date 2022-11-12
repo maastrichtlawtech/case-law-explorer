@@ -176,7 +176,6 @@ def lookup_casename(text, df):
     row = df[df['docname'].str.contains(uptext, regex=False, flags=re.IGNORECASE)]
     # print("ecli: \n", row.ecli)
     # print("appno: \n", row.appno)
-
     return row
 
 
