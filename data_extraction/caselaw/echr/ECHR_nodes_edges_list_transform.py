@@ -180,7 +180,6 @@ def lookup_casename(text, df):
 
 
 def lookup_date(row, text):
-
     line = text.split(',')
 
     for l in line:

@@ -46,7 +46,6 @@ CSV_ECHR_CASES_EDGES_JSON = join(DIR_ECHR, 'ECHR_edges_json.json')
 CSV_ECHR_CASES_NODES_JSON = join(DIR_ECHR, 'ECHR_nodes_json.json')
 
 
-
 # raw data:
 def get_path_raw(file_name):
     return join(DIR_DATA_RAW, file_name)
