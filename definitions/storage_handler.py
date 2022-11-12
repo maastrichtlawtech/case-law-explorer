@@ -42,6 +42,8 @@ CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
 CSV_ECHR_CASES_NODES = join(DIR_ECHR, 'ECHR_nodes.csv')
 CSV_ECHR_CASES_EDGES = join(DIR_ECHR, 'ECHR_edges.csv')
+CSV_ECHR_CASES_EDGES_JSON = join(DIR_ECHR, 'ECHR_edges_json.json')
+CSV_ECHR_CASES_NODES_JSON = join(DIR_ECHR, 'ECHR_nodes_json.json')
 
 
 # raw data:
