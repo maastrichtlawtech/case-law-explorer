@@ -10,7 +10,6 @@ from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, 
 import time
 import argparse
 from csv import DictReader, DictWriter
-from data_extraction.caselaw.cellar.cellar_text_extraction import transform_cellar, update_cellar
 
 """
 Define tool_maps

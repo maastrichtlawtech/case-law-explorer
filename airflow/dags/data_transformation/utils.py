@@ -104,8 +104,13 @@ def format_jurisdiction(text):
 """ DF OPERATIONS (READ, WRITE, PRINT, SELECT): """
 
 # make sure all csvs are read in the same way
-def read_csv(path, cols=None):
-    return pd.read_csv(path, dtype=str, usecols=cols).replace({np.nan: None})
+def read_csv(file_path):
+    try:
+        data = pd.read_csv(file_path, sep=",", encoding='utf-8')
+        return data
+    except Exception:
+        print("Something went wrong when trying to open the csv file!")
+        sys.exit(2)
 
 
 # only returns (number) rows of dataframe df for which no column in columns is None
