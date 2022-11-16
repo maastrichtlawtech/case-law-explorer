@@ -7,6 +7,8 @@ import logging
 from dotenv import load_dotenv
 load_dotenv()
 import sys
+from os import rename
+from os.path import splitext
 from datetime import date, datetime
 
 """
@@ -42,6 +44,13 @@ CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
 CSV_ECHR_CASES_NODES = join(DIR_ECHR, 'ECHR_nodes.csv')
 CSV_ECHR_CASES_EDGES = join(DIR_ECHR, 'ECHR_edges.csv')
+JSON_ECHR_CASES_NODES = join(DIR_ECHR, 'ECHR_nodes.json')
+JSON_ECHR_CASES_EDGES = join(DIR_ECHR, 'ECHR_edges.json')
+CSV_ECHR_CASES_CENTRALITIES = join(DIR_ECHR, 'ECHR_centralities.csv')
+CSV_ECHR_ARTICLES = join(DIR_ECHR, 'ECHR_articles.csv')
+CSV_ECHR_VIOLATIONS = join(DIR_ECHR, 'ECHR_violations.csv')
+CSV_ECHR_NONVIOLATIONS = join(DIR_ECHR, 'ECHR_nonviolations.csv')
+CSV_ECHR_YEARS = join(DIR_ECHR, 'ECHR_years.csv')
 
 
 # raw data:
@@ -95,6 +104,15 @@ class Storage:
             self.s3_client = boto3.client('s3')
         print('Storage set up.')
 
+    def rename_old_path(self, path):
+        path_without_extension, extension = splitext(path)
+        old_path = ''.join([path_without_extension, '_old', extension])
+        if exists(old_path):
+            logging.error(f'{old_path} exists locally! Move/rename it before starting pipeline.')
+            sys.exit(2)
+        if exists(path):
+            rename(path, old_path)
+
     def setup_pipeline(self, output_paths=None, input_path=None):
         self.pipeline_input_path = input_path
         self.pipeline_output_paths = output_paths
@@ -103,17 +121,14 @@ class Storage:
         if self.pipeline_output_paths:
             print(f'\nFetching output data from {self.location} storage ...')
             for path in self.pipeline_output_paths:
-                if exists(path):
-                    logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
-                    sys.exit(2)
-                if path.endswith('.csv'):
-                    self.fetch_data([path])
-            
-            # retrieve output date of last update
-            self.pipeline_last_updated = self.fetch_last_updated(self.pipeline_output_paths)
-            if self.location == "aws":
-                for path in self.pipeline_output_paths:
-                    remove(path)
+                if self.location == 'local':
+                    self.pipeline_last_updated = self.fetch_last_updated(self.pipeline_output_paths)
+                    self.rename_old_path(path)
+                if self.location == 'aws':
+                    self.rename_old_path(path)
+                    if path.endswith('.csv'):
+                        self.fetch_data([path])
+                    self.pipeline_last_updated = self.fetch_last_updated(self.pipeline_output_paths)
 
         # fetch input data
         if self.pipeline_input_path:
@@ -220,7 +235,7 @@ class Storage:
             default = ('date_decision', lambda x: date.fromisoformat(x))
             d_map = {
                 get_path_raw(CSV_LI_CASES): ('EnactmentDate', lambda x: datetime.strptime(x, "%Y%m%d").date()),
-                get_path_raw(CSV_ECHR_CASES): ('judgementdate', lambda x: datetime.strptime(x, "%d/%m/%Y %H:%M:%S").date()),
+                get_path_raw(CSV_ECHR_CASES): ('judgementdate', lambda x: datetime.strptime(x, "%d/%m/%Y %H:%M:%S").date() if type(x) == str else datetime.strptime("01/01/1900", "%d/%m/%Y"))
             }
             return d_map.get(file_path, default)
 

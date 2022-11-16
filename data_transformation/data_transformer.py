@@ -58,6 +58,9 @@ field_maps = {
     get_path_raw(CSV_ECHR_CASES): MAP_ECHR
 }
 
+row_transformers = {
+    get_path_raw(CSV_ECHR_CASES): manage_ECHR_rows
+}
 
 """
 Start processing
@@ -65,9 +68,9 @@ Start processing
 start = time.time()
 
 input_paths = [
-    get_path_raw(CSV_RS_CASES),
-    get_path_raw(CSV_RS_OPINIONS),
-    get_path_raw(CSV_LI_CASES),
+    #get_path_raw(CSV_RS_CASES),
+    #get_path_raw(CSV_RS_OPINIONS),
+    #get_path_raw(CSV_LI_CASES),
     get_path_raw(CSV_ECHR_CASES)
 ]
 
@@ -92,23 +95,15 @@ for input_path in input_paths:
 
     field_map = field_maps.get(input_path)
     tool_map = tool_maps.get(input_path)
+    row_transformer = row_transformers.get(input_path)
 
     print(file_name)
     print(output_path)
 
-    """
-    TODO
-    Find a nicer way to do this which does not involve treating ECHR differently. This will
-    involve checking how the other data sources do their file management.
-    """
-    if output_path == get_path_processed(CSV_ECHR_CASES) and exists(output_path):
-        logging.error(f'{output_path} exists locally! Move/rename local file before transformation.')
-        sys.exit(2)
-
-    with open(output_path, 'a', newline='') as out_file:
+    with open(output_path, 'a', newline='', encoding='utf-8') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()
-        with open(input_path, 'r', newline='') as in_file:
+        with open(input_path, 'r', newline='', encoding='utf-8') as in_file:
             reader = DictReader(in_file)
             # process input file by row
             for row in reader:
@@ -119,8 +114,10 @@ for input_path in input_paths:
                             row_clean[field_map[col]] = tool_map[col](value.strip())
                         else:
                             row_clean[field_map[col]] = value.strip()
-                # write processed row to output file
-                writer.writerow(row_clean)        
+                # Perform additional operations on the row.
+                row_transformer(row, row_clean)
+                # Write the processed row to the output file.
+                writer.writerow(row_clean)
 
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
