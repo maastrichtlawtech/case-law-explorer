@@ -1,4 +1,5 @@
 from os.path import dirname, abspath, join
+from os import getenv
 import sys
 import json
 import shutil
@@ -9,7 +10,10 @@ from definitions.storage_handler import CELLAR_DIR, Storage,CELLAR_ARCHIVE_DIR,g
 import argparse
 from helpers.csv_manipulator import drop_columns
 import cellar_extractor as cell
-
+from dotenv import load_dotenv
+load_dotenv()
+WEBSERVICE_USERNAME=getenv('EURLEX_WEBSERVICE_USERNAME')
+WEBSERVICE_PASSWORD=getenv('EURLEX_WEBSERVICE_PASSWORD')
 def cellar_extract(args):
     run_date = datetime.now().isoformat(timespec='seconds')
     output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
@@ -38,13 +42,13 @@ def cellar_extract(args):
     else:
         amount=args.amount
     if args.fresh:
-       df,json_file = cell.get_cellar_extra(save_file='n',max_ecli=amount,sd="1880-01-01",threads=15)
+       df,json_file = cell.get_cellar_extra(save_file='n',max_ecli=amount,sd="1880-01-01",threads=15,username=WEBSERVICE_USERNAME,password=WEBSERVICE_PASSWORD)
     elif args.starting_date:
         print(f'Starting from manually specified date: {args.starting_date}')
-        df,json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date, threads=15)
+        df,json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date, threads=15,username=WEBSERVICE_USERNAME,password=WEBSERVICE_PASSWORD)
     else:
         print('Starting from the last update the script can find')
-        df,json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated.isoformat(), threads=15)
+        df,json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated.isoformat(), threads=15,username=WEBSERVICE_USERNAME,password=WEBSERVICE_PASSWORD)
 
     json_files = (glob.glob(CELLAR_DIR + "/" + "*.json"))
     if len(json_files)>0: # Have to first check if there already is a file or no
