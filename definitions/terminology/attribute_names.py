@@ -55,6 +55,7 @@ LIDO_ARTIKEL = 'legal_provision_url'  # URL to cited legislation (on wetten.nl)
 LIDO_ARTIKEL_TITLE = 'legal_provision'  # title of cited legislation
 
 # fields only in ECHR
+<<<<<<< HEAD
 ECHR_CITATIONS = 'citations'  # list of citations by title
 ECHR_APPLICANTS = 'applicants'  # applicats by number
 ECHR_IMPORTANCE = 'importance'  # case importance
@@ -67,6 +68,11 @@ ECHR_NON_VIOLATIONS = 'nonviolation'  # list of articles which were found not to
 #ECHR_RESPONDENT = 'respondent'
 #ECHR_SEPARATE_OPINION = 'separate_opinion'
 #ECHR_SHAREPOINT_ID = 'sharepointid'
+<<<<<<< HEAD
+=======
+#ECHR_VIOLATIONS = 'violations'
+#ECHR_NON_VIOLATIONS = 'non_violations'
+>>>>>>> fc06f7546357193015790f3cbf0357c3fae7b69a
 #ECHR_SOURCES = 'sources'
 #ECHR_ISSUES = 'issues'
 #ECHR_REFERENCE_DATE = 'reference_date'

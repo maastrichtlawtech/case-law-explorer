@@ -62,15 +62,15 @@ row_transformers = {
     get_path_raw(CSV_ECHR_CASES): manage_ECHR_rows
 }
 
-"""
-Start processing
-"""
+
+# Start processing.
+
 start = time.time()
 
 input_paths = [
-    #get_path_raw(CSV_RS_CASES),
-    #get_path_raw(CSV_RS_OPINIONS),
-    #get_path_raw(CSV_LI_CASES),
+    get_path_raw(CSV_RS_CASES),
+    get_path_raw(CSV_RS_OPINIONS),
+    get_path_raw(CSV_LI_CASES),
     get_path_raw(CSV_ECHR_CASES)
 ]
 
@@ -100,12 +100,12 @@ for input_path in input_paths:
     print(file_name)
     print(output_path)
 
+<<<<<<< HEAD
     with open(output_path, 'a', newline='', encoding='utf-8') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()
         with open(input_path, 'r', newline='', encoding='utf-8') as in_file:
             reader = DictReader(in_file)
-            # process input file by row
             for row in reader:
                 row_clean = dict.fromkeys(field_map.values())
                 for col, value in row.items():
@@ -118,7 +118,6 @@ for input_path in input_paths:
                 row_transformer(row, row_clean)
                 # Write the processed row to the output file.
                 writer.writerow(row_clean)
-
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
 

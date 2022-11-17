@@ -3,9 +3,9 @@ import requests
 import time
 import argparse
 import pandas as pd
+import dateutil.parser
 from os.path import dirname, abspath
 from socket import timeout
-import dateutil.parser
 
 current_dir = dirname(dirname(abspath(__file__)))
 correct_dir = ('\\').join(current_dir.replace('\\', '/').split('/')[:-2])
@@ -59,45 +59,40 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
 
     META_URL = META_URL.replace(' ', '%20')
     META_URL = META_URL.replace('"', '%22')
-    # example url: "https://hudoc.echr.coe.int/app/query/results?query=(contentsitename=ECHR)%20AND%20(documentcollectionid2:%22JUDGMENTS%22%20OR%20documentcollectionid2:%22COMMUNICATEDCASES%22)&select=itemid,applicability,application,appno,article,conclusion,decisiondate,docname,documentcollectionid,%20documentcollectionid2,doctype,doctypebranch,ecli,externalsources,extractedappno,importance,introductiondate,%20isplaceholder,issue,judgementdate,kpdate,kpdateAsText,kpthesaurus,languageisocode,meetingnumber,%20originatingbody,publishedby,Rank,referencedate,reportdate,representedby,resolutiondate,%20resolutionnumber,respondent,respondentOrderEng,rulesofcourt,separateopinion,scl,sharepointid,typedescription,%20nonviolation,violation&sort=itemid%20Ascending&start=0&length=2"
+    # An example url: "https://hudoc.echr.coe.int/app/query/results?query=(contentsitename=ECHR)%20AND%20(documentcollectionid2:%22JUDGMENTS%22%20OR%20documentcollectionid2:%22COMMUNICATEDCASES%22)&select=itemid,applicability,application,appno,article,conclusion,decisiondate,docname,documentcollectionid,%20documentcollectionid2,doctype,doctypebranch,ecli,externalsources,extractedappno,importance,introductiondate,%20isplaceholder,issue,judgementdate,kpdate,kpdateAsText,kpthesaurus,languageisocode,meetingnumber,%20originatingbody,publishedby,Rank,referencedate,reportdate,representedby,resolutiondate,%20resolutionnumber,respondent,respondentOrderEng,rulesofcourt,separateopinion,scl,sharepointid,typedescription,%20nonviolation,violation&sort=itemid%20Ascending&start=0&length=2".
 
     # get total number of results:
     url = META_URL.format(select=','.join(fields), start=0, length=1)
     r = requests.get(url)
     resultcount = r.json()['resultcount']
-
     print("available results: ", resultcount)
 
     if not end_id:
         end_id = resultcount
     end_id = start_id+end_id
-
     if not date:
         date = "22-02-1000"
     date = dateutil.parser.parse(date, dayfirst=True).date()
-
     print(f"Fetching {end_id} results and filtering for cases after {date}.", end_id, " results \
             and filtering for cases after ", date)
-
     timeout = 6
     retry = 3
-
     if start_id+end_id > 500:  # HUDOC does not allow fetching more than 500 items at the same time
         for i in range(start_id, end_id, 500):
             print(" - Fetching information from cases {} to {}.".format(i, i+500))
 
-            # Fromat URL based on the incremented index
+            # Format URL based on the incremented index.
             url = META_URL.format(select=','.join(fields), start=i, length=500)
             if verbose:
                 print(url)
-            
-            r = get_r(url, timeout, retry, verbose)
 
+            # Get the response.
+            r = get_r(url, timeout, retry, verbose)
             if r is not None:
                 # Get the results list
                 temp_dict = r.json()['results']
 
-                # Get every doc from the results list
+                # Get every document from the results list.
                 for result in temp_dict:
                     case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
                     if case_date <= date:
@@ -109,19 +104,16 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
             print(url)
 
         r = get_r(url, timeout, retry, verbose)
-
         if r is not None:
             # Get the results list
             temp_dict = r.json()['results']
 
-            # Get every doc from the results list
+            # Get every document from the results list.
             for result in temp_dict:
                 case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
                 if case_date >= date:
                     data.append(result['columns'])
-
     print(f'{len(data)} results after filtering by date.')
-
     return pd.DataFrame.from_records(data), resultcount
 
 
@@ -139,32 +131,23 @@ args = parser.parse_args()
 print('\n--- PREPARATION ---\n')
 print('OUTPUT DATA STORAGE:\t', args.storage)
 print('OUTPUT:\t\t\t', CSV_ECHR_CASES)
-
 storage = Storage(location=args.storage)
 storage.setup_pipeline(output_paths=[CSV_ECHR_CASES])
-
 last_updated = storage.pipeline_last_updated
 print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
-
 print('\n--- START ---')
 start = time.time()
-
 print("--- Extract ECHR data")
 arg_end_id = args.count if args.count else None
 date = args.date if args.date else None
 df, resultcount = read_echr_metadata(end_id=arg_end_id, date=date, fields=['itemid', 'documentcollectionid2', \
                                                                            'languageisocode'], verbose=True)
-
 print(f'ECHR data shape: {df.shape}')
 print(f'Columns extracted: {list(df.columns)}')
-
 print("--- Load ECHR data")
-
 df.to_csv(CSV_ECHR_CASES)
-
 print(f"\nUpdating {args.storage} storage ...")
 storage.finish_pipeline()
-
 end = time.time()
 print("\n--- DONE ---")
 print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

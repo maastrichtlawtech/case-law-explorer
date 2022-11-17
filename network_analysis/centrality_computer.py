@@ -12,8 +12,12 @@ from definitions.storage_handler import CSV_ECHR_CASES_NODES, CSV_ECHR_CASES_EDG
                                         JSON_ECHR_CASES_NODES, JSON_ECHR_CASES_EDGES, \
                                         CSV_ECHR_CASES_CENTRALITIES
 
-# The in degree is added to the dataframe by counting occurences in the edges list.
 def calculate_in_degree(nodes, edges):
+    """
+    The in degree is added to the dataframe by counting occurences in the edges list.
+    :param nodes: dataframe cases as nodes of a graph
+    :param edges: dataframe links between cases as edges of a graph
+    """
     in_degrees = np.zeros(nodes.shape[0])
     index = 0
     for ecli in nodes["ecli"]:
@@ -25,8 +29,12 @@ def calculate_in_degree(nodes, edges):
         index += 1
     nodes["in degree"] = in_degrees
 
-# The out degree is added to the dataframe by counting occurences in the edges list.
 def calculate_out_degree(nodes, edges):
+    """
+    The out degree is added to the dataframe by counting occurences in the edges list.
+    :param nodes: dataframe cases as nodes of a graph
+    :param edges: dataframe links between cases as edges of a graph
+    """
     out_degrees = np.zeros(nodes.shape[0])
     edge_occurences = pd.Series([x for _list in edges["references"] for x in _list]).value_counts()
     for ecli in nodes["ecli"]:
@@ -35,13 +43,20 @@ def calculate_out_degree(nodes, edges):
             out_degrees[index] = edge_occurences[ecli]
     nodes["out degree"] = out_degrees
 
-# The degree sum is calculated by summing the already calculated in degree and out degree columns.
 def calculate_degree(nodes):
+    """
+    The degree sum is calculated by summing the already calculated in degree and out degree columns.
+    :param nodes: dataframe cases as nodes of a graph
+    """
     nodes["degree"] = nodes["in degree"]+nodes["out degree"]
 
-# Depending on isin, the relative in degree or the relative out degree is added to the dataframe by 
-# dividing the already existing columns by each other.
 def calculate_relative_degree(nodes, isin):
+    """
+    Depending on isin, the relative in degree or the relative out degree is added to the dataframe 
+    by dividing the already existing columns by each other.
+    :param nodes: dataframe cases as nodes of a graph
+    :param isin: boolean whether to calculate relative in degree of relative out degree
+    """
     numerator = nodes["in degree"] if isin else nodes["out degree"]
     denominator = nodes["out degree"] if isin else nodes["in degree"]
     relative_degree = numerator/denominator
@@ -49,9 +64,16 @@ def calculate_relative_degree(nodes, isin):
     column_name = "relative in degree" if isin else "relative out degree"
     nodes[column_name] = relative_degree
 
-# Page ranks are stored in a new array until all values have been calculated each iteration and
-# are finally added to the dataframe.
-def calculate_page_rank(nodes, edges, iterations=2, replace_missing_with_mean=True):
+def calculate_page_rank(nodes, edges, iterations=5, replace_missing_with_mean=True):
+    """
+    Page ranks are stored in a new array until all values have been calculated each iteration and
+    are finally added to the dataframe.
+    :param nodes: dataframe cases as nodes of a graph
+    :param edges: dataframe links between cases as edges of a graph
+    :param iterations: integer number of iterations for the page rank algorithm
+    :param replace_missing_with_true: boolean whether to replace missing nodes' page ranks with the 
+                                      mean page rank or with 0
+    """
     old_page_ranks = np.full((nodes.shape[0]), 1/nodes.shape[0])
     new_page_ranks = np.zeros(nodes.shape[0])
     reference_counts = pd.Series([x for _list in edges["references"] for x in _list]).value_counts()
@@ -87,9 +109,16 @@ def calculate_page_rank(nodes, edges, iterations=2, replace_missing_with_mean=Tr
         new_page_ranks = np.zeros(old_page_ranks.shape[0])
     nodes["page rank"] = old_page_ranks
 
-# Hub and authority scores are updated for each node each iteration and are finally added to the
-# dataframe.
-def calculate_hits(nodes, edges, iterations=0.5, replace_missing_with_mean=True):
+def calculate_hits(nodes, edges, iterations=5, replace_missing_with_mean=True):
+    """
+    Hub and authority scores are updated for each node each iteration and are finally added to the
+    dataframe.
+    :param nodes: dataframe cases as nodes of a graph
+    :param edges: dataframe links between cases as edges of a graph
+    :param iterations: integer number of iterations for the hits algorithm
+    :param replace_missing_with_true: boolean whether to replace missing nodes' hits with the mean
+                                      page rank or with 0
+    """
     old_hubs = np.ones(nodes.shape[0])
     old_authorities = np.ones(nodes.shape[0])
     new_hubs = np.zeros(nodes.shape[0])
@@ -131,9 +160,13 @@ def calculate_hits(nodes, edges, iterations=0.5, replace_missing_with_mean=True)
     nodes["authority"] = old_authorities
     nodes["hits"] = nodes["hub"]+nodes["authority"]
 
-# Each column is normalised unless included in the exceptions list, which is to save unnecissary
-# computation time on columns which are normalised as part of their metric.
 def normalise(nodes, exceptions=["ecli", "importance", "hub", "authority"]):
+    """
+    Each column is normalised unless included in the exceptions list, which is to save unnecissary
+    computation time on columns which are normalised as part of their metric.
+    :param nodes: dataframe cases as nodes of a graph
+    :param exceptions: list columns not to normalise
+    """
     column_names = nodes.columns.values.tolist()
     [column_names.remove(exception) for exception in exceptions]
     for column_name in column_names:
@@ -142,6 +175,10 @@ def normalise(nodes, exceptions=["ecli", "importance", "hub", "authority"]):
 
 # The number of nodes, the number of edges, and the density is calculated and displayed.
 def calculate_network_statistics(nodes):
+    """
+    The number of nodes, the number of edges, and the density are calculated and displayed.
+    :param nodes: cases as nodes of a graph
+    """
     num_nodes = nodes.shape[0]
     num_edges = nodes["in degree"].sum()
     density = num_edges/(num_nodes*(num_nodes-1))
@@ -149,15 +186,15 @@ def calculate_network_statistics(nodes):
     print(f"edges:   {num_edges}")
     print(f"density: {density}")
 
-"""
-Nodes and edges lists are read into dataframes. By default, they are taken from json format
-with the option to be taken from csv format.
-"""
 # Script arguments are defined.
 parser = argparse.ArgumentParser()
 parser.add_argument("--type", help="The type of file to read data from.", type=str, required=False)
 args = parser.parse_args()
 
+"""
+Nodes and edges lists are read into dataframes. By default, they are taken from json format
+with the option to be taken from csv format.
+"""
 if args.type == "csv":
     nodes = pd.read_csv(CSV_ECHR_CASES_NODES)[["ecli", "importance"]]
     edges = pd.read_csv(CSV_ECHR_CASES_EDGES)

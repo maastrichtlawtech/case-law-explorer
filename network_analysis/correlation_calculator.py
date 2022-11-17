@@ -6,16 +6,17 @@ from os.path import dirname, abspath
 
 import matplotlib.pyplot as plt
 
-sys.path.append(dirname(dirname(abspath(__file__)))) # This allows imports from another folder.
+sys.path.append(dirname(dirname(abspath(__file__)))) # Allow imports from another folder.
 from definitions.storage_handler import CSV_ECHR_CASES_CENTRALITIES
 
-"""
-Four Kendal rank coefficients, a, b, c, and a custom one d, are calculated in the same function
-so that the concordant and discordant counts can be used for multiple metrics without needing to
-repeat the loop. Separating these would reduce efficiancy significantly and and there is no
-noticable slowdown when computing all four even when only one is necissary.
-"""
 def calculate_kendal_taus(scores):
+    """
+    Four Kendal rank coefficients, a, b, c, and a custom one d, are calculated in the same function
+    so that the concordant and discordant counts can be used for multiple metrics without needing to
+    repeat the loop. Separating these would reduce efficiancy significantly and and there is no
+    noticable slowdown when computing all four even when only one is necissary.
+    :param scores: dataframe importance and scores for a centrality metric
+    """
     coefficients = {}
     sorted_scores = scores.sort_values(by=["importance", "metric"])
     sorted_scores = sorted_scores.reset_index().drop("index", axis=1)
@@ -58,6 +59,8 @@ def calculate_kendal_taus(scores):
     t = sorted_scores["importance"].value_counts()
     u = sorted_scores["metric"].value_counts()
     n_0 = r*(r-1)/2
+    n_1 = sorted_scores["importance"].apply(lambda importance: importance*(importance-1)/2).sum()
+    n_2 = sorted_scores[metric].apply(lambda centrality: centrality*(centrality-1)/2).sum()
     m = min(r, c)
     # The formulae for the tau values is applied here and the coefficients dictionary is updated.
     tau_a = (n_c-n_d)/n_0
@@ -70,12 +73,13 @@ def calculate_kendal_taus(scores):
     coefficients["tau_d"] = tau_d
     return coefficients
 
-"""
-An adaptation of Kendels tau metric called tau x is computed here which handles ties better. More
-information can be found in the paper "A New Rank Correlation Coefficient with Appication to the
-Consensus Ranking Problem" by Edmond and Maso.
-"""
 def calculate_tau_x(scores):
+    """
+    An adaptation of Kendels tau metric called tau x is computed here which handles ties better. More
+    information can be found in the paper "A New Rank Correlation Coefficient with Appication to the
+    Consensus Ranking Problem" by Edmond and Maso.
+    :param scores: dataframe importance and scores for a centrality metric
+    """
     numerator = 0
     for index_i, row_i in scores.iterrows():
         for index_j, row_j in scores.iterrows():
@@ -92,8 +96,11 @@ def calculate_tau_x(scores):
     tau_x = numerator/denominator
     return tau_x
 
-# Spearmans rank correlation coefficient is computed here.
 def calculate_spearman_rho(scores):
+    """
+    Spearmans rank correlation coefficient is computed here.
+    :param scores: dataframe importance and scores for a centrality metric
+    """    
     scores["importance rank"] = scores["importance"].rank() # Default ranking is used dues to ties.
     scores["metric rank"] = scores["metric"].rank() # Default ranking is used due to ties.
     scores["difference squared"] = (scores["importance rank"]-scores["metric rank"])**2
@@ -102,15 +109,27 @@ def calculate_spearman_rho(scores):
     rho = 1-(numerator/denominator)
     return rho
 
-# Outliers are removed when they are outside of a given number of standard deviations.
 def remove_outliers(df, stds=5):
+    """
+    Ourliers are removed when they are outside of a given number of standard deviations.
+    :param: df data rows to potentially remove based on outlier detection in the second column
+    """
     mean = df.iloc[:, 1].mean()
     sd = df.iloc[:, 1].std()
     df = df[(df.iloc[:, 1] < mean+(stds*sd))]
     return df
 
-# Restults are plotted and printed
 def display_results(metric, x_1, y_1, coefficients_1, x_2, y_2, coefficients_2):
+    """
+    Results are plotted and printed.
+    :param: metric: string centrality metric
+    :param: x_1 series importances before outlier removal
+    :param: y_1 series scores for a centrality metric before outlier removal
+    :coefficients_1: correlation coefficients before outlier removal
+    :param: x_2 series importances after outlier removal
+    :param: y_2 series scores for a centrality metric after outlier removal
+    :coefficients_2: correlation coefficients after outlier removal
+    """
     print(metric)
     print("correlation coefficients with outliers:    ", coefficients_1)
     print("correlation coefficients without outliers: ", coefficients_2)  
@@ -120,7 +139,7 @@ def display_results(metric, x_1, y_1, coefficients_1, x_2, y_2, coefficients_2):
     ax_2.scatter(x_2, y_2)
     #plt.show()
 
-# Read centrality scores into a csv and calculate and display correlations with importance
+# Read centrality scores into a csv and calculate and display correlations with importance.
 df = pd.read_csv(CSV_ECHR_CASES_CENTRALITIES).drop("Unnamed: 0", axis=1).fillna(0)
 x_1 = df["importance"]
 for metric, y_1 in df.loc[:, ~df.columns.isin(["importance", "ecli"])].iteritems():
@@ -138,4 +157,3 @@ for metric, y_1 in df.loc[:, ~df.columns.isin(["importance", "ecli"])].iteritems
     coefficients_2["tau_x"] = calculate_tau_x(scores)
     coefficients_2["rho"] = calculate_spearman_rho(scores)
     display_results(metric, x_1, y_1, coefficients_1, x_2, y_2, coefficients_2)
-
