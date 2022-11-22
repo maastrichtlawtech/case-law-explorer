@@ -91,12 +91,14 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
             if r is not None:
                 # Get the results list
                 temp_dict = r.json()['results']
-
                 # Get every document from the results list.
                 for result in temp_dict:
-                    case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
-                    if case_date <= date:
-                        data.append(result['columns'])
+                    try:
+                        case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
+                        if case_date <= date:
+                            data.append(result['columns'])
+                    except dateutil.parser._parser.ParserError:
+                        pass
     else:
         # Format URL based on start and length
         url = META_URL.format(select=','.join(fields), start=start_id, length=end_id)
