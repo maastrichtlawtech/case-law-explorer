@@ -154,9 +154,9 @@ Binarise the violations column for ECHR data. 0 or 1 shows the presence or absen
 respectively in a row.
 """
 def violation_found(row):
-    if row['violation'] != '':
+    if row['violation'] != "":
         return 1
-    elif row['violation'] == '':
+    elif row['violation'] == "":
         return 0
 
 
@@ -266,4 +266,6 @@ def separate_years(row):
         writer = csv.writer(file)
         if is_empty_csv(CSV_ECHR_YEARS):
             writer.writerow(key_list)
-        writer.writerow(np.array([row["ecli"], year]))
+        if year != 0:
+            writer.writerow(np.array([row["ecli"], year]))
+

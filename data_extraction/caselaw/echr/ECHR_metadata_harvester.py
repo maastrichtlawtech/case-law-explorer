@@ -38,7 +38,7 @@ def get_r(url, timeout, retry, verbose):
                 return None
     return None
 
-def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=True):
+def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=True, skip_missing_dates=False):
     """
     Read ECHR metadata into a Pandas DataFrame.
     :param start_id: integer index to start search from
@@ -71,7 +71,7 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
         end_id = resultcount
     end_id = start_id+end_id
     if not date:
-        date = "22-02-1000"
+        date = "01-01-1000"
     date = dateutil.parser.parse(date, dayfirst=True).date()
     print(f"Fetching {end_id} results and filtering for cases after {date}.", end_id, " results \
             and filtering for cases after ", date)
@@ -95,10 +95,13 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
                 for result in temp_dict:
                     try:
                         case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
-                        if case_date <= date:
+                        if case_date >= date:
                             data.append(result['columns'])
                     except dateutil.parser._parser.ParserError:
-                        pass
+                        if skip_missing_dates:
+                            pass
+                        else:
+                            data.append(result['columns'])
     else:
         # Format URL based on start and length
         url = META_URL.format(select=','.join(fields), start=start_id, length=end_id)
@@ -112,9 +115,15 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
 
             # Get every document from the results list.
             for result in temp_dict:
-                case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
-                if case_date >= date:
-                    data.append(result['columns'])
+                try:
+                    case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
+                    if case_date >= date:
+                        data.append(result['columns'])
+                except dateutil.parser._parser.ParserError:
+                    if skip_missing_dates:
+                        pass
+                    else:
+                        data.append(result['columns'])
     print(f'{len(data)} results after filtering by date.')
     return pd.DataFrame.from_records(data), resultcount
 

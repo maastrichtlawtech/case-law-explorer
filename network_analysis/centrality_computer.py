@@ -64,7 +64,7 @@ def calculate_relative_degree(nodes, isin):
     column_name = "relative in degree" if isin else "relative out degree"
     nodes[column_name] = relative_degree
 
-def calculate_page_rank(nodes, edges, iterations=5, replace_missing_with_mean=True):
+def calculate_page_rank(nodes, edges, iterations=100, replace_missing_with_mean=True):
     """
     Page ranks are stored in a new array until all values have been calculated each iteration and
     are finally added to the dataframe.
@@ -109,7 +109,7 @@ def calculate_page_rank(nodes, edges, iterations=5, replace_missing_with_mean=Tr
         new_page_ranks = np.zeros(old_page_ranks.shape[0])
     nodes["page rank"] = old_page_ranks
 
-def calculate_hits(nodes, edges, iterations=5, replace_missing_with_mean=True):
+def calculate_hits(nodes, edges, iterations=100, replace_missing_with_mean=True):
     """
     Hub and authority scores are updated for each node each iteration and are finally added to the
     dataframe.
@@ -205,16 +205,17 @@ else:
     edges = pd.DataFrame.from_dict(pd.json_normalize(json.load(open(JSON_ECHR_CASES_EDGES))),
                                    orient="columns")
 
-calculate_in_degree(nodes, edges) # Append in degree to the nodes dataframe.
+#calculate_in_degree(nodes, edges) # Append in degree to the nodes dataframe.
 calculate_out_degree(nodes, edges) # Append out degree to the nodes dataframe.
-calculate_degree(nodes) # Append degree sum to the nodes dataframe.
-calculate_relative_degree(nodes, True) # Append relative in degree to the nodes dataframe.
-calculate_relative_degree(nodes, False) # Append relative out degree to the nodes dataframe.
+#calculate_degree(nodes) # Append degree sum to the nodes dataframe.
+#calculate_relative_degree(nodes, True) # Append relative in degree to the nodes dataframe.
+#calculate_relative_degree(nodes, False) # Append relative out degree to the nodes dataframe.
 calculate_page_rank(nodes, edges) # Append page rank to the nodes dataframe.
 calculate_hits(nodes, edges) # Append hits to the nodes dataframe.
-calculate_network_statistics(nodes) # Display network statistics.
+#calculate_network_statistics(nodes) # Display network statistics.
 normalise(nodes) # Normalise the columns of the dataframe.
 
 # Results are written to a csv file.
-nodes.to_csv(CSV_ECHR_CASES_CENTRALITIES)
+#nodes.to_csv(CSV_ECHR_CASES_CENTRALITIES)
+nodes.to_csv("temp.csv")
 

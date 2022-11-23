@@ -68,9 +68,9 @@ row_transformers = {
 start = time.time()
 
 input_paths = [
-    get_path_raw(CSV_RS_CASES),
-    get_path_raw(CSV_RS_OPINIONS),
-    get_path_raw(CSV_LI_CASES),
+    #get_path_raw(CSV_RS_CASES),
+    #get_path_raw(CSV_RS_OPINIONS),
+    #get_path_raw(CSV_LI_CASES),
     get_path_raw(CSV_ECHR_CASES)
 ]
 
@@ -100,7 +100,6 @@ for input_path in input_paths:
     print(file_name)
     print(output_path)
 
-<<<<<<< HEAD
     with open(output_path, 'a', newline='', encoding='utf-8') as out_file:
         writer = DictWriter(out_file, fieldnames=list(field_map.values()))
         writer.writeheader()

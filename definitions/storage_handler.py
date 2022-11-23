@@ -107,11 +107,12 @@ class Storage:
     def rename_old_path(self, path):
         path_without_extension, extension = splitext(path)
         old_path = ''.join([path_without_extension, '_old', extension])
-        if exists(old_path):
-            logging.error(f'{old_path} exists locally! Move/rename it before starting pipeline.')
-            sys.exit(2)
         if exists(path):
-            rename(path, old_path)
+            if exists(old_path):
+                logging.error(f'{old_path} exists locally! Move/rename it before starting pipeline.')
+                sys.exit(2)
+            else:
+                rename(path, old_path)
 
     def setup_pipeline(self, output_paths=None, input_path=None):
         self.pipeline_input_path = input_path
