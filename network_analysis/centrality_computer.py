@@ -8,9 +8,9 @@ import numpy as np
 from collections import Counter
 
 sys.path.append(dirname(dirname(abspath(__file__)))) # This allows imports from another folder.
-from definitions.storage_handler import CSV_ECHR_CASES_NODES, CSV_ECHR_CASES_EDGES, \
-                                        JSON_ECHR_CASES_NODES, JSON_ECHR_CASES_EDGES, \
-                                        CSV_ECHR_CASES_CENTRALITIES
+from definitions.storage_handler import CSV_ECHR_NODES, CSV_ECHR_EDGES, \
+                                        JSON_ECHR_NODES, JSON_ECHR_EDGES, \
+                                        CSV_ECHR_CENTRALITIES
 
 def calculate_in_degree(nodes, edges):
     """
@@ -200,22 +200,20 @@ if args.type == "csv":
     edges = pd.read_csv(CSV_ECHR_CASES_EDGES)
     edges["references"] = edges["references"].apply(eval) # Convert strings to lists
 else:
-    nodes = pd.DataFrame.from_dict(pd.json_normalize(json.load(open(JSON_ECHR_CASES_NODES))),
+    nodes = pd.DataFrame.from_dict(pd.json_normalize(json.load(open(JSON_ECHR_NODES))),
                                    orient="columns")[["ecli", "importance"]]
-    edges = pd.DataFrame.from_dict(pd.json_normalize(json.load(open(JSON_ECHR_CASES_EDGES))),
+    edges = pd.DataFrame.from_dict(pd.json_normalize(json.load(open(JSON_ECHR_EDGES))),
                                    orient="columns")
 
-#calculate_in_degree(nodes, edges) # Append in degree to the nodes dataframe.
+calculate_in_degree(nodes, edges) # Append in degree to the nodes dataframe.
 calculate_out_degree(nodes, edges) # Append out degree to the nodes dataframe.
-#calculate_degree(nodes) # Append degree sum to the nodes dataframe.
-#calculate_relative_degree(nodes, True) # Append relative in degree to the nodes dataframe.
-#calculate_relative_degree(nodes, False) # Append relative out degree to the nodes dataframe.
+calculate_degree(nodes) # Append degree sum to the nodes dataframe.
+calculate_relative_degree(nodes, True) # Append relative in degree to the nodes dataframe.
+calculate_relative_degree(nodes, False) # Append relative out degree to the nodes dataframe.
 calculate_page_rank(nodes, edges) # Append page rank to the nodes dataframe.
 calculate_hits(nodes, edges) # Append hits to the nodes dataframe.
-#calculate_network_statistics(nodes) # Display network statistics.
+calculate_network_statistics(nodes) # Display network statistics.
 normalise(nodes) # Normalise the columns of the dataframe.
 
 # Results are written to a csv file.
-#nodes.to_csv(CSV_ECHR_CASES_CENTRALITIES)
-nodes.to_csv("temp.csv")
-
+nodes.to_csv(CSV_ECHR_CENTRALITIES, index=False)

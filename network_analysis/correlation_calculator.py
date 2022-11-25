@@ -7,7 +7,7 @@ from os.path import dirname, abspath
 import matplotlib.pyplot as plt
 
 sys.path.append(dirname(dirname(abspath(__file__)))) # Allow imports from another folder.
-from definitions.storage_handler import CSV_ECHR_CASES_CENTRALITIES
+from definitions.storage_handler import CSV_ECHR_CENTRALITIES
 
 def calculate_kendal_taus(scores):
     """
@@ -140,7 +140,7 @@ def display_results(metric, x_1, y_1, coefficients_1, x_2, y_2, coefficients_2):
     #plt.show()
 
 # Read centrality scores into a csv and calculate and display correlations with importance.
-df = pd.read_csv(CSV_ECHR_CASES_CENTRALITIES).drop("Unnamed: 0", axis=1).fillna(0)
+df = pd.read_csv(CSV_ECHR_CASES_CENTRALITIES).fillna(0)
 x_1 = df["importance"]
 for metric, y_1 in df.loc[:, ~df.columns.isin(["importance", "ecli"])].iteritems():
     scores = pd.concat([x_1, y_1], axis=1)

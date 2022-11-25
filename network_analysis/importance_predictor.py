@@ -10,7 +10,7 @@ from sklearn.model_selection import RepeatedStratifiedKFold
 sys.path.append(dirname(dirname(abspath(__file__)))) # This allows imports from another folder.
 from definitions.storage_handler import CSV_ECHR_CASES_CENTRALITIES, CSV_ECHR_YEARS, CSV_ECHR_CASES
 
-centralities = pd.read_csv(CSV_ECHR_CASES_CENTRALITIES).drop(["Unnamed: 0"], axis=1).fillna(0)
+centralities = pd.read_csv(CSV_ECHR_CASES_CENTRALITIES).fillna(0)
 years = pd.read_csv(CSV_ECHR_YEARS)
 data = pd.merge(centralities, years, on="ecli", how="inner").drop(["ecli"], axis=1)
 data = data.drop(["year"], axis = 1)

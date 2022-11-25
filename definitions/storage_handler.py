@@ -42,11 +42,11 @@ CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
-CSV_ECHR_CASES_NODES = join(DIR_ECHR, 'ECHR_nodes.csv')
-CSV_ECHR_CASES_EDGES = join(DIR_ECHR, 'ECHR_edges.csv')
-JSON_ECHR_CASES_NODES = join(DIR_ECHR, 'ECHR_nodes.json')
-JSON_ECHR_CASES_EDGES = join(DIR_ECHR, 'ECHR_edges.json')
-CSV_ECHR_CASES_CENTRALITIES = join(DIR_ECHR, 'ECHR_centralities.csv')
+CSV_ECHR_NODES = join(DIR_ECHR, 'ECHR_nodes.csv')
+CSV_ECHR_EDGES = join(DIR_ECHR, 'ECHR_edges.csv')
+JSON_ECHR_NODES = join(DIR_ECHR, 'ECHR_nodes.json')
+JSON_ECHR_EDGES = join(DIR_ECHR, 'ECHR_edges.json')
+CSV_ECHR_CENTRALITIES = join(DIR_ECHR, 'ECHR_centralities.csv')
 CSV_ECHR_ARTICLES = join(DIR_ECHR, 'ECHR_articles.csv')
 CSV_ECHR_VIOLATIONS = join(DIR_ECHR, 'ECHR_violations.csv')
 CSV_ECHR_NONVIOLATIONS = join(DIR_ECHR, 'ECHR_nonviolations.csv')
@@ -138,8 +138,12 @@ class Storage:
             # retrieve input date of last update
             last_updated_input = self.fetch_last_updated([self.pipeline_input_path])
 
+            #print(type(last_updated_input))
+            #print(type(self.pipeline_last_updated))
+            #print()
+
             # if output date of last update after input date of last update: need to update input first
-            if last_updated_input < self.pipeline_last_updated:
+            if last_updated_input.date() < self.pipeline_last_updated:
                 logging.error(f'Input data {basename(self.pipeline_input_path)} is older than output data. '
                               f'Please update input data first.')
                 remove(self.pipeline_input_path)
