@@ -141,44 +141,38 @@ def map_cases(df_1, df_2):
     return df_mapped
 
 
-# Perform operations on ECHR rows.
 def manage_ECHR_rows(row, row_clean):
+    # Perform operations on ECHR rows.
     row_clean["violation"] = violation_found(row)
     row_clean["nonviolation"] = nonviolation_found(row)
     separate_articles(row)
     separate_years(row_clean)
     
 
-"""
-Binarise the violations column for ECHR data. 0 or 1 shows the presence or absence of violations
-respectively in a row.
-"""
 def violation_found(row):
+    """
+    Binarise the violations column for ECHR data. 0 or 1 shows the presence or absence of violations
+    respectively in a row.
+    """
     if row['violation'] != "":
         return 1
-    elif row['violation'] == "":
+    else:
         return 0
 
-
-"""
-Binarise the nonviolations column for ECHR data. 0 or 1 shows the presence or absence of
-nonviolations respectively in a row.
-"""
 def nonviolation_found(row):
-    '''Function performs binarization of variable "non-violation". Measures whether a non-violation of any article was found.
-       Input: a row of a dataframe.
-       Return: 1 - if a non-violation was found,
-               0 - if a non-violation was not found.'''
-    # 1 = non-violation is not empty
+    """
+    Binarise the nonviolations column for ECHR data. 0 or 1 shows the presence or absence of
+    nonviolations respectively in a row.
+    :return integer: 1 if a nonviolation was found otherwise 0
+    """
     if row['nonviolation'] != '':
         return 1
-    # 0 = non-violation is empty
-    elif row['nonviolation'] == '':
+    else:
         return 0
 
 
-# Check if a csv file is empty.
 def is_empty_csv(path):
+    # Check if a csv file is empty.
     with open(path) as csvfile:
         reader = csv.reader(csvfile)
         for i, _ in enumerate(reader):
@@ -187,8 +181,8 @@ def is_empty_csv(path):
     return True
 
 
-# Append the ecli and corresponding binary row to the specified csv file.
 def write_binary(ecli, split_row, key_list, path):
+    # Append the ecli and corresponding binary row to the specified csv file.
     split_set = set(split_row)
     matches = [i for i, val in enumerate(key_list) if val in split_set]
     binary = np.zeros(len(key_list))
@@ -203,12 +197,12 @@ def write_binary(ecli, split_row, key_list, path):
         writer.writerow(binary)
 
 
-"""
-Add binary variables based on articles for which a violation or non-violation was found, the 
-violated articles, and the nonviolated articles to separate csv files. Column headers correspond to
-articles and column values are 0 or 1 show the presence or absence of an article respectivelly.
-"""
 def separate_articles(row):
+    """
+    Add binary variables based on articles for which a violation or non-violation was found, the 
+    violated articles, and the nonviolated articles to separate csv files. Column headers correspond to
+    articles and column values are 0 or 1 show the presence or absence of an article respectivelly.
+    """
     # Convert the violation column into a list of strings of numbers.
     split_violation_row = []
     for i in row['violation'].split(';'):
@@ -237,8 +231,8 @@ def separate_articles(row):
     write_binary(row['ecli'], split_article_row, key_list, CSV_ECHR_ARTICLES)
 
 
-# Find the protocol numbers that are mentioned in the articles column
 def find_protocols(articles):
+    # Find the protocol numbers that are mentioned in the articles column.
     article_list = articles.split(';')
     article_arr = np.asarray(article_list)
     article_protocols_list = [] # This list will contain all of the found protocol names. 
@@ -253,11 +247,11 @@ def find_protocols(articles):
     return article_protocols_list
 
 
-"""
-Create a new csv file which stores the ecli and the judgement year. Caution is advised because
-NaNs are cast to 0.
-"""
 def separate_years(row):
+    """
+    Create a new csv file which stores the ecli and the judgement year. Caution is advised because
+    NaNs are cast to 0.
+    """
     date = row["date_decision"]
     year = 0 if pd.isna(date) else date.year #date.dt.year
     key_list = ["ecli", "year"]
@@ -266,6 +260,6 @@ def separate_years(row):
         writer = csv.writer(file)
         if is_empty_csv(CSV_ECHR_YEARS):
             writer.writerow(key_list)
-        if year != 0:
+        if year != 0: # The year is available so write the year to the the csv file.
             writer.writerow(np.array([row["ecli"], year]))
-
+        

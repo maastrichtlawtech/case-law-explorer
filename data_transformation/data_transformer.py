@@ -68,9 +68,9 @@ row_transformers = {
 start = time.time()
 
 input_paths = [
-    get_path_raw(CSV_RS_CASES),
-    get_path_raw(CSV_RS_OPINIONS),
-    get_path_raw(CSV_LI_CASES),
+    #get_path_raw(CSV_RS_CASES),
+    #get_path_raw(CSV_RS_OPINIONS),
+    #get_path_raw(CSV_LI_CASES),
     get_path_raw(CSV_ECHR_CASES)
 ]
 

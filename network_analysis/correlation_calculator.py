@@ -109,7 +109,7 @@ def calculate_spearman_rho(scores):
     rho = 1-(numerator/denominator)
     return rho
 
-def remove_outliers(df, stds=5):
+def remove_outliers(df, stds=2):
     """
     Ourliers are removed when they are outside of a given number of standard deviations.
     :param: df data rows to potentially remove based on outlier detection in the second column
@@ -137,8 +137,9 @@ def display_results(metric, x_1, y_1, coefficients_1, x_2, y_2, coefficients_2):
     fig.suptitle(metric)
     ax_1.scatter(x_1, y_1)
     ax_2.scatter(x_2, y_2)
-    #plt.show()
+    plt.show()
 
+"""
 # Read centrality scores into a csv and calculate and display correlations with importance.
 df = pd.read_csv(CSV_ECHR_CASES_CENTRALITIES).fillna(0)
 x_1 = df["importance"]
@@ -157,3 +158,34 @@ for metric, y_1 in df.loc[:, ~df.columns.isin(["importance", "ecli"])].iteritems
     coefficients_2["tau_x"] = calculate_tau_x(scores)
     coefficients_2["rho"] = calculate_spearman_rho(scores)
     display_results(metric, x_1, y_1, coefficients_1, x_2, y_2, coefficients_2)
+"""
+
+# Read centrality scores into a csv and calculate and display correlations with importance.
+df = pd.read_csv(CSV_ECHR_CENTRALITIES).drop(["Unnamed: 0"], axis=1).fillna(0)
+x_1 = df["importance"]
+fig, axes = plt.subplots(3, 3)
+fig.suptitle("Importance vs. Centrality")
+row_counter = 0
+column_counter = 0
+for metric, y_1 in df.loc[:, ~df.columns.isin(["importance", "ecli"])].iteritems():
+    scores = pd.concat([x_1, y_1], axis=1)
+    scores.columns = ["importance", "metric"]
+    without_outliers = remove_outliers(scores)
+    x_2 = without_outliers.iloc[:, 0]
+    y_2 = without_outliers.iloc[:, 1]
+    axes[row_counter][column_counter].scatter(x_2, y_2)
+    axes[row_counter][column_counter].set_xticks([1, 2, 3, 4])
+    if column_counter == 2:
+        row_counter += 1
+        column_counter = 0
+    else:
+        column_counter += 1
+plt.show()
+
+
+
+
+
+
+
+    

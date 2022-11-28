@@ -38,13 +38,16 @@ def get_r(url, timeout, retry, verbose):
                 return None
     return None
 
-def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=True, skip_missing_dates=False):
+def read_echr_metadata(start_id, end_id, start_date, end_date, verbose=True, skip_missing_dates=False):
     """
     Read ECHR metadata into a Pandas DataFrame.
     :param start_id: integer index to start search from
     :param end_id: integer index to end search at where the default None fetches all results
+    :param start_date: date date from which to save cases
+    :param end_date: date date before which to save cases
     :param fields: list meta attribute names to return where the default None fetches all attributes
     :param verbose: boolean whether or not to print extra information
+    :param skip_missing_dates: boolean whether or not to save cases with missing dates
     """
     data = []
     fields = MAP_ECHR.keys()
@@ -70,11 +73,14 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
     if not end_id:
         end_id = resultcount
     end_id = start_id+end_id
-    if not date:
-        date = "01-01-1000"
-    date = dateutil.parser.parse(date, dayfirst=True).date()
-    print(f"Fetching {end_id} results and filtering for cases after {date}.", end_id, " results \
-            and filtering for cases after ", date)
+    if not start_date:
+        start_date = "01-01-1000"
+    if not end_date:
+        end_date = datetime.datetime.now()
+    start_date = dateutil.parser.parse(start_date, dayfirst=True).date()
+    end_date = dateutil.parser.parse(end_date, dayfirst=True).date()
+    print(f'Fetching {end_id-start_id} results from index {start_id} to index {end_id} and \
+          filtering for cases after {start_date} and before {end_date}.')
     timeout = 6
     retry = 3
     if start_id+end_id > 500:  # HUDOC does not allow fetching more than 500 items at the same time
@@ -95,7 +101,7 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
                 for result in temp_dict:
                     try:
                         case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
-                        if case_date >= date:
+                        if start_date <= case_date <= end_date:
                             data.append(result['columns'])
                     except dateutil.parser._parser.ParserError:
                         if skip_missing_dates:
@@ -117,7 +123,7 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
             for result in temp_dict:
                 try:
                     case_date = dateutil.parser.parse(result['columns']['judgementdate']).date()
-                    if case_date >= date:
+                    if start_date <= case_date <= end_date:
                         data.append(result['columns'])
                 except dateutil.parser._parser.ParserError:
                     if skip_missing_dates:
@@ -131,10 +137,14 @@ def read_echr_metadata(start_id=0, end_id=None, date=None, fields=None, verbose=
 # set up script arguments
 parser = argparse.ArgumentParser()
 parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
+parser.add_argument('--start_id', help='The index from which to start searching through cases.', \
+                    type=int, required=False)
 parser.add_argument('--count', help='How many cases to retreive. Some may not be saved due to \
-    language and date filtering', type=int, required=False)
-parser.add_argument('--date', help='DD-MM-YY. Save cases from after this date.', type=str, \
-    required=False)
+                    language and date filtering', type=int, required=False)
+parser.add_argument('--start_date', help='DD-MM-YY. Save cases from after this date.', type=str, \
+                    required=False)
+parser.add_argument('--end_date', help='DD-MM-YY. Save cases from before this date.', type=str, \
+                    required=False)
 args = parser.parse_args()
 
 
@@ -149,10 +159,12 @@ print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
 print('\n--- START ---')
 start = time.time()
 print("--- Extract ECHR data")
+arg_start_id = args.start_id if args.start_id else 0
 arg_end_id = args.count if args.count else None
-date = args.date if args.date else None
-df, resultcount = read_echr_metadata(end_id=arg_end_id, date=date, fields=['itemid', 'documentcollectionid2', \
-                                                                           'languageisocode'], verbose=True)
+arg_start_date = args.start_date if args.start_date else None
+arg_end_date = args.end_date if args.end_date else None
+df, resultcount = read_echr_metadata(start_id=arg_start_id, end_id=arg_end_id, \
+                                     start_date=arg_start_date, end_date=arg_end_date)
 print(f'ECHR data shape: {df.shape}')
 print(f'Columns extracted: {list(df.columns)}')
 print("--- Load ECHR data")
