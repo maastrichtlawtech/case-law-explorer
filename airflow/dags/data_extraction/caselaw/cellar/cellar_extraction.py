@@ -6,7 +6,7 @@ import shutil
 
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time, glob
-from datetime import datetime, timedelta
+from datetime import datetime
 from definitions.storage_handler import CELLAR_DIR, Storage, CELLAR_ARCHIVE_DIR, get_path_raw, JSON_FULL_TEXT_CELLAR, \
     CSV_CELLAR_CASES
 import argparse
