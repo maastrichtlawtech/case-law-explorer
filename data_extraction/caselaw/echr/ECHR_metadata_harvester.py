@@ -76,7 +76,7 @@ def read_echr_metadata(start_id=0, end_id=None, start_datetime=None, end_datetim
     if not start_datetime:
         start_datetime = dateutil.parser.parse("01-01-1000 00:00:00", dayfirst=True)
     if not end_datetime:
-        end_date = datetime.datetime.now()
+        end_datetime = datetime.now()
     print(f'Fetching {end_id-start_id} results from index {start_id} to index {end_id} and \
           filtering for cases after {start_datetime} and before {end_datetime}.')
     timeout = 6
