@@ -27,6 +27,9 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v3.2.0
         with:
+          cache-from: |
+            user/app:cache
+            type=local,src=airflow/
           context: .
           push: true
           tags: ${{ steps.meta.outputs.tags }}
