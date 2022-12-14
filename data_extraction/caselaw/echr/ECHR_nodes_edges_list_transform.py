@@ -57,75 +57,115 @@ def retrieve_edges_list(df, df_unfiltered):
     edges = pd.DataFrame(columns=['ecli', 'references'])
 
     count = 0
-    for index, item in df.iloc[:2].iterrows():
-        percentage = count/len(df.index)*100
-        sys.stdout.write('\r' + str(percentage))
-        sys.stdout.flush()
+    tot_num_refs = 0
+    missing_cases = []
+    for index, item in df.iloc[:101].iterrows():
+        #print(index)
+        #percentage = count / len(df.index) * 100
+        #sys.stdout.write('\r' + str(percentage))
+        #sys.stdout.flush()
+
         if item.scl is not np.nan:
             """
             Split the references from the scl column into a list of references.
-            
+
             Example:
             references in string: "Ali v. Switzerland, 5 August 1998, § 32, Reports of Judgments and 
             Decisions 1998-V;Sevgi Erdogan v. Turkey (striking out), no. 28492/95, 29 April 2003"
-            
+
             ["Ali v. Switzerland, 5 August 1998, § 32, Reports of Judgments and 
             Decisions 1998-V", "Sevgi Erdogan v. Turkey (striking out), no. 
             28492/95, 29 April 2003"]
             """
             ref_list = item.scl.split(';')
+            new_ref_list = []
+            for ref in ref_list:
+                ref = re.sub('\n', '', ref)
+                new_ref_list.append(ref)
             eclis = []
 
-            for ref in ref_list:
-                appnos = re.findall("[0-9]{4,5}\/[0-9]{2}", ref)
+            tot_num_refs = tot_num_refs + len(ref_list)
+            #print(item.scl)
 
-                rows = lookup(appnos, ref, df_unfiltered)
+            for ref in new_ref_list:
+                #print("ref: ", ref)
 
-                for ind, itm in rows.iterrows():
-                    if itm.ecli is not np.nan:
-                        eclis.append(itm.ecli)
-                        # print(itm.ecli)
+                app_number = re.findall("[0-9]{4,5}\/[0-9]{2}", ref)
 
-            # for ec in eclis:
-                # print(ec)
+                if len(app_number) > 0:
+                    # get dataframe with all possible cases by application number
+                    if len(app_number) > 1:
+                        app_number = [';'.join(app_number)]
+                        #print(app_number)
+                    case = lookup_app_number(app_number, df_unfiltered)
+                else: # if no application number in reference
+                    # get dataframe with all possible cases by casename
+                    case = lookup_casename(ref, df_unfiltered)
+
+                if len(case) == 0:
+                    case = lookup_casename(ref, df_unfiltered)
+
+                components = ref.split(',')
+                # get the year of case
+                year_from_ref = get_year_from_ref(components)
+                #print("year from ref: ", year_from_ref)
+
+                # remove cases in different language than reference
+                for index, item in case.iterrows():
+                    if 'v.' in components[0]:
+                        lang = 'ENG'
+                    else:
+                        lang = 'FRE'
+
+                    if lang not in item.languageisocode:
+                        case = case[case['languageisocode'].str.contains(lang, regex=False, flags=re.IGNORECASE)]
+
+                for index, item in case.iterrows():
+                    #print("num of cases: ", len(case))
+                    date = dateparser.parse(item.judgementdate)
+                    year_from_case = date.year
+                    #print(year_from_case)
+
+                    if year_from_case - year_from_ref == 0:
+                        case = case[case['judgementdate'].str.contains(str(year_from_ref), regex=False, flags=re.IGNORECASE)]
+
+                if len(case) > 0:
+                    if len(case) > 3:
+                        print("stop")
+                    #print(case)
+                    for _,row in case.iterrows():
+                        eclis.append(row.ecli)
+                    #print("final case: ",case, " date: ", case.judgementdate)
+                else:
+                    count = count + 1
+                    missing_cases.append(ref)
+
+
+            #add ecli to edges list
             edges = pd.concat(
-                [edges, pd.DataFrame.from_records([{'ecli': item.ecli, 'references': eclis}])]) # improve?
-        count = count + 1
-        # print("edges: \n", edges)
+                [edges, pd.DataFrame.from_records([{'ecli': item.ecli, 'references': eclis}])])
+
+    print("num missed cases: ", count)
+    print("total num of refs: ", tot_num_refs)
+    missing_cases_set = set(missing_cases)
+    missing_cases = list(missing_cases_set)
+
+    missing_df = pd.DataFrame(missing_cases)
+    missing_df.to_csv('C:/Users/Chloe/PycharmProjects/case-law-explorer/data/echr/missing_cases.csv', index=False, encoding='utf-8')
+
     return edges
 
 
-def lookup(appnos, text, df):
-    """ 
-    Checks whether app numbers for cases were found. If so calls lookup_app_number
-    otherwise use the casenames provided by calling lookup_casename.
-
-    Returns the rows obtained from lookup_app_number and lookup_casename.
-    """
-    if len(appnos) > 0:
-        rows = lookup_app_number(appnos, df)
-        # print(text)
-
-        if rows.empty:
-            rows = lookup_casename(text, df)
-        if rows.shape[0] > 1:
-            rows = lookup_date(rows, text)
-
-    else:
-        rows = lookup_casename(text, df)
-    return rows
-
-
-def lookup_app_number(pattern, df):  # change to app_number
+def lookup_app_number(pattern, df):
     """
     Returns a list with rows containing the cases linked to the found app numbers.
     """
-    # print(pattern)
+    #print(pattern)
     row = df.loc[df['appno'].isin(pattern)]
     # print(row)
 
     if row.empty:
-        # print("empty!")
+        #print(" row empty!")
         return pd.DataFrame()
     elif row.shape[0] > 1:
         return row
@@ -133,7 +173,7 @@ def lookup_app_number(pattern, df):  # change to app_number
         return row
 
 
-def lookup_casename(text, df):
+def lookup_casename(ref, df):
     """
     Process the reference for lookup in metadata.
     Returns the rows corresponding to the cases.
@@ -157,57 +197,105 @@ def lookup_casename(text, df):
     Hentrich v. France --> CASE OF HENTRICH V. FRANCE
     James and Others --> CASE OF JAMES AND OTHERS
     """
-    line = text.split(',')
-    casename = line[0]
+
+    name = get_casename(ref)
+    #print("name: ", name)
 
     f = open('CLEAN_REF.txt', 'r')
     patterns = f.read().splitlines()
 
-    uptext = casename.upper()
-    uptext = uptext.replace('V.', 'v.')
-    uptext = uptext.replace('C.', 'c.')
+    uptext = name.upper()
+    #print("upper: ",uptext)
+
+    if 'NO.' in uptext:
+        uptext = uptext.replace('NO.', 'No.')
+
+    if 'BV' in uptext:
+        uptext = uptext.replace('BV', 'B.V.')
+
+    if 'v.' in name:
+        uptext = uptext.replace('V.', 'v.')
+        lang = 'ENG'
+    else:
+        uptext = uptext.replace('C.', 'c.')
+        lang = 'FRE'
 
     for pattern in patterns:
         uptext = re.sub(pattern, '', uptext)
 
     uptext = re.sub(r'\[.*', "", uptext)
     uptext = uptext.strip()
+    #print("final text: ", uptext)
 
     row = df[df['docname'].str.contains(uptext, regex=False, flags=re.IGNORECASE)]
-    # print("ecli: \n", row.ecli)
-    # print("appno: \n", row.appno)
+
+    if len(row) == 0:
+        print("no cases matched: ", name)
+
     return row
 
+def get_casename(ref):
+    #print(ref)
+    count = 0
+    if 'v.' in ref:
+        slice_at_versus = ref.split('v.')  # skip if typo (count how many)
+    elif 'c.' in ref:
+        slice_at_versus = ref.split('c.')
+    else:
+        count = count + 1
+        #print('no versus')
+        name = ref.split(',')
+        return name[0]
 
-def lookup_date(row, text):
-    line = text.split(',')
+    #print("before slice: ", slice_at_versus)
+    # slice_at_versus[0] = slice_at_versus[0].replace(',', '')
+    # slice_at_versus[0] = slice_at_versus[0].replace('\n', '')
+    # print(slice_at_versus)
 
-    for l in line:
-        # print(l)
-        l = re.sub(r'§.*',"",l)
-        try:
-            date = dateparser.parse(l)
-            date = date.strftime("%d/%m/%Y %H:%M:%S")
-            break
-        except:
-            date = ''
+    num_commas = slice_at_versus[0].count(',')
+    #print('commas: ', num_commas)
 
-    for index, item in row.iterrows():
-        date_temp = item.judgementdate
-        try:
-            # print(date_temp, " ", type(date_temp))
-            date_parse = dateparser.parse(date_temp)
-            date_parse = date_parse.strftime("%d/%m/%Y %H:%M:%S")
-        except:
-            date_parse = ''
+    # ref = " ".join(slice_at_versus)
+    if num_commas > 0:
+        num_commas = num_commas + 1
+        # for i in range(0, len(components), num_commas):
+        #    print("i: ", i, "components: ", components[i])
+        name = ",".join(ref.split(",", num_commas)[:num_commas])
+        # components = ref.split(",", num_commas)
+        # components = ','.join(components[i:i + num_commas] for i in range(0, len(components), num_commas))
+        #print("components: ", name)
+        #print(ref)
+    else:
+        name = ref.split(',')
+        #print('no commas')
+        return name[0]
+    return name
 
-        # print(date_parse)
-        # print(date)
-        # print(date == date_parse)
-        if(date == date_parse):
-            row = row[row['judgementdate'] == date]
-        # print(row.ecli)
-    return row
+def get_year_from_ref(ref):
+    for component in ref:
+        if '§' in component:
+            continue
+        #print(component)
+        if dateparser.parse(component) is not None:
+            date = dateparser.parse(component)
+            #print("good date: ",date)
+        elif ("ECHR" in component or "CEDH" in component):
+            if ("ECHR" in component or "CEDH" in component):
+                date = re.sub('ECHR ', '', component)
+                date = re.sub('CEDH ', '', date)
+                date = date.strip()
+                date = re.sub('-.*', '', date)
+                date = re.sub('\s.*', '', date)
+                #print('echr_date: ', date)
+                date = dateparser.parse(date)
+                #print("year: ", date.year)
+        #else:
+         #   return 0
+    try:
+        return date.year
+    except:
+        return 0
+    #return date.year
 
 
 # ---- RUN ----
@@ -223,13 +311,14 @@ start = time.time()
 
 print('\n--- CREATING EDGES LIST ---\n')
 edges = retrieve_edges_list(nodes, data)
-final_edges = edges.groupby('ecli', as_index=False)['references'].agg(lambda x : list(set([e for l in x for e in l])))
+print(edges)
+#final_edges = edges.groupby('ecli', as_index=False)['references'].agg(lambda x : list(set([e for l in x for e in l])))
 
 print('\n--- CREATING CSV FILES ---\n')
 # nodes.to_csv(CSV_ECHR_CASES_NODES, index=False, encoding='utf-8')
-# edges.to_csv(CSV_ECHR_CASES_EDGES, index=False, encoding='utf-8')
+edges.to_csv(CSV_ECHR_CASES_EDGES, index=False, encoding='utf-8')
 nodes.to_json(CSV_ECHR_CASES_NODES_JSON, orient="records")
-final_edges.to_json(CSV_ECHR_CASES_EDGES_JSON, orient="records")
+edges.to_json(CSV_ECHR_CASES_EDGES_JSON, orient="records")
 
 end = time.time()
 print("\n--- DONE ---")
