@@ -76,3 +76,4 @@ python-dateutil~=2.8.1
 Selenium == 4.4.3
 cellar-extractor ==1.0.27
 rechtspraak_extractor==1.1
+echr-extractor

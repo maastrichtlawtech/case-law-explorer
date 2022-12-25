@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from data_extraction.caselaw.echr.ECHR_metadata_harvester import echr_download
+from data_extraction.caselaw.echr.echr_extraction import echr_extract
 
 default_args = {
     'owner': 'none',
@@ -20,6 +20,6 @@ with DAG(
 ) as DAG:
     task1 = PythonOperator(
         task_id='echr_extraction',
-        python_callable=echr_download,
+        python_callable=echr_extract,
         op_args=[['local']]
     )

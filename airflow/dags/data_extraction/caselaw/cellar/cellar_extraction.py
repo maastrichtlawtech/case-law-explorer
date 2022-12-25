@@ -28,6 +28,7 @@ def cellar_extract(args):
     parser.add_argument('--concurrent-docs', default=200, type=int,
                         help='default number of documents to retrieve concurrently', required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
+    
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads',
                         action='store_true')
     args = parser.parse_args(args)

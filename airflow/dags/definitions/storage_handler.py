@@ -37,6 +37,7 @@ DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
 DIR_ECHR = join(DIR_DATA, 'echr')
 CELLAR_DIR = join(DIR_DATA, 'cellar')
 CELLAR_ARCHIVE_DIR=join(CELLAR_DIR,'archive')
+ECHR_ARCHIVE_DIR=join(DIR_ECHR,'archive')
 CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'         # eclis and decision dates of OpenDataUitspraken files
 CSV_RS_CASES = 'RS_cases.csv'                               # metadata of RS cases
 CSV_RS_OPINIONS = 'RS_opinions.csv'                         # metadata of RS opinions
@@ -53,6 +54,7 @@ CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
 CSV_ECHR_CASES_NODES = join(DIR_ECHR,'ECHR_nodes.csv')
 CSV_ECHR_CASES_EDGES = join(DIR_ECHR,"ECHR_edges.csv")
 JSON_FULL_TEXT_CELLAR=join(DIR_DATA_PROCESSED,'cellar_full_text.json')
+JSON_FULL_TEXT_ECHR=join(DIR_DATA_PROCESSED,'ECHR_full_text.json')
 
 # raw data:
 def get_path_raw(file_name):
@@ -82,7 +84,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR,CELLAR_ARCHIVE_DIR,DIR_ECHR]:
+        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR,CELLAR_ARCHIVE_DIR,DIR_ECHR,ECHR_ARCHIVE_DIR]:
 
             makedirs(d, exist_ok=True)
 
@@ -232,7 +234,7 @@ class Storage:
                 self.fetch_data([CSV_OPENDATA_INDEX])
                 file_path = CSV_OPENDATA_INDEX
             if WINDOWS_SYSTEM:
-                if re.match(rf'^{windows_path(CELLAR_DIR)}/.*\.json$',windows_path(file_path)):
+                if re.match(rf'^{windows_path(CELLAR_DIR)}/.*\.json$',windows_path(file_path)) or re.match(rf'^{windows_path(DIR_ECHR)}/.*\.json$',windows_path(file_path)):
                     if self.location == 'local':
                         # Go through existing JSON files and use their filename to determine when the last
                         # update was.
@@ -253,8 +255,9 @@ class Storage:
                                 )
                             )
                     return new_date
+
             else:
-                if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path):
+                if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path) or re.match(rf'^{DIR_ECHR}/.*\.json$', file_path):
                     if self.location == 'local':
                         # Go through existing JSON files and use their filename to determine when the last
                         # update was.
