@@ -53,8 +53,8 @@ CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
 CSV_ECHR_CASES_NODES = join(DIR_ECHR,'ECHR_nodes.csv')
 CSV_ECHR_CASES_EDGES = join(DIR_ECHR,"ECHR_edges.csv")
-JSON_FULL_TEXT_CELLAR=join(DIR_DATA_PROCESSED,'cellar_full_text.json')
-JSON_FULL_TEXT_ECHR=join(DIR_DATA_PROCESSED,'ECHR_full_text.json')
+JSON_FULL_TEXT_CELLAR = join(DIR_DATA_PROCESSED,'cellar_full_text.json')
+JSON_FULL_TEXT_ECHR = join(DIR_DATA_PROCESSED,'ECHR_full_text.json')
 
 # raw data:
 def get_path_raw(file_name):

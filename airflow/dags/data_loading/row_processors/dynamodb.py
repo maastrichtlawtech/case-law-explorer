@@ -267,3 +267,42 @@ class DynamoDBRowProcessor:
                     f.write(item[self.pk] + '\n')
 
         return item_counter
+class DynamoDBFullTextProcessor:
+    def __init__(self, path, table):
+        self.table = table
+        self.path = path
+        schema = self.table.key_schema
+        if schema[0]['KeyType'] == 'HASH':
+            self.pk = schema[0]['AttributeName']
+            self.sk = schema[1]['AttributeName']
+        else:
+            self.pk = schema[1]['AttributeName']
+            self.sk = schema[0]['AttributeName']
+    def get_json_data(self,json):
+        if "celex" in json:
+            source = "cellar"
+            rest = "celex"
+        else:
+            source = "echr"
+            rest = "item_id"
+        data = {
+            self.pk : json.get("ecli"),
+            self.sk : source,
+            "full_text" : json.get("text"),
+            rest : json.get(rest)
+
+        }
+        return data
+    def upload_data(self, data):
+        item_counter = 0
+        put_item = self.get_json_data(data)
+        try:
+            self.table.put_item(Item=put_item)
+            item_counter += 1
+        except Exception as e:
+            print(e, put_item[self.pk],put_item[self.sk])
+            with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
+                f.write(put_item[self.pk] + '\n')
+
+
+        return item_counter

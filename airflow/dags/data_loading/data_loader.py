@@ -4,13 +4,14 @@ import sys
 sys.path.append(dirname(dirname(abspath(__file__))))
 import os
 from csv import DictReader
-import csv
-from data_loading.row_processors.dynamodb import DynamoDBRowProcessor
+import csv, json
+from data_loading.row_processors.dynamodb import DynamoDBRowProcessor,DynamoDBFullTextProcessor
 from data_loading.row_processors.opensearch import OpenSearchRowProcessor
 from data_loading.clients.dynamodb import DynamoDBClient
 from data_loading.clients.opensearch import OpenSearchClient
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
-    CSV_LEGISLATION_CITATIONS, get_path_processed, get_path_raw,CSV_CELLAR_CASES,CSV_ECHR_CASES
+    CSV_LEGISLATION_CITATIONS, get_path_processed, get_path_raw,CSV_CELLAR_CASES,CSV_ECHR_CASES, JSON_FULL_TEXT_CELLAR, \
+    JSON_FULL_TEXT_ECHR
 import time
 import argparse
 from ctypes import c_long, sizeof
@@ -35,6 +36,10 @@ def load_data(argv):
         get_path_raw(CSV_CASE_CITATIONS),
         get_path_raw(CSV_LEGISLATION_CITATIONS)
     ]
+    full_text_paths = [
+        JSON_FULL_TEXT_CELLAR,
+        JSON_FULL_TEXT_ECHR
+    ]
 
     # parse input arguments
     parser = argparse.ArgumentParser()
@@ -58,6 +63,7 @@ def load_data(argv):
     if args.partial is not None:
         if args.partial != 'os':
             ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
+            ddb_full_text_client = DynamoDBClient(os.getenv('DDB_FULL_TEXT_TABLE_NAME'))
         if args.partial != 'ddb':
             os_client = OpenSearchClient(
                 domain_name=os.getenv('OS_DOMAIN_NAME'),
@@ -68,10 +74,12 @@ def load_data(argv):
             )
     else:
         ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'),storage=args.storage)
+        ddb_full_text_client = DynamoDBClient(os.getenv('DDB_FULL_TEXT_TABLE_NAME'),storage=args.storage)
         args.partial="ddb"
 
     if args.partial != 'os':
         ddb_client = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
+        ddb_full_text_client = DynamoDBClient(os.getenv('DDB_FULL_TEXT_TABLE_NAME'))
     if args.partial != 'ddb':
         os_client = OpenSearchClient(
             domain_name=os.getenv('OS_DOMAIN_NAME'),
@@ -86,6 +94,7 @@ def load_data(argv):
     if args.delete == 'ddb':
         # remove all items from table without deleting table itself
         ddb_client.truncate_table()
+        ddb_full_text_client.truncate_table()
 
     elif args.delete == 'os':
         # delete OpenSearch index
@@ -143,7 +152,16 @@ def load_data(argv):
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
             if args.storage =="aws":
                 os.remove(input_path)
-    end = time.time()
+        for input_path in full_text_paths:
+            if not os.path.exists(input_path):
+                print(f"FILE {input_path} DOES NOT EXIST")
+                continue
+            ddb_rp = DynamoDBFullTextProcessor(input_path, ddb_full_text_client.table)
+            with open(input_path)as data:
+                dictionaries = json.load(data)
+                for d in dictionaries:
+                    ddb_rp.upload_data(d)
+    end = time.time()         # celex, item_id
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
     #table = ddb_client.table
