@@ -1,5 +1,6 @@
 FROM apache/airflow:2.3.0
 USER root
+LABEL org.opencontainers.image.source=https://github.com/maastrichtlawtech/case-law-explorer
 RUN apt-get update && apt-get autoremove -yqq --purge && apt-get clean
 USER airflow 
 RUN mkdir -p /opt/airflow/data/rechtspraak
