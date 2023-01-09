@@ -96,13 +96,17 @@ def echr_extract(args):
     storage.finish_pipeline()
     print("--- saving ECHR data")
     df_filepath = get_path_raw(CSV_ECHR_CASES)
-    df.to_csv(df_filepath, index=False)
-    json_filepath = get_path_raw(JSON_FULL_TEXT_ECHR)
-    for json_file in json_files:
-        print(json)
-        break
-    with open(json_filepath, 'w') as f:
-        json.dump(json_file, f)
+    if df is not False:
+        df.to_csv(df_filepath, index=False)
+        json_filepath = get_path_raw(JSON_FULL_TEXT_ECHR)
+        for json_file in json_files:
+            print(json)
+            break
+        with open(json_filepath, 'w') as f:
+            json.dump(json_file, f)
+    else:
+        print("No ECHR data found")
+    
 
     end = time.time()
     print("\n--- DONE ---")
