@@ -35,8 +35,7 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v3.2.0
         with:
-          context: .
+          context: ./airflow
           push: true
-          file: ./airflow/Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
