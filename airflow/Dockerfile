@@ -7,7 +7,8 @@ RUN mkdir -p /opt/airflow/data/rechtspraak
 RUN mkdir -p /opt/airflow/data/cellar
 RUN mkdir -p /opt/airflow/data/cellar/archive
 RUN mkdir -p /opt/airflow/data/echr
-COPY ./requirements.txt ./requirements.txt
+COPY ./requirements.txt ./requirements.txt; exit 0
+COPY ./airflow/requirements.txt ./requirements.txt; exit 0
 RUN python3 -m pip install --upgrade pip
 RUN pip3 install -r ./requirements.txt
 RUN pip3 uninstall -y argparse
