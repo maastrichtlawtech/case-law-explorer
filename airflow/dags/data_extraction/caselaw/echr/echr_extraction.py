@@ -1,6 +1,5 @@
 import echr_extractor as echr
 from os.path import dirname, abspath, join
-from os import getenv
 import sys
 import json
 import shutil
@@ -11,9 +10,6 @@ from datetime import datetime
 from definitions.storage_handler import DIR_ECHR, Storage,get_path_raw, \
     ECHR_ARCHIVE_DIR,CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR
 import argparse
-from helpers.csv_manipulator import drop_columns
-from dotenv import load_dotenv
-
 
 
 

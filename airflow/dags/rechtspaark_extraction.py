@@ -28,9 +28,8 @@ with DAG(
         #            'sd': '2022-08-01',
         #             'save_file': 'y'}
     )
-
-    task2 = PythonOperator(
-        task_id='rechtspraak_metadata_extraction',
-        python_callable=get_rechtspraak_metadata,
-        op_kwargs={'save_file': 'y'}
-    )
+   # task2 = PythonOperator(
+    #    task_id='rechtspraak_metadata_extraction',
+   #     python_callable=get_rechtspraak_metadata,
+   #     op_kwargs={'save_file': 'n'}
+  #  )

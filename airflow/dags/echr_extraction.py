@@ -21,5 +21,5 @@ with DAG(
     task1 = PythonOperator(
         task_id='echr_extraction',
         python_callable=echr_extract,
-        op_args=[['local']]
+        op_args=[['local','--count 100']]
     )
