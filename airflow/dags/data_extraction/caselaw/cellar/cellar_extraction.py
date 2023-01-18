@@ -20,15 +20,14 @@ WEBSERVICE_PASSWORD = getenv('EURLEX_WEBSERVICE_PASSWORD')
 
 
 def cellar_extract(args):
-    run_date = datetime.now().isoformat(timespec='seconds')
-    output_path = join(CELLAR_DIR, run_date.replace(':', '_') + '.json')
+    output_path = get_path_raw(CSV_CELLAR_CASES)
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
     parser.add_argument('--concurrent-docs', default=200, type=int,
                         help='default number of documents to retrieve concurrently', required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
-    
+
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads',
                         action='store_true')
     args = parser.parse_args(args)
@@ -64,7 +63,6 @@ def cellar_extract(args):
         source = json_files[0]
         outsource = source.replace(CELLAR_DIR, CELLAR_ARCHIVE_DIR)
         shutil.move(source, outsource)
-    open(output_path, 'w')
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
     drop_columns(df)
@@ -85,5 +83,5 @@ def cellar_extract(args):
 
 
 if __name__ == '__main__':
-    # giving arguments to the funtion
+
     cellar_extract(sys.argv[1:])
