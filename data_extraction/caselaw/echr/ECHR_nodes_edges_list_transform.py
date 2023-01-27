@@ -59,11 +59,12 @@ def retrieve_edges_list(df, df_unfiltered):
     count = 0
     tot_num_refs = 0
     missing_cases = []
-    for index, item in df.iloc[:101].iterrows():
-        #print(index)
+    for index, item in df.iterrows():
+        print(index)
         #percentage = count / len(df.index) * 100
         #sys.stdout.write('\r' + str(percentage))
         #sys.stdout.flush()
+        eclis = []
 
         if item.scl is not np.nan:
             """
@@ -82,10 +83,8 @@ def retrieve_edges_list(df, df_unfiltered):
             for ref in ref_list:
                 ref = re.sub('\n', '', ref)
                 new_ref_list.append(ref)
-            eclis = []
 
             tot_num_refs = tot_num_refs + len(ref_list)
-            #print(item.scl)
 
             for ref in new_ref_list:
                 #print("ref: ", ref)
@@ -111,36 +110,39 @@ def retrieve_edges_list(df, df_unfiltered):
                 #print("year from ref: ", year_from_ref)
 
                 # remove cases in different language than reference
-                for index, item in case.iterrows():
+                for id, it in case.iterrows():
                     if 'v.' in components[0]:
                         lang = 'ENG'
                     else:
                         lang = 'FRE'
 
-                    if lang not in item.languageisocode:
+                    if lang not in it.languageisocode:
                         case = case[case['languageisocode'].str.contains(lang, regex=False, flags=re.IGNORECASE)]
 
-                for index, item in case.iterrows():
+                for id, i in case.iterrows():
                     #print("num of cases: ", len(case))
-                    date = dateparser.parse(item.judgementdate)
+                    date = dateparser.parse(i.judgementdate)
                     year_from_case = date.year
                     #print(year_from_case)
 
                     if year_from_case - year_from_ref == 0:
                         case = case[case['judgementdate'].str.contains(str(year_from_ref), regex=False, flags=re.IGNORECASE)]
 
+                case = metadata_to_nodesedgeslist(case)
+
                 if len(case) > 0:
                     if len(case) > 3:
                         print("stop")
                     #print(case)
                     for _,row in case.iterrows():
+
                         eclis.append(row.ecli)
                     #print("final case: ",case, " date: ", case.judgementdate)
                 else:
                     count = count + 1
                     missing_cases.append(ref)
 
-
+            eclis = set(eclis)
             #add ecli to edges list
             edges = pd.concat(
                 [edges, pd.DataFrame.from_records([{'ecli': item.ecli, 'references': eclis}])])
