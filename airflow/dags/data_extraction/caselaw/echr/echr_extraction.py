@@ -2,16 +2,16 @@ import echr_extractor as echr
 from os.path import dirname, abspath, join
 import sys
 import json
-import shutil
-
+from os import getenv
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-import time, glob
+import time
 from datetime import datetime
-from definitions.storage_handler import DIR_ECHR, Storage,get_path_raw, \
-    ECHR_ARCHIVE_DIR,CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR
+from definitions.storage_handler import DIR_ECHR, Storage,get_path_raw,CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR
 import argparse
+from dotenv import load_dotenv,find_dotenv,set_key
 
-
+env_file=find_dotenv()
+load_dotenv(env_file,override=True)
 
 def echr_extract(args):
     #set up the output path 
@@ -45,9 +45,9 @@ def echr_extract(args):
     # set up storage handler
     storage = Storage(location=args.storage)
     storage.setup_pipeline(output_paths=[output_path])
-
-    last_updated = storage.pipeline_last_updated
-    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+    last_updated = getenv("ECHR_LAST_UPDATE")
+    today_date = str(datetime.today().date())
+    print('\nSTART DATE (LAST UPDATE):\t', last_updated)
 
     print('\n--- START ---')
     start = time.time()
@@ -58,20 +58,14 @@ def echr_extract(args):
         'start_id': args.start_id,
         'end_id': args.end_id,
         'count': args.count,
-        'skip_missing_dates': args.skip_missing_dates,
-        'fields': args.fields,
+        'fields': args.fields
         # 'start_date': args.start_date,
-        'end_date': args.end_date
+       # 'end_date': args.end_date
 
     }
     print(kwargs)
     # df = echr.get_echr_extra(**kwargs)
     print(f"Downloading {args.count if 'count' in args and args.count is not None else 'all'} ECHR documents")
-    if args.count is None:
-        kwargs['count'] = 1000000
-    else:
-        kwargs['count'] = args.count
-
     if args.fresh:
         df, json_file = echr.get_echr_extra(**kwargs, start_date="1990-01-01")
     elif args.start_date:
@@ -79,13 +73,9 @@ def echr_extract(args):
         df, json_file = echr.get_echr_extra(**kwargs, start_date=args.start_date)
     else:
         print('Starting from the last update the script can find')
-        df, json_file = echr.get_echr_extra(**kwargs, start_date=last_updated.isoformat())
+        df, json_file = echr.get_echr_extra( start_date=last_updated, end_date=today_date)
     
-    json_files = (glob.glob(DIR_ECHR + "/" + "*.json"))
-    if len(json_files) > 0:  # Have to first check if there already is a file or no
-        source = json_files[0]
-        outsource = source.replace(DIR_ECHR, ECHR_ARCHIVE_DIR)
-        shutil.move(source, outsource)
+
 
     open(output_path, 'w')
     print(f"\nUpdating {args.storage} storage ...")
@@ -95,9 +85,6 @@ def echr_extract(args):
     if df is not False:
         df.to_csv(df_filepath, index=False)
         json_filepath = get_path_raw(JSON_FULL_TEXT_ECHR)
-        for json_file in json_files:
-            print(json)
-            break
         with open(json_filepath, 'w') as f:
             json.dump(json_file, f)
     else:
@@ -107,7 +94,7 @@ def echr_extract(args):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-
+    set_key(env_file, "ECHR_LAST_UPDATE", today_date)
 
 if __name__ == '__main__':
     # giving arguments to the funtion

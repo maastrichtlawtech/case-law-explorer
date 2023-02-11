@@ -7,9 +7,11 @@ import time
 from datetime import datetime
 from definitions.storage_handler import  Storage, get_path_raw
 import argparse
-from dotenv import load_dotenv
-load_dotenv()
+from os import getenv
+from dotenv import load_dotenv,find_dotenv,set_key
 
+env_file=find_dotenv()
+load_dotenv(env_file,override=True)
 
 def rechtspraak_extract(args):
     output_path = get_path_raw(CSV_RS_CASES)
@@ -25,11 +27,12 @@ def rechtspraak_extract(args):
     print('OUTPUT:\t\t\t', output_path)
     storage = Storage(location=args.storage)
     storage.setup_pipeline(output_paths=[output_path])
-    last_updated = storage.pipeline_last_updated
-    print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+    last_updated = getenv("RSPRAAK_LAST_UPDATE")
+    today_date = str(datetime.today().date())
+    print('\nSTART DATE (LAST UPDATE):\t', last_updated)
     print('\n--- START ---\n')
     start = time.time()
-    print(f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents")
+    print(f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} Rechtspraak documents")
     if args.amount is None:
         amount = 1000000
     else:
@@ -40,7 +43,7 @@ def rechtspraak_extract(args):
         df_2 = rex.get_rechtspraak_metadata(save_file='n',dataframe=df)
     else:
         print('Starting from the last update the script can find')
-        df = rex.get_rechtspraak(max_ecli=amount,sd=str(last_updated), save_file='n')
+        df = rex.get_rechtspraak(max_ecli=amount,sd=last_updated, save_file='n',ed=today_date)
         df_2 = rex.get_rechtspraak_metadata(save_file='n', dataframe=df)
 
     print(f"\nUpdating {args.storage} storage ...")
@@ -49,8 +52,8 @@ def rechtspraak_extract(args):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-
+    set_key(env_file, "RSPRAAK_LAST_UPDATE", today_date)
 
 if __name__ == '__main__':
     # giving arguments to the funtion
-    cellar_extract(sys.argv[1:])
+    rechtspraak_extract(sys.argv[1:])
