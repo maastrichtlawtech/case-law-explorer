@@ -1,6 +1,6 @@
 from os.path import dirname, abspath, basename, exists
 import sys
-
+from os import remove
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from definitions.mappings.attribute_name_maps import *
@@ -120,6 +120,7 @@ def transform_data(argsT):
                     writer.writerow(row_clean)
 
         print(f"\nUpdating {args.storage} storage ...")
+        remove(input_path)
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

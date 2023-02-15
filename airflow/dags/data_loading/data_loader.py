@@ -161,6 +161,8 @@ def load_data(argv):
                 dictionaries = json.load(data)
                 for d in dictionaries:
                     ddb_rp.upload_data(d)
+            if args.storage == "aws":
+                os.remove(input_path)
     end = time.time()         # celex, item_id
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

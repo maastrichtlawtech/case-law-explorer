@@ -36,8 +36,6 @@ DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
 DIR_ECHR = join(DIR_DATA, 'echr')
 CELLAR_DIR = join(DIR_DATA, 'cellar')
-CELLAR_ARCHIVE_DIR=join(CELLAR_DIR,'archive')
-ECHR_ARCHIVE_DIR=join(DIR_ECHR,'archive')
 CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'         # eclis and decision dates of OpenDataUitspraken files
 CSV_RS_CASES = 'RS_cases.csv'                               # metadata of RS cases
 CSV_RS_OPINIONS = 'RS_opinions.csv'                         # metadata of RS opinions
@@ -84,7 +82,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR,CELLAR_ARCHIVE_DIR,DIR_ECHR,ECHR_ARCHIVE_DIR]:
+        for d in [ DIR_DATA_RAW, DIR_DATA_PROCESSED]:
 
             makedirs(d, exist_ok=True)
 
@@ -118,7 +116,7 @@ class Storage:
                         logging.error(f'{path} exists locally! It will be updated with the newest download.')
                     else:
                         logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
-                        sys.exit(2)
+                        #sys.exit(2)
                 if path.endswith('.csv'):
                     self.fetch_data([path])
 

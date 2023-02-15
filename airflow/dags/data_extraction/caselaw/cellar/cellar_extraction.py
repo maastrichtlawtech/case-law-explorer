@@ -11,11 +11,10 @@ from definitions.storage_handler import Storage, get_path_raw, JSON_FULL_TEXT_CE
 import argparse
 from helpers.csv_manipulator import drop_columns
 import cellar_extractor as cell
-from dotenv import load_dotenv,find_dotenv,set_key
+from dotenv import load_dotenv, find_dotenv, set_key
 
-
-env_file=find_dotenv()
-load_dotenv(env_file,override=True)
+env_file = find_dotenv()
+load_dotenv(env_file, override=True)
 WEBSERVICE_USERNAME = getenv('EURLEX_WEBSERVICE_USERNAME')
 WEBSERVICE_PASSWORD = getenv('EURLEX_WEBSERVICE_PASSWORD')
 
@@ -57,10 +56,11 @@ def cellar_extract(args):
                                               username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
     else:
         print('Starting from the last update the script can find')
-        df, json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated,ed=today_date, threads=15,
+        df, json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated, ed=today_date,
+                                              threads=15,
                                               username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
 
-    if df == False:
+    if isinstance(df, bool):
         sys.exit()
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
@@ -79,7 +79,8 @@ def cellar_extract(args):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-    set_key(env_file,"CELEX_LAST_UPDATE",today_date)
-if __name__ == '__main__':
+    set_key(env_file, "CELEX_LAST_UPDATE", today_date)
 
+
+if __name__ == '__main__':
     cellar_extract(sys.argv[1:])
