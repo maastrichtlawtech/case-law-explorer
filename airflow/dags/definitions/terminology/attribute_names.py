@@ -19,7 +19,7 @@ RS_TITLE = LI_TITLE = ECHR_TITLE = 'title'  # title of case
 # fields in RS and LI and CELLAR and ECHR at this point i dont know
 RS_ISSUED = LI_PUBLICATION_DATE = CELLAR_DATE_OF_DOCUMENT = 'date_publication'  # date of document publication
 RS_INHOUDSINDICATIE = LI_SUMMARY = CELLAR_SUMMARY = ECHR_CONCLUSION =   'summary'  # case summary
-ECLI = RS_IDENTIFIER = 'ecli'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
+ECLI = RS_IDENTIFIER = 'ECLI'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
 
 # corresponding fields in RS and ECHR (change here if you want to remap fields)
 RS_TYPE = ECHR_BRANCH = 'document_type'  # 'uitspraak' (decision) or 'conclusie' (opinion)

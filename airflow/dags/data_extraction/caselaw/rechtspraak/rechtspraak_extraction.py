@@ -1,11 +1,10 @@
-from definitions.storage_handler import CSV_RS_CASES
 import rechtspraak_extractor as rex
 from os.path import dirname, abspath
 import sys
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time
 from datetime import datetime
-from definitions.storage_handler import  Storage, get_path_raw
+from definitions.storage_handler import  Storage, get_path_raw, CSV_RS_CASES
 import argparse
 from os import getenv
 from dotenv import load_dotenv,find_dotenv,set_key

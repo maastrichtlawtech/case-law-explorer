@@ -226,7 +226,7 @@ class DynamoDBRowProcessor:
                 self.table.put_item(Item=item)
                 item_counter += 1
             except Exception as e:
-                print(e, item[self.pk], item[self.sk])
+                print(e, item[self.pk], item[self.sk],";while retreving lists of items to put and update")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
 
@@ -244,7 +244,7 @@ class DynamoDBRowProcessor:
                     ExpressionAttributeValues=expression_att_values
                 )
             except Exception as e:
-                print(e, item[self.pk], item[self.sk])
+                print(e, item[self.pk], item[self.sk], ";while updating item attributes")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
 
@@ -262,7 +262,7 @@ class DynamoDBRowProcessor:
                     }
                 )
             except Exception as e:
-                print(e, item[self.pk], item[self.sk])
+                print(e, item[self.pk], item[self.sk], ";while updating item set attributes")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
 
@@ -300,7 +300,7 @@ class DynamoDBFullTextProcessor:
             self.table.put_item(Item=put_item)
             item_counter += 1
         except Exception as e:
-            print(e, put_item[self.pk],put_item[self.sk])
+            print(e, put_item[self.pk],put_item[self.sk],"; while uploading data")
             with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                 f.write(put_item[self.pk] + '\n')
 
