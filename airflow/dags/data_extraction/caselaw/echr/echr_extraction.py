@@ -83,7 +83,7 @@ def echr_extract(args):
     
 
 
-    open(output_path, 'w')
+
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
     print("--- saving ECHR data")
