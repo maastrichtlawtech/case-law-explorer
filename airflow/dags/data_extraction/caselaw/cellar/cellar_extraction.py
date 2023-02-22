@@ -11,8 +11,8 @@ from definitions.storage_handler import Storage, get_path_raw, JSON_FULL_TEXT_CE
 import argparse
 from helpers.csv_manipulator import drop_columns
 import cellar_extractor as cell
-from dotenv import load_dotenv, find_dotenv, set_key
-
+from dotenv import load_dotenv, find_dotenv
+from airflow.models.variable import Variable
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 WEBSERVICE_USERNAME = getenv('EURLEX_WEBSERVICE_USERNAME')
@@ -37,8 +37,13 @@ def cellar_extract(args):
     print('OUTPUT:\t\t\t', output_path)
     storage = Storage(location=args.storage)
     storage.setup_pipeline(output_paths=[output_path])
-    last_updated = getenv("CELEX_LAST_UPDATE")
     today_date = str(datetime.today().date())
+    try:
+        last_updated = Variable.get('CELEX_LAST_DATE')
+    except:
+        last_updated = '1900-01-01'
+        Variable.set(key='CELEX_LAST_DATE',value=last_updated)
+
     print('\nSTART DATE (LAST UPDATE):\t', last_updated)
     print('\n--- START ---\n')
     start = time.time()
@@ -79,7 +84,7 @@ def cellar_extract(args):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-    set_key(env_file, "CELEX_LAST_UPDATE", today_date)
+    Variable.set(key='CELEX_LAST_UPDATE', value=today_date)
 
 
 if __name__ == '__main__':

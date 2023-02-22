@@ -6,9 +6,8 @@ import time
 from datetime import datetime
 from definitions.storage_handler import  Storage, get_path_raw, CSV_RS_CASES
 import argparse
-from os import getenv
-from dotenv import load_dotenv,find_dotenv,set_key
-
+from dotenv import load_dotenv,find_dotenv
+from airflow.models.variable import Variable
 env_file=find_dotenv()
 load_dotenv(env_file,override=True)
 
@@ -26,7 +25,14 @@ def rechtspraak_extract(args):
     print('OUTPUT:\t\t\t', output_path)
     storage = Storage(location=args.storage)
     storage.setup_pipeline(output_paths=[output_path])
-    last_updated = getenv("RSPRAAK_LAST_UPDATE")
+
+    try:
+        last_updated = Variable.get('RSPRAAK_LAST_DATE')
+    except:
+        last_updated = '1900-01-01'
+        Variable.set(key='RSPRAAK_LAST_DATE', value=last_updated)
+
+
     today_date = str(datetime.today().date())
     print('\nSTART DATE (LAST UPDATE):\t', last_updated)
     print('\n--- START ---\n')
@@ -51,7 +57,7 @@ def rechtspraak_extract(args):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-    set_key(env_file, "RSPRAAK_LAST_UPDATE", today_date)
+    Variable.set(key='RSPRAAK_LAST_DATE', value=today_date)
 
 if __name__ == '__main__':
     # giving arguments to the funtion

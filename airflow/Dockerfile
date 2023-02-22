@@ -10,4 +10,5 @@ RUN python3 -m pip install --upgrade pip
 RUN pip3 install -r ./requirements.txt
 RUN pip3 uninstall -y argparse
 RUN ln -sf /usr/share/zoneinfo/Europe/Amsterdam/etc/localtime
+CMD 'airflow db init'
 ENV TZ=Europe/Warsaw

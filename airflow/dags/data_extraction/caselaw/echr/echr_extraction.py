@@ -9,7 +9,7 @@ from datetime import datetime
 from definitions.storage_handler import DIR_ECHR, Storage,get_path_raw,CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR
 import argparse
 from dotenv import load_dotenv,find_dotenv,set_key
-
+from airflow.models.variable import Variable
 env_file=find_dotenv()
 load_dotenv(env_file,override=True)
 
@@ -45,7 +45,13 @@ def echr_extract(args):
     # set up storage handler
     storage = Storage(location=args.storage)
     storage.setup_pipeline(output_paths=[output_path])
-    last_updated = getenv("ECHR_LAST_UPDATE")
+
+    try:
+        last_updated = Variable.get('ECHR_LAST_DATE')
+    except:
+        last_updated = '1900-01-01'
+        Variable.set(key='ECHR_LAST_DATE', value=last_updated)
+
     today_date = str(datetime.today().date())
     print('\nSTART DATE (LAST UPDATE):\t', last_updated)
 
@@ -94,7 +100,7 @@ def echr_extract(args):
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
-    set_key(env_file, "ECHR_LAST_UPDATE", today_date)
+    Variable.set(key='ECHR_LAST_DATE', value=today_date)
 
 if __name__ == '__main__':
     # giving arguments to the funtion
