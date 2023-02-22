@@ -16,7 +16,7 @@ load_dotenv(env_file,override=True)
 def echr_extract(args):
     #set up the output path 
     run_date = datetime.now().isoformat(timespec='seconds')
-    output_path = join(DIR_ECHR, run_date.replace(':', '_') + '.json')
+    output_path = get_path_raw(CSV_ECHR_CASES)
 
     # set up script arguments
     parser = argparse.ArgumentParser()
@@ -79,7 +79,7 @@ def echr_extract(args):
         df, json_file = echr.get_echr_extra(**kwargs, start_date=args.start_date)
     else:
         print('Starting from the last update the script can find')
-        df, json_file = echr.get_echr_extra( start_date=last_updated, end_date=today_date)
+        df, json_file = echr.get_echr_extra(**kwargs, start_date=last_updated, end_date=today_date)
     
 
 
