@@ -12,6 +12,7 @@ from data_loading.clients.opensearch import OpenSearchClient
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
     CSV_LEGISLATION_CITATIONS, get_path_processed, get_path_raw,CSV_CELLAR_CASES,CSV_ECHR_CASES, JSON_FULL_TEXT_CELLAR, \
     JSON_FULL_TEXT_ECHR
+from fulltext_bucket_saving import upload_fulltext
 import time
 import argparse
 from ctypes import c_long, sizeof
@@ -57,6 +58,7 @@ def load_data(argv):
     args = parser.parse_args(argv)
     storage = Storage(location=args.storage)
     print(f'INPUT/OUTPUT DATA STORAGE: {args.storage}')
+  
     print('INPUT:\t\t\t\t', [basename(input_path) for input_path in input_paths])
 
     # set up clients
@@ -152,17 +154,7 @@ def load_data(argv):
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
             if args.storage =="aws":
                 os.remove(input_path)
-        for input_path in full_text_paths:
-            if not os.path.exists(input_path):
-                print(f"FILE {input_path} DOES NOT EXIST")
-                continue
-            ddb_rp = DynamoDBFullTextProcessor(input_path, ddb_full_text_client.table)
-            with open(input_path)as data:
-                dictionaries = json.load(data)
-                for d in dictionaries:
-                    ddb_rp.upload_data(d)
-            if args.storage == "aws":
-                os.remove(input_path)
+        upload_fulltext(storage=args.storage,files_location_path=full_text_paths)
     end = time.time()         # celex, item_id
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

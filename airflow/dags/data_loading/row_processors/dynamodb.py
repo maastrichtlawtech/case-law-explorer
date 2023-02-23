@@ -268,6 +268,9 @@ class DynamoDBRowProcessor:
 
         return item_counter
 class DynamoDBFullTextProcessor:
+    '''
+    Not used anymore, due to the limitations of DynamoDB item storage limitations
+    '''
     def __init__(self, path, table):
         self.table = table
         self.path = path
