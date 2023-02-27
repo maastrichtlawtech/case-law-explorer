@@ -82,7 +82,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [ DIR_DATA_RAW, DIR_DATA_PROCESSED]:
+        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR, DIR_ECHR]:
 
             makedirs(d, exist_ok=True)
 
@@ -219,7 +219,8 @@ class Storage:
         def date_map(file_path):
             default = ('date_decision', lambda x: date.fromisoformat(x))
             d_map = {
-                get_path_raw(CSV_LI_CASES): ('EnactmentDate', lambda x: datetime.strptime(x, "%Y%m%d").date())
+                get_path_raw(CSV_LI_CASES): ('EnactmentDate', lambda x: datetime.strptime(x, "%Y%m%d").date()),
+                get_path_raw(CSV_ECHR_CASES): ('judgementdate', lambda x: datetime.strptime(x, "%d/%m/%Y %H:%M:%S").date() if type(x) == str else datetime.strptime("01/01/1900", "%d/%m/%Y"))
             }
             return d_map.get(file_path, default)
 
