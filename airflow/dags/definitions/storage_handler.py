@@ -48,7 +48,7 @@ CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'     # cited legislation 
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
-CSV_ECHR_CASES = join(DIR_ECHR, 'ECHR_metadata.csv')
+CSV_ECHR_CASES =  'ECHR_metadata.csv'
 CSV_ECHR_CASES_NODES = join(DIR_ECHR,'ECHR_nodes.csv')
 CSV_ECHR_CASES_EDGES = join(DIR_ECHR,"ECHR_edges.csv")
 JSON_FULL_TEXT_CELLAR = join(DIR_DATA_PROCESSED,'cellar_full_text.json')
@@ -82,7 +82,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [dirname(DIR_RECHTSPRAAK), DIR_DATA_RAW, DIR_DATA_PROCESSED, CELLAR_DIR, DIR_ECHR]:
+        for d in [DIR_DATA_RAW, DIR_DATA_PROCESSED]:
 
             makedirs(d, exist_ok=True)
 
@@ -112,11 +112,8 @@ class Storage:
             print(f'\nFetching output data from {self.location} storage ...')
             for path in self.pipeline_output_paths:
                 if exists(path) :
-                    if get_path_processed(CSV_CELLAR_CASES) in path: # Modification added for cellar updating
-                        logging.error(f'{path} exists locally! It will be updated with the newest download.')
-                    else:
                         logging.error(f'{path} exists locally! Move/rename local file before starting pipeline.')
-                        #sys.exit(2)
+                        sys.exit(0)
                 if path.endswith('.csv'):
                     self.fetch_data([path])
 
