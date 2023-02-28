@@ -230,7 +230,7 @@ class Storage:
                 self.fetch_data([CSV_OPENDATA_INDEX])
                 file_path = CSV_OPENDATA_INDEX
             if WINDOWS_SYSTEM:
-                if re.match(rf'^{windows_path(CELLAR_DIR)}/.*\.json$',windows_path(file_path)) or re.match(rf'^{windows_path(DIR_ECHR)}/.*\.json$',windows_path(file_path)):
+                if re.match(rf'^{windows_path(CELLAR_DIR)}/.*\.json$',windows_path(file_path)) :
                     if self.location == 'local':
                         # Go through existing JSON files and use their filename to determine when the last
                         # update was.
@@ -251,9 +251,31 @@ class Storage:
                                 )
                             )
                     return new_date
+                elif re.match(rf'^{windows_path(DIR_ECHR)}/.*\.json$',windows_path(file_path)):
+                    if self.location == 'local':
+                        # Go through existing JSON files and use their filename to determine when the last
+                        # update was.
+                        # Alternatively, this could be switched to loading all the JSONs and checking the
+                        # max last modification date.
+                        new_date = datetime(1900, 1, 1)
+                        for filename in listdir(DIR_ECHR):
+                            match = re.match(
+                                r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
+                            if not match:
+                                continue
+
+                            new_date = max(
+                                new_date,
+                                datetime(
+                                    int(match[1]), int(match[2]), int(match[3]),
+                                    int(match[4]), int(match[5]), int(match[6])
+                                )
+                            )
+                    return new_date
+
 
             else:
-                if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path) or re.match(rf'^{DIR_ECHR}/.*\.json$', file_path):
+                if re.match(rf'^{CELLAR_DIR}/.*\.json$', file_path) :
                     if self.location == 'local':
                         # Go through existing JSON files and use their filename to determine when the last
                         # update was.
@@ -274,6 +296,28 @@ class Storage:
                                 )
                             )
                         return new_date
+                    elif re.match(rf'^{DIR_ECHR}/.*\.json$', file_path):
+                        if self.location == 'local':
+                            # Go through existing JSON files and use their filename to determine when the last
+                            # update was.
+                            # Alternatively, this could be switched to loading all the JSONs and checking the
+                            # max last modification date.
+                            new_date = datetime(1900, 1, 1)
+                            for filename in listdir(DIR_ECHR):
+                                match = re.match(
+                                    r'^(\d{4})-(\d{2})-(\d{2})T(\d{2})_(\d{2})\_(\d{2})\.json$', filename)
+                                if not match:
+                                    continue
+
+                                new_date = max(
+                                    new_date,
+                                    datetime(
+                                        int(match[1]), int(match[2]), int(match[3]),
+                                        int(match[4]), int(match[5]), int(match[6])
+                                    )
+                                )
+                            return new_date
+                        
             if DIR_DATA_RAW  in file_path or DIR_DATA_PROCESSED in file_path:
                 return default_date(file_path)
 
