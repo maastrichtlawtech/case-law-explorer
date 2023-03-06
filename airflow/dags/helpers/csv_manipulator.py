@@ -40,7 +40,7 @@ data_to_drop = [i for i in all_data if i not in saving]
 """
 Method used to remove unnecessary columns from a dataframe.
 """
-
+types_to_keep = ['Unknown', 'Opinion of the Advocate General', 'Judgment']
 
 def drop_columns(data):
     columns = data_to_drop
@@ -49,7 +49,12 @@ def drop_columns(data):
             data.pop(columns[i])
         except Exception:
             print(f"Column titled {columns[i]} does not exist in the file!")
-    data.drop(data[-data.ECLI.str.contains("ECLI:EU")].index, inplace=True)
+    data.drop(data[-data.ECLI.str.contains("ECLI:EU:C")].index, inplace=True)
+    data.drop(data[-data['CELEX IDENTIFIER'].str.startswith('6')].index,inplace=True)
+    data['WORK HAS RESOURCE TYPE'] = data['WORK HAS RESOURCE TYPE'].fillna('Unknown')
+    data.drop(data[-data['WORK HAS RESOURCE TYPE'].str.contains('|'.join(types_to_keep))].index, inplace=True)
+
+  #  data.drop(data[-data['WORK HAS RESOURCE TYPE'].contains("ECLI:EU:C")].index, inplace=True)
     data.reset_index(inplace=True, drop=True)
 
 
