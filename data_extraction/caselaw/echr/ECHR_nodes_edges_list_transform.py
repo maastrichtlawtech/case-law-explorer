@@ -15,9 +15,14 @@ current_dir = dirname(dirname(abspath(__file__)))
 correct_dir = '\\'.join(current_dir.replace('\\', '/').split('/')[:-2])
 sys.path.append(correct_dir)
 
+# send 2 nodes lists
+# - 1 with only P1 in source
+# - 1 with only p1 in the references
+# fix method metadata_to_nodesedges to get argument with article
+
 
 def open_metadata(filename_metadata):
-    df = pd.read_csv('/Users/chloecrombach/PycharmProjects/case-law-explorer/data/echr/' + filename_metadata)  # change hard coded path
+    df = pd.read_csv('C:/Users/Chloe/PycharmProjects/case-law-explorer/data/echr/' + filename_metadata)  # change hard coded path
     return df
 
 
@@ -27,8 +32,8 @@ def metadata_to_nodesedgeslist(df):
 
     param df: the complete dataframe from the metadata
     """
-    #df = df[df['article'].notna()]
-    #df = df[df.article.str.contains("P1")]  # change to args -> need mapping between article names and format in column?
+    df = df[df['article'].notna()]
+    df = df[df.article.str.contains("P1")]  # change to args -> need mapping between article names and format in column?
     return df
 
 
@@ -47,7 +52,7 @@ def retrieve_nodes_list(df):
 
 def retrieve_edges_list(df, df_unfiltered):
     """
-    Returns a dataframe consisting of 2 columns 'ecli1' and 'ecli2' which
+    Returns a dataframe consisting of 2 columns 'ecli' and 'reference' which
     indicate a reference link between cases.
 
     params:
@@ -59,16 +64,17 @@ def retrieve_edges_list(df, df_unfiltered):
     count = 0
     tot_num_refs = 0
     missing_cases = []
-    for index, item in df.iloc[5650:5660].iterrows():
+    for index, item in df.iterrows():
         print(index)
-        #percentage = count / len(df.index) * 100
-        #sys.stdout.write('\r' + str(percentage))
-        #sys.stdout.flush()
         eclis = []
+        app_number = [] #################
+
+        if item.extractedappno is not np.nan:
+            extracted_appnos = item.extractedappno.split(';') ##############
 
         if item.scl is not np.nan:
             """
-            Split the references from the scl column into a list of references.
+            Split the references from the scl column i nto a list of references.
 
             Example:
             references in string: "Ali v. Switzerland, 5 August 1998, § 32, Reports of Judgments and 
@@ -89,7 +95,9 @@ def retrieve_edges_list(df, df_unfiltered):
             for ref in new_ref_list:
                 #print("ref: ", ref)
 
-                app_number = re.findall("[0-9]{4,5}\/[0-9]{2}", ref)
+                app_number = re.findall("[0-9]{3,5}\/[0-9]{2}", ref) ################
+                app_number = app_number + extracted_appnos
+                app_number = set(app_number)
                 print(len(app_number))
                 if len(app_number) > 0:
                     # get dataframe with all possible cases by application number
@@ -146,8 +154,11 @@ def retrieve_edges_list(df, df_unfiltered):
             eclis = set(eclis)
             #print(len(eclis))
             #add ecli to edges list
-            edges = pd.concat(
-                [edges, pd.DataFrame.from_records([{'ecli': item.ecli, 'references': eclis}])])
+            if len(eclis) == 0:
+                continue
+            else:
+                edges = pd.concat(
+                    [edges, pd.DataFrame.from_records([{'ecli': item.ecli, 'references': eclis}])])
 
     print("num missed cases: ", count)
     print("total num of refs: ", tot_num_refs)
@@ -159,6 +170,8 @@ def retrieve_edges_list(df, df_unfiltered):
 
     return edges
 
+def get_extracted_appnos(df):
+    pass
 
 def lookup_app_number(pattern, df):
     """
