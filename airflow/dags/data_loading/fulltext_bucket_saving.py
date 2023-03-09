@@ -14,7 +14,7 @@ bucket_name = 'full-text-data'
 region = getenv('AWS_REGION')
 access_key = getenv('AWS_ACCESS_KEY_ID')
 secret_key = getenv('AWS_SECRET_ACCESS_KEY')
-s3 = boto3.client('s3', region_name=region,
+s3 = boto3.resource('s3', region_name=region,
                     aws_access_key_id = access_key, 
                     aws_secret_access_key =secret_key)
 

@@ -110,13 +110,13 @@ def transform_data(argsT):
                 # process input file by row
                 for row in reader:
                     row_clean = dict.fromkeys(field_map.values())
+                    print(row)
                     for col, value in row.items():
                         if value:
-                            if col in field_map:
-                                if col in tool_map :
-                                    row_clean[field_map[col]] = tool_map[col](value.strip())
-                                else:
-                                    row_clean[field_map[col]] = value.strip()
+                            if col in tool_map :
+                                row_clean[field_map[col]] = tool_map[col](value.strip())
+                            else:
+                                row_clean[field_map[col]] = value.strip()
                     # write processed row to output file
                     writer.writerow(row_clean)
 

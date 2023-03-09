@@ -184,7 +184,8 @@ class DynamoDBRowProcessor:
                 key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[ECHR_JUDGEMENT_DATE],
                 **row
             })
-            return put_items, [],
+            return put_items, [],update_set_items
+        
         def row_processor_l_citations(row):
             update_set_items = [{
                 self.pk: row[ECLI],
@@ -229,6 +230,7 @@ class DynamoDBRowProcessor:
                 print(e, item[self.pk], item[self.sk],";while retreving lists of items to put and update")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
+                    f.write(e + '\n')
 
         # update item attributes
         for item in update_items:
@@ -247,6 +249,7 @@ class DynamoDBRowProcessor:
                 print(e, item[self.pk], item[self.sk], ";while updating item attributes")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
+                    f.write(e + '\n')
 
         # update item set attributes
         for item in update_set_items:
@@ -265,6 +268,7 @@ class DynamoDBRowProcessor:
                 print(e, item[self.pk], item[self.sk], ";while updating item set attributes")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
+                    f.write(e + '\n')
 
         return item_counter
 class DynamoDBFullTextProcessor:

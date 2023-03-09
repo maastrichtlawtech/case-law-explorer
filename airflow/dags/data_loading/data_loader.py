@@ -154,7 +154,7 @@ def load_data(argv):
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
             if args.storage =="aws":
                 os.remove(input_path)
-        upload_fulltext(storage=args.storage,files_location_path=full_text_paths)
+        # upload_fulltext(storage=args.storage,files_location_path=full_text_paths)
     end = time.time()         # celex, item_id
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

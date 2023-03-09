@@ -51,6 +51,7 @@ def echr_extract(args):
     except:
         last_updated = '1900-01-01'
         Variable.set(key='ECHR_LAST_DATE', value=last_updated)
+    last_updated = '1900-01-01'
 
     today_date = str(datetime.today().date())
     print('\nSTART DATE (LAST UPDATE):\t', last_updated)
@@ -73,19 +74,18 @@ def echr_extract(args):
     # df = echr.get_echr_extra(**kwargs)
     print(f"Downloading {args.count if 'count' in args and args.count is not None else 'all'} ECHR documents")
     if args.fresh:
-        df, json_file = echr.get_echr_extra(**kwargs, start_date="1990-01-01")
+        df, json_file = echr.get_echr_extra(**kwargs, start_date="1990-01-01",save_file="n")
     elif args.start_date:
         print(f'Starting from manually specified date: {args.start_date}')
-        df, json_file = echr.get_echr_extra(**kwargs, start_date=args.start_date)
+        df, json_file = echr.get_echr_extra(**kwargs, start_date=args.start_date,save_file="n")
     else:
         print('Starting from the last update the script can find')
-        df, json_file = echr.get_echr_extra(**kwargs, start_date=last_updated, end_date=today_date)
+        df, json_file = echr.get_echr_extra(**kwargs, start_date=last_updated, end_date=today_date,save_file="n")
     
 
 
 
-    print(f"\nUpdating {args.storage} storage ...")
-    storage.finish_pipeline()
+   
     print("--- saving ECHR data")
     df_filepath = get_path_raw(CSV_ECHR_CASES)
     if df is not False:
@@ -96,7 +96,9 @@ def echr_extract(args):
     else:
         print("No ECHR data found")
     
-
+    print(f"\nUpdating {args.storage} storage ...")
+    storage.finish_pipeline()
+    
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

@@ -6,7 +6,7 @@ class DynamoDBClient:
     def __init__(
             self, table_name,
             storage="aws",
-            hash_key_name='ecli',
+            hash_key_name='ECLI',
             range_key_name='ItemType',
             hash_key_type='S',
             range_key_type='S'
@@ -16,7 +16,6 @@ class DynamoDBClient:
                                            aws_access_key_id = "local", aws_secret_access_key = "local")
         else:
             ddb = boto3.resource('dynamodb')
-
 
         if table_name not in [table.name for table in ddb.tables.all()]:
             ddb.create_table(
