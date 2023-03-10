@@ -61,12 +61,12 @@ def cellar_extract(args):
                                               username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
     else:
         print('Starting from the last update the script can find')
-        df= cell.get_cellar(save_file='n', max_ecli=amount, sd=last_updated, ed=today_date)#,
-                                           #   threads=15,
-                                             # username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
+        df, json_file = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated, ed=today_date,
+                                             threads=15,
+                                              username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
 
     if isinstance(df, bool):
-        sys.exit()
+        sys.exit(0)
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
     drop_columns(df)

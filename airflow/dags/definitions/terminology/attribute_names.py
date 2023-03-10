@@ -84,7 +84,7 @@ CELLAR_CITATIONS='citations' # all work cited and works citing the work
 
 # fields only in ECHR
 ECHR_CITATIONS = 'citations' # list of citations by title
-ECHR_APPLICANTS = 'applicants' # applicats by number
+ECHR_APPLICANTS = 'applicants' # applicants by number
 ECHR_IMPORTANCE = 'importance' # case importance
 ECHR_PARTICIPANTS = 'participants' # applicants extracted form the report indicating the existing of the full text
 ECHR_APPLICABILITY = 'applicability'
@@ -96,7 +96,6 @@ ECHR_SOURCES = 'sources'
 ECHR_ISSUES = 'issues'
 ECHR_REFERENCE_DATE = 'reference_date'
 ECHR_RULES_OF_COURT = 'rules_of_court'
-ECHR_CITATIONS = 'citations'
 ECHR_DOCID = 'docid'
 ECHR_WORKID = 'workid'
 ECHR_RANK = 'rank'
