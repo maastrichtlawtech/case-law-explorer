@@ -49,6 +49,14 @@ def format_li_list(text):
         text = text.replace(i, j)
     return text
 
+def format_cellar_celex(celex):
+    if ';' in celex:
+        separate = celex.split(sep=';')
+        for c in separate:
+            if '_' not in c:
+                return c
+    else:
+        return celex
 
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original RS date format YYYY-MM-DD

@@ -38,7 +38,8 @@ tool_map_li = {
     'SearchNumbers': format_li_list
 }
 tool_map_cellar = {
-    'YEAR OF THE LEGAL RESOURCE': format_cellar_year
+    'YEAR OF THE LEGAL RESOURCE': format_cellar_year,
+    'CELEX IDENTIFIER' : format_cellar_celex
 
 }
 tool_map_echr = {
