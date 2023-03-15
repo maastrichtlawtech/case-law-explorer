@@ -25,6 +25,17 @@ def open_metadata(filename_metadata):
     df = pd.read_csv('C:/Users/Chloe/PycharmProjects/case-law-explorer/data/echr/' + filename_metadata)  # change hard coded path
     return df
 
+def concat_metadata(df):
+    agg_func = {'itemid' : 'first', 'appno' : 'first', 'article' : 'first', 'conclusion' : 'first' , 'docname' : 'first' , 'doctype' : 'first',
+                'doctypebranch' : 'first', 'ecli' : 'first', 'importance' : 'first', 'judgementdate' : 'first', 'languageisocode' : ', '.join, 'originatingbody' : 'first',
+                'violation' : 'first', 'nonviolation' : 'first', 'extractedappno' : 'first', 'scl' : 'first'}
+    new_df = df.groupby('ecli').agg(agg_func)
+    print(new_df)
+    return new_df
+
+def get_language_from_metadata(df):
+    df = concat_metadata(df)
+    df.to_json('langisocode-nodes.json', orient="records")
 
 def metadata_to_nodesedgeslist(df):
     """
@@ -64,7 +75,7 @@ def retrieve_edges_list(df, df_unfiltered):
     count = 0
     tot_num_refs = 0
     missing_cases = []
-    for index, item in df.iterrows():
+    for index, item in df.iloc[0:50].iterrows():
         print(index)
         eclis = []
         app_number = [] #################
@@ -137,7 +148,7 @@ def retrieve_edges_list(df, df_unfiltered):
                     if year_from_case - year_from_ref == 0:
                         case = case[case['judgementdate'].str.contains(str(year_from_ref), regex=False, flags=re.IGNORECASE)]
 
-                case = metadata_to_nodesedgeslist(case)
+                #case = metadata_to_nodesedgeslist(case)
 
                 if len(case) > 0:
                     if len(case) > 3:
@@ -316,12 +327,14 @@ def get_year_from_ref(ref):
     #return date.year
 
 
+
 # ---- RUN ----
 print('\n--- PREPARING DATAFRAME ---\n')
 data = open_metadata(filename_metadata='ECHR_metadata.csv')
 
 print('\n--- CREATING NODES LIST ---\n')
 nodes = retrieve_nodes_list(data)
+get_language_from_metadata(nodes)
 print(nodes)
 
 print('\n--- START EDGES LIST ---\n')
