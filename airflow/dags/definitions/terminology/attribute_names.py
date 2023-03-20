@@ -8,17 +8,16 @@ Original LI terminology: see https://www.legalintelligence.com/files/li-search-e
 SOURCE = LI_DOCUMENT_TYPE = ECHR_DOCUMENT_TYPE = 'source'  # source of case (so far: always 'Rechtspraak')
 JURISDICTION_COUNTRY = LI_JURISDICTION = 'jurisdiction_country'  # country of jurisdiction (so far: always 'NL')
 RS_CREATOR = LI_ISSUING_INSTITUTION = ECHR_DIVISION = 'instance'  # name of instance (court)
-RS_DATE = LI_ENACTMENT_DATE = ECHR_JUDGEMENT_DATE =  'date_decision'  # date of court decision
+RS_DATE = LI_ENACTMENT_DATE = ECHR_JUDGEMENT_DATE = 'date_decision'  # date of court decision
 RS_ZAAKNUMMER = LI_CASE_NUMBER = 'case_number'  # case number, for internal use by courts -- main identifier prior to introduction of ECLI
-RS_SUBJECT = LI_LAW_AREA = ECHR_ARTICLES =  'domains'  # domain(s) (area(s) of the law) applicable to case
+RS_SUBJECT = LI_LAW_AREA = ECHR_ARTICLES = 'domains'  # domain(s) (area(s) of the law) applicable to case
 RS_HASVERSION = LI_SOURCES = ECHR_PUBLISHED_BY = 'alternative_publications'  # references to other publications
 RS_IDENTIFIER2 = LI_ORIGINAL_URL = 'url_publication'  # URL to original document by publisher
 RS_TITLE = LI_TITLE = ECHR_TITLE = 'title'  # title of case
 
-
 # fields in RS and LI and CELLAR and ECHR at this point i dont know
 RS_ISSUED = LI_PUBLICATION_DATE = CELLAR_DATE_OF_DOCUMENT = 'date_publication'  # date of document publication
-RS_INHOUDSINDICATIE = LI_SUMMARY = CELLAR_SUMMARY = ECHR_CONCLUSION =   'summary'  # case summary
+RS_INHOUDSINDICATIE = LI_SUMMARY = CELLAR_SUMMARY = ECHR_CONCLUSION = 'summary'  # case summary
 ECLI = RS_IDENTIFIER = 'ECLI'  # ECLI (European Case Law Identifier) -- unique identifier for court decisions in Europe
 
 # corresponding fields in RS and ECHR (change here if you want to remap fields)
@@ -78,15 +77,18 @@ CELLAR_SECTOR = 'sector'  # type of source
 CELLAR_RESOURCE_TYPE = 'resource_type'  # document type
 CELLAR_YEAR_OF_RESOURCE = 'judgment_year'  # judgment year
 CELLAR_LANGUAGE = 'language_procedure'  # language of procedure
-CELLAR_CITED_BY = 'cited_by'   # works citing the work
-CELLAR_CITING = 'citing'   # works cited in work
-CELLAR_CITATIONS='citations' # all work cited and works citing the work
-
+CELLAR_CITED_BY = 'cited_by'  # works citing the work
+CELLAR_CITING = 'citing'  # works cited in work
+CELLAR_CITATIONS = 'citations'  # all work cited and works citing the work
+CELLAR_ADV_GENERAL = 'advocate_general'  # Advocate General of the case
+CELLAR_JUDGE_RAPPORTEUR = 'judge_rapporteur'  # Judge Rapporteur of the case
+CELLAR_AFFECTING_ID = 'affecting_ids'  # cellar id's of case affecting
+CELLAR_AFFECTING_STRING = 'affecting_string'  # entire strings with more details about case affecting
 # fields only in ECHR
-ECHR_CITATIONS = 'citations' # list of citations by title
-ECHR_APPLICANTS = 'applicants' # applicants by number
-ECHR_IMPORTANCE = 'importance' # case importance
-ECHR_PARTICIPANTS = 'participants' # applicants extracted form the report indicating the existing of the full text
+ECHR_CITATIONS = 'citations'  # list of citations by title
+ECHR_APPLICANTS = 'applicants'  # applicants by number
+ECHR_IMPORTANCE = 'importance'  # case importance
+ECHR_PARTICIPANTS = 'participants'  # applicants extracted form the report indicating the existing of the full text
 ECHR_APPLICABILITY = 'applicability'
 ECHR_REPRESENTATION = 'representation'
 ECHR_RESPONDENT = 'respondent'
@@ -139,6 +141,5 @@ ECHR_URLZONE = 'urlzone'
 ECHR_AAMENABLEDMANAGEDPROPERTIES = 'aamenabledmanagedproperties'
 ECHR_RESULTTYPEID = 'resulttypeid'
 ECHR_RENDERTEMPLATEID = 'rendertemplateid'
-ECHR_VIOLATIONS = 'violation'# list of violated articles
-ECHR_NON_VIOLATIONS = 'nonviolation' # list of articles which were found not to have been violated
-
+ECHR_VIOLATIONS = 'violation'  # list of violated articles
+ECHR_NON_VIOLATIONS = 'nonviolation'  # list of articles which were found not to have been violated
