@@ -8,7 +8,7 @@ from definitions.storage_handler import DIR_DATA_FULL_TEXT
 from dotenv import load_dotenv
 load_dotenv() 
 
-bucket_name = 'full-text-data'
+bucket_name = 'full-text-data'  # .env file instead?
 
 region = getenv('AWS_REGION')
 location = {'LocationConstraint': region}
@@ -18,8 +18,8 @@ s3 = boto3.resource('s3', region_name=region,
                     aws_access_key_id = access_key, 
                     aws_secret_access_key =secret_key)
 
-def upload_fulltext(storage: str ,files_location_path: list):
-    for file_location_path in files_location_path:
+def upload_fulltext(storage: str ,files_location_paths: list):
+    for file_location_path in files_location_paths:
 
         if not os.path.exists(file_location_path):
             print(f"FILE {file_location_path} DOES NOT EXIST")
@@ -49,7 +49,7 @@ def upload_fulltext(storage: str ,files_location_path: list):
                 ecli = data[i]['ecli']
                 new_json_path = f"{ecli}.json"                
                 # dump each ecli json file to local
-                with open(os.path.join(files_location_path,ecli,new_json_path),'w') as json_file:
+                with open(os.path.join(file_location_path,ecli,new_json_path),'w') as json_file:
                     json.dump(data[i],json_file)
         print(f"{len(data)} files uploaded to {bucket_name} in {storage} storage")
 

@@ -118,10 +118,10 @@ def transform_data(argsT):
                             else:
                                 row_clean[field_map[col]] = value.strip()
                     # write processed row to output file only if ECLI is not empty
-                    if row_clean['ECLI'] != None:
-                        writer.writerow(row_clean)
-
-        print(f"\nUpdating {args.storage} storage ...")
+                    if row_clean['ECLI'] != None and row_clean['ECLI'] == row_clean['ECLI']: # Added a NaN check, in
+                        writer.writerow(row_clean)                                           #df's empty ones are a nan
+                                                                                            # not sure about this reader
+        print(f"\nUpdating {args.storage} storage ...")                                   # but doesnt hurt adding it
         remove(input_path)
     end = time.time()
     print("\n--- DONE ---")
