@@ -31,6 +31,7 @@ DIR_DATA = join(DIR_ROOT, 'data')
 DIR_DATA_RAW = join(DIR_DATA, 'raw')
 DIR_DATA_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak')
 DIR_DATA_PROCESSED = join(DIR_DATA, 'processed')
+DIR_DATA_FULL_TEXT = join(DIR_DATA, 'full_text')
 
 # data file names
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
@@ -48,7 +49,7 @@ CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'     # cited legislation 
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
-CSV_ECHR_CASES =  join(DIR_DATA_PROCESSED,'ECHR_metadata.csv')
+CSV_ECHR_CASES =  'ECHR_metadata.csv'
 CSV_ECHR_CASES_NODES = join(DIR_ECHR,'ECHR_nodes.csv')
 CSV_ECHR_CASES_EDGES = join(DIR_ECHR,"ECHR_edges.csv")
 JSON_FULL_TEXT_CELLAR = join(DIR_DATA_PROCESSED,'cellar_full_text.json')
@@ -82,7 +83,7 @@ class Storage:
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
-        for d in [DIR_DATA_RAW, DIR_DATA_PROCESSED]:
+        for d in [DIR_DATA_RAW, DIR_DATA_PROCESSED, DIR_DATA_FULL_TEXT]:
 
             makedirs(d, exist_ok=True)
 

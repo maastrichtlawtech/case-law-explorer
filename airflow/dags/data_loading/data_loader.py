@@ -12,7 +12,7 @@ from data_loading.clients.opensearch import OpenSearchClient
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_LI_CASES, CSV_RS_OPINIONS, CSV_CASE_CITATIONS, \
     CSV_LEGISLATION_CITATIONS, get_path_processed, get_path_raw,CSV_CELLAR_CASES,CSV_ECHR_CASES, JSON_FULL_TEXT_CELLAR, \
     JSON_FULL_TEXT_ECHR
-from fulltext_bucket_saving import upload_fulltext
+from fulltext_bucket_saving import upload_fulltext, bucket_name
 import time
 import argparse
 from ctypes import c_long, sizeof
@@ -51,7 +51,8 @@ def load_data(argv):
     )
     args = parser.parse_args(argv)
     storage = Storage(location=args.storage)
-    print(f'INPUT/OUTPUT DATA STORAGE: {args.storage}')
+    print(f'INPUT/OUTPUT DATA STORAGE FOR METADATA: {args.storage}')
+    print('INPUT/OUTPUT DATA STORAGE FOR  FULL TEXT:\t',bucket_name)
   
     print('INPUT:\t\t\t\t', [basename(input_path) for input_path in input_paths])
 
@@ -97,10 +98,10 @@ def load_data(argv):
                 for row in reader:
                      # skip empty rows and remove empty attributes
                      if row != '':
-                        atts = list(row.items())
-                        for att in atts:
-                            if att[1] == '':
-                                row.pop(att[0])
+                        # atts = list(row.items())
+                        # for att in atts:
+                            # if att[1] == '':
+                            #     row.pop(att[0])
                         # process row
                         ddb_item_counter += ddb_rp.upload_row(row)
 
@@ -112,7 +113,7 @@ def load_data(argv):
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
             if args.storage =="aws":
                 os.remove(input_path)
-        # upload_fulltext(storage=args.storage,files_location_path=full_text_paths)
+        upload_fulltext(storage=args.storage,files_location_path=full_text_paths)
     end = time.time()         # celex, item_id
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

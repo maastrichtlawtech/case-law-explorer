@@ -111,15 +111,15 @@ def transform_data(argsT):
                 # process input file by row
                 for row in reader:
                     row_clean = dict.fromkeys(field_map.values())
-                    #print(row)
-                    for col, value in row.items():
+                    for col, value in row.items():                        
                         if value:
                             if col in tool_map :
                                 row_clean[field_map[col]] = tool_map[col](value.strip())
                             else:
                                 row_clean[field_map[col]] = value.strip()
-                    # write processed row to output file
-                    writer.writerow(row_clean)
+                    # write processed row to output file only if ECLI is not empty
+                    if row_clean['ECLI'] != None:
+                        writer.writerow(row_clean)
 
         print(f"\nUpdating {args.storage} storage ...")
         remove(input_path)
