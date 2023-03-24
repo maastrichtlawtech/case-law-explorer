@@ -63,7 +63,8 @@ MAP_CELLAR = {
     'advocate_general': CELLAR_ADV_GENERAL,  # Advocate General of the case
     'judge_rapporteur': CELLAR_JUDGE_RAPPORTEUR,  # Judge Rapporteur of the case
     'affecting_ids': CELLAR_AFFECTING_ID,  # cellar id's of case affecting
-    'affecting_strings': CELLAR_AFFECTING_STRING  # entire strings with more details about case affecting
+    'affecting_strings': CELLAR_AFFECTING_STRING,  # entire strings with more details about case affecting
+    'citations_extra_info' : CELLAR_CITATIONS_EXTRA_INFO  # Citations with exact paragraphs cited
 
 }
 MAP_RS_OPINION = MAP_RS.copy()

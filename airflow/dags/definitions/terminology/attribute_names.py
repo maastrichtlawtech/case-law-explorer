@@ -84,6 +84,7 @@ CELLAR_ADV_GENERAL = 'advocate_general'  # Advocate General of the case
 CELLAR_JUDGE_RAPPORTEUR = 'judge_rapporteur'  # Judge Rapporteur of the case
 CELLAR_AFFECTING_ID = 'affecting_ids'  # cellar id's of case affecting
 CELLAR_AFFECTING_STRING = 'affecting_string'  # entire strings with more details about case affecting
+CELLAR_CITATIONS_EXTRA_INFO = "citations_extra_info"  # Citations with exact paragraphs cited
 # fields only in ECHR
 ECHR_CITATIONS = 'citations'  # list of citations by title
 ECHR_APPLICANTS = 'applicants'  # applicants by number
