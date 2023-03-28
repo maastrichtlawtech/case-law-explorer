@@ -12,7 +12,7 @@ from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, 
     get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES, \
     JSON_FULL_TEXT_CELLAR, \
     JSON_FULL_TEXT_ECHR
-from fulltext_bucket_saving import upload_fulltext, bucket_name
+from data_loading.fulltext_bucket_saving import upload_fulltext, bucket_name
 import time
 import argparse
 from ctypes import c_long, sizeof
