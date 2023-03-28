@@ -77,11 +77,9 @@ def load_data(argv):
 
             # prepare storage
             print(f'\n--- PREPARATION {basename(input_path)} ---\n')
-            storage.fetch_data([input_path])
-            last_updated = storage.fetch_last_updated([input_path])
-            print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
             print(f'\n--- START {basename(input_path)} ---\n')
-            print(f'Processing {basename(input_path)} ...')
+            print(f'Processing {input_path} ...')
+
 
             # initialize row processors and counters
 
@@ -112,7 +110,8 @@ def load_data(argv):
 
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
             if args.storage == "aws":
-                os.remove(input_path)
+                if os.path.exists(input_path):
+                    os.remove(input_path)
         upload_fulltext(storage=args.storage, files_location_paths=full_text_paths)
     end = time.time()  # celex, item_id
     print("\n--- DONE ---")

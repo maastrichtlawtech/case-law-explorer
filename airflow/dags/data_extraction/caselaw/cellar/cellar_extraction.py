@@ -40,6 +40,7 @@ def cellar_extract(args):
     today_date = str(datetime.today().date())
     try:
         last_updated = Variable.get('CELEX_LAST_DATE')
+        print("database connection works")
     except:
         last_updated = '1900-01-01'
         Variable.set(key='CELEX_LAST_DATE',value=last_updated)
