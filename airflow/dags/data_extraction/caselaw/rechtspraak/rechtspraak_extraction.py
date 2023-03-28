@@ -24,8 +24,10 @@ def rechtspraak_extract(args):
     print('OUTPUT DATA STORAGE:\t', args.storage)
     print('OUTPUT:\t\t\t', output_path)
     storage = Storage(location=args.storage)
-    storage.setup_pipeline(output_paths=[output_path])
-
+    try:
+        storage.setup_pipeline(output_paths=[output_path])
+    except:
+        return
     try:
         last_updated = Variable.get('RSPRAAK_LAST_DATE')
     except:

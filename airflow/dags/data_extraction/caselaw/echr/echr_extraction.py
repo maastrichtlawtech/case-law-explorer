@@ -44,14 +44,16 @@ def echr_extract(args):
 
     # set up storage handler
     storage = Storage(location=args.storage)
-    storage.setup_pipeline(output_paths=[output_path])
-
+    try:
+        storage.setup_pipeline(output_paths=[output_path])
+    except:
+        return
     try:
         last_updated = Variable.get('ECHR_LAST_DATE')
     except:
         last_updated = '1900-01-01'
         Variable.set(key='ECHR_LAST_DATE', value=last_updated)
-    last_updated = '1900-01-01'
+
 
     today_date = str(datetime.today().date())
     print('\nSTART DATE (LAST UPDATE):\t', last_updated)
