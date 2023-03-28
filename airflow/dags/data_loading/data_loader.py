@@ -96,7 +96,7 @@ def load_data(argv):
                 for row in reader:
                     # skip empty rows and remove empty attributes
                     if row != '':
-                        row = {k: v for k, v in row.items() if v is not None}
+                        row = {k: v for k, v in row.items() if v is not ''}
                         ddb_item_counter += ddb_rp.upload_row(row)
 
                         case_counter += 1
