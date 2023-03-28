@@ -20,7 +20,7 @@ with DAG(
     task1 = PythonOperator(
         task_id='cellar_extraction',
         python_callable=cellar_extract,
-        op_args=[['local','--amount','1000','--starting-date','2023-01-01']]
+        op_args=[['local','--amount','100','--starting-date','2023-03-03']]
     )
     task2 = TriggerDagRunOperator(
         trigger_dag_id='data_transformation',
