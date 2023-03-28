@@ -36,7 +36,10 @@ def cellar_extract(args):
     print('OUTPUT DATA STORAGE:\t', args.storage)
     print('OUTPUT:\t\t\t', output_path)
     storage = Storage(location=args.storage)
-    storage.setup_pipeline(output_paths=[output_path])
+    try:
+        storage.setup_pipeline(output_paths=[output_path])
+    except:
+        return
     today_date = str(datetime.today().date())
     try:
         last_updated = Variable.get('CELEX_LAST_DATE')

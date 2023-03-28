@@ -114,7 +114,7 @@ class Storage:
             for path in self.pipeline_output_paths:
                 if exists(path) :
                         logging.warning(f'{path} exists locally! Move/rename local file before starting pipeline.')
-                        sys.exit(0)
+                        raise Exception("f'{path} exists locally! Move/rename local file before starting pipeline.")
                 if path.endswith('.csv'):
                     self.fetch_data([path])
 
