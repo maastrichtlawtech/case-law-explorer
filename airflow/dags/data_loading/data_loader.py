@@ -96,14 +96,9 @@ def load_data(argv):
                 for row in reader:
                     # skip empty rows and remove empty attributes
                     if row != '':
-                        # atts = list(row.items())
-                        # for att in atts:
-                        # if att[1] == '':
-                        #     row.pop(att[0])
-                        # process row
+                        row = {k: v for k, v in row.items() if v is not None}
                         ddb_item_counter += ddb_rp.upload_row(row)
 
-                        # log progress
                         case_counter += 1
                         if case_counter % 1000 == 0:
                             print(case_counter, 'rows processed.')
