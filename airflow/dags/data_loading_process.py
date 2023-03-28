@@ -14,7 +14,7 @@ with DAG(
         default_args=default_args,
         description='seems to be working :)',
         start_date=datetime.now(),
-        schedule_interval='0 0 29 2 1'
+        schedule_interval='0 0 2 1 1'
 
 ) as DAG:
     task1 = PythonOperator(
