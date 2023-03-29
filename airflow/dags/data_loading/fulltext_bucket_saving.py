@@ -35,7 +35,8 @@ def upload_fulltext(storage: str ,files_location_paths: list):
              # if bucket dont exist, create it
             if s3.Bucket(bucket_name) not in s3.buckets.all():
                 print(f"Bucket {bucket_name} does not exist. Creating bucket...")
-                s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
+                # s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
+                s3.create_bucket(Bucket=bucket_name)
             else:
                 print(f"Bucket {bucket_name} already exists. Updating bucket...")
             
