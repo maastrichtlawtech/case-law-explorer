@@ -6,7 +6,8 @@ from os import getenv
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time
 from datetime import datetime
-from definitions.storage_handler import DIR_ECHR, Storage,get_path_raw,CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR
+from definitions.storage_handler import DIR_ECHR, Storage,get_path_raw,\
+        CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR,CSV_ECHR_CASES_NODES,CSV_ECHR_CASES_EDGES
 import argparse
 from dotenv import load_dotenv,find_dotenv,set_key
 from airflow.models.variable import Variable
@@ -95,6 +96,14 @@ def echr_extract(args):
         json_filepath = get_path_raw(JSON_FULL_TEXT_ECHR)
         with open(json_filepath, 'w') as f:
             json.dump(json_file, f)
+        print("Adding Nodes and Edges lists to storage")
+        nodes, edges = echr.get_nodes_edges(df_filepath, save_file="n")
+        df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
+        df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
+        nodes.to_csv(df_nodes_path, index=False)
+        edges.to_csv(df_edges_path, index=False)
+
+
     else:
         print("No ECHR data found")
     

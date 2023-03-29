@@ -5,18 +5,22 @@ from os import getenv
 from os.path import basename,dirname, join, abspath
 sys.path.append(dirname(dirname(abspath(__file__))))
 from definitions.storage_handler import DIR_DATA_FULL_TEXT
-from dotenv import load_dotenv
-load_dotenv() 
+# from dotenv import load_dotenv
+# load_dotenv() 
 
 bucket_name = 'full-text-data'  # .env file instead?
 
-region = getenv('AWS_REGION')
-location = {'LocationConstraint': region}
-access_key = getenv('AWS_ACCESS_KEY_ID')
-secret_key = getenv('AWS_SECRET_ACCESS_KEY')
-s3 = boto3.resource('s3', region_name=region,
-                    aws_access_key_id = access_key, 
-                    aws_secret_access_key =secret_key)
+# Incase of running the instance locally
+# region = getenv('AWS_REGION')
+# location = {'LocationConstraint': region}
+# access_key = getenv('AWS_ACCESS_KEY_ID')
+# secret_key = getenv('AWS_SECRET_ACCESS_KEY')
+# s3 = boto3.resource('s3', region_name=region,
+#                     aws_access_key_id = access_key, 
+#                     aws_secret_access_key =secret_key)
+
+# incase of runnning the instance in AWS
+s3 = boto3.resource('s3')
 
 def upload_fulltext(storage: str ,files_location_paths: list):
     for file_location_path in files_location_paths:
@@ -31,7 +35,8 @@ def upload_fulltext(storage: str ,files_location_paths: list):
              # if bucket dont exist, create it
             if s3.Bucket(bucket_name) not in s3.buckets.all():
                 print(f"Bucket {bucket_name} does not exist. Creating bucket...")
-                s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
+                # s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
+                s3.create_bucket(Bucket=bucket_name)
             else:
                 print(f"Bucket {bucket_name} already exists. Updating bucket...")
             
