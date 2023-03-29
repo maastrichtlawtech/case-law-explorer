@@ -23,10 +23,12 @@ with DAG(
     )
     task2 = TriggerDagRunOperator(
         trigger_dag_id='data_transformation',
-        task_id='data_transformation'
+        task_id='data_transformation',
+        wait_for_completion=True
     )
     task3 = TriggerDagRunOperator(
         trigger_dag_id='data_loading',
-        task_id='data_loading'
+        task_id='data_loading',
+        wait_for_completion=True
     )
 task1 >> task2 >> task3
