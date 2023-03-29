@@ -13,8 +13,7 @@ with DAG(
         dag_id='data_transformation',
         default_args=default_args,
         description='works well',
-        start_date=datetime.now(),
-        schedule_interval='0 0 2 1 1'
+        start_date=datetime.now()
 
 ) as DAG:
     task1 = PythonOperator(

@@ -14,7 +14,7 @@ with DAG(
         default_args=default_args,
         description='local working need to check aws',
         start_date=datetime.now(),
-        schedule_interval='10 * * * *'
+        schedule_interval='10 1 * * *'
 
 ) as DAG:
     task1 = PythonOperator(
