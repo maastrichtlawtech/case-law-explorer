@@ -93,7 +93,11 @@ def transform_data(argsT):
         file_name = basename(input_path)
         output_path = get_path_processed(file_name)
         print(f'\n--- PREPARATION {file_name} ---\n')
-        storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
+        try:
+            storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
+        except Exception as e:
+            print(e)
+            return
         last_updated = storage.pipeline_last_updated
         print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
         print(f'\n--- START {file_name} ---\n')

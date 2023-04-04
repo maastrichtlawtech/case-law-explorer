@@ -1,15 +1,13 @@
 from datetime import datetime, timedelta
-
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from data_extraction.caselaw.echr.echr_extraction import echr_extract
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from data_extraction.caselaw.echr.echr_extraction import echr_extract
 default_args = {
     'owner': 'none',
     'retries': 5,
     'retry_delay': timedelta(minutes=5)
 }
-
 with DAG(
         dag_id='echr_extraction',
         default_args=default_args,
