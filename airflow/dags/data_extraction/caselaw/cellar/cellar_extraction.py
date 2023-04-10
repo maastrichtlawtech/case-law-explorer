@@ -7,7 +7,7 @@ sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time
 from datetime import datetime
 from definitions.storage_handler import Storage, get_path_raw, JSON_FULL_TEXT_CELLAR, \
-    CSV_CELLAR_CASES
+    CSV_CELLAR_CASES, CSV_CELLAR_EDGES, CSV_CELLAR_NODES
 import argparse
 from helpers.csv_manipulator import drop_columns
 import cellar_extractor as cell
@@ -73,17 +73,25 @@ def cellar_extract(args):
         sys.exit(0)
     print(f"\nUpdating {args.storage} storage ...")
     storage.finish_pipeline()
+
     drop_columns(df)
+
     df_filepath = get_path_raw(CSV_CELLAR_CASES)
     df.to_csv(df_filepath, index=False)
+
     json_filepath = get_path_raw(JSON_FULL_TEXT_CELLAR)
     final_jsons = []
+
     for jsons in json_file:
         celex = jsons.get('celex')
         if not celex.startswith("8"):
             final_jsons.append(jsons)
     with open(json_filepath, 'w') as f:
         json.dump(final_jsons, f)
+
+    nodes, edges = cell.get_nodes_and_edges_lists(df)
+    nodes.to_csv(get_path_raw(CSV_CELLAR_NODES),index=False)
+    edges.to_csv(get_path_raw(CSV_CELLAR_EDGES), index=False)
 
     end = time.time()
     print("\n--- DONE ---")
