@@ -16,7 +16,7 @@ def rechtspraak_extract(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
-    parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
+    parser.add_argument('--starting_date', help='Last modification date to look forward from', required=False)
 
     args = parser.parse_args(args)
 
