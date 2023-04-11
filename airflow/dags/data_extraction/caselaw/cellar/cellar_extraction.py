@@ -7,7 +7,7 @@ sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time
 from datetime import datetime
 from definitions.storage_handler import Storage, get_path_raw, JSON_FULL_TEXT_CELLAR, \
-    CSV_CELLAR_CASES, CSV_CELLAR_EDGES, CSV_CELLAR_NODES
+    CSV_CELLAR_CASES, TXT_CELLAR_EDGES, TXT_CELLAR_NODES
 import argparse
 from helpers.csv_manipulator import drop_columns
 import cellar_extractor as cell
@@ -89,9 +89,13 @@ def cellar_extract(args):
     with open(json_filepath, 'w') as f:
         json.dump(final_jsons, f)
 
-    nodes, edges = cell.get_nodes_and_edges_lists(df)
-    nodes.to_csv(get_path_raw(CSV_CELLAR_NODES),index=False)
-    edges.to_csv(get_path_raw(CSV_CELLAR_EDGES), index=False)
+    nodes, edges = cell.get_nodes_and_edges_lists(df,save_file='n')
+    nodes = '\n'.join(nodes)
+    edges = '\n'.join(edges)
+    with open(get_path_raw(TXT_CELLAR_NODES), 'w') as f:
+        f.write(nodes)
+    with open(get_path_raw(TXT_CELLAR_EDGES), 'w') as f:
+        f.write(edges)
 
     end = time.time()
     print("\n--- DONE ---")
