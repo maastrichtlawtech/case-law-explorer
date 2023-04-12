@@ -17,7 +17,7 @@ import time
 import argparse
 from ctypes import c_long, sizeof
 from dotenv import load_dotenv
-
+from data_loading.nodes_and_edges_loader import upload_nodes_and_edges
 load_dotenv()
 # csv.field_size_l
 # imit(sys.maxsize) #appears to be system dependent so is replaced with:
@@ -108,6 +108,7 @@ def load_data(argv):
                 if os.path.exists(input_path):
                     os.remove(input_path)
         upload_fulltext(storage=args.storage, files_location_paths=full_text_paths)
+        upload_nodes_and_edges()
     end = time.time()  # celex, item_id
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))

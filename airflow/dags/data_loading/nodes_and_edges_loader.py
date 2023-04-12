@@ -13,9 +13,14 @@ access_key = getenv('AWS_ACCESS_KEY_ID')
 secret_key = getenv('AWS_SECRET_ACCESS_KEY')
 s3 = boto3.resource('s3')
 
-
-def upload_nodes():
-    paths = [get_path_raw(TXT_CELLAR_NODES), get_path_raw(TXT_CELLAR_EDGES)]
+def merge_data(old,new):
+    # Merges 2 txt files of nodes or edges data with no repetition
+    old_data_set = set(old.splitlines())
+    new_data = new.splitlines()
+    old_data_set.update(new_data)
+    return '\n'.join(old_data_set)
+def upload_nodes_and_edges():
+    paths = [get_path_raw(TXT_CELLAR_NODES), get_path_raw(TXT_CELLAR_EDGES)] # if u wanna expant, then just add more stuff here
     if s3.Bucket(bucket_name) not in s3.buckets.all():
         print(f"Bucket {bucket_name} does not exist. Creating bucket...")
         s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)
@@ -26,30 +31,23 @@ def upload_nodes():
             print(f"FILE {path} DOES NOT EXIST")
             continue
         with open(path,'r') as f:
-            data = f.read()
+            new_data = f.read()
         print(f'Processing {basename(path)} ...')
         try:
             obj = s3.Object(bucket_name=bucket_name,key=basename(path))
             response = obj.get()
             old_data=response['Body'].read().decode("utf-8")
             print('File already exists, merging 2 files....')
-
-            old_data_set = set(old_data.splitlines())
-            new_data = data.splitlines()
-
-            old_data_set.update(new_data)
-
-            merged = '\n'.join(old_data_set)
-
+            merged = merge_data(old_data,new_data)
             s3.Object(bucket_name, basename(path)).put(Body=merged)
         except:# file does not exist
             print('File does not yet exist on the bucket. Uploading...')
-            s3.Object(bucket_name=bucket_name, key=basename(path)).put(Body=data)
+            s3.Object(bucket_name=bucket_name, key=basename(path)).put(Body=new_data)
         os.remove(path)
 
 
 
 if __name__ == '__main__':
-    upload_nodes()
+    upload_nodes_and_edges()
 
 
