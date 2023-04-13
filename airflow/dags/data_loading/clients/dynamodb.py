@@ -18,6 +18,13 @@ class DynamoDBClient:
             ddb = boto3.resource('dynamodb')
 
         if table_name not in [table.name for table in ddb.tables.all()]:
+            # IN CASE of initializing the table for each data source with different hash and range keys
+            # if table_name == ddb_table_echr:
+            #     hash_key_name = 'document_id'
+
+            # if table_name == ddb_table_celex:
+            #     hash_key_name = 'celex'
+            #     range_key_name = 'ItemSource'
             ddb.create_table(
                 AttributeDefinitions=[
                     {

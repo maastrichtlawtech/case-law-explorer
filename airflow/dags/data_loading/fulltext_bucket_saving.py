@@ -4,7 +4,7 @@ import os,sys
 from os import getenv
 from os.path import basename,dirname, join, abspath
 sys.path.append(dirname(dirname(abspath(__file__))))
-from definitions.storage_handler import DIR_DATA_FULL_TEXT
+from definitions.storage_handler import DIR_DATA_FULL_TEXT, JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR
 # from dotenv import load_dotenv
 # load_dotenv() 
 
@@ -43,19 +43,30 @@ def upload_fulltext(storage: str ,files_location_paths: list):
             print(f'Processing {basename(file_location_path)} ...')
         #    iterating throught the json
             for i in range(len(data)):
-                ecli = data[i]['ecli']
-                new_json_path = join(DIR_DATA_FULL_TEXT,f"{ecli}.json")
-                # dump each ecli json file to s3
-                s3.Object(bucket_name, new_json_path).put(Body=json.dumps(data[i]))
-            os.remove(file_location_path)
+                if file_location_path == JSON_FULL_TEXT_ECHR:
+                    item_id = data[i]['item_id']
+                    # dump each ecli json file to s3 with ecli as name
+                    s3.Object(bucket_name, f"{item_id}.json").put(Body=json.dumps(data[i]))
+                if file_location_path == JSON_FULL_TEXT_CELLAR:
+                    celex = data[i]['celex']
+                    # dump each celex json file to s3 with celex as name
+                    s3.Object(bucket_name, f"{celex}.json").put(Body=json.dumps(data[i]))
+            # os.remove(file_location_path)
         if storage == 'local':
             # iterating throught the json
             for i in range(len(data)):
-                ecli = data[i]['ecli']
-                new_json_path = f"{ecli}.json"                
-                # dump each ecli json file to local
-                with open(os.path.join(file_location_path,ecli,new_json_path),'w') as json_file:
-                    json.dump(data[i],json_file)
+                if file_location_path == JSON_FULL_TEXT_ECHR:
+                    item_id = data[i]['item_id']
+                    new_json_path = join(DIR_DATA_FULL_TEXT,f"{item_id}.json")                
+                    # dump each ecli json file to local
+                    with open(os.path.join(new_json_path),'w') as json_file:
+                        json.dump(data[i],json_file)
+                if file_location_path == JSON_FULL_TEXT_CELLAR:
+                    celex = data[i]['celex']
+                    new_json_path = join(DIR_DATA_FULL_TEXT,f"{celex}.json")
+                    # dump each celex json file to local
+                    with open(os.path.join(new_json_path),'w') as json_file:
+                        json.dump(data[i],json_file)
         print(f"{len(data)} files uploaded to {bucket_name} in {storage} storage")
 
 

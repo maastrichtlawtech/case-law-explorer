@@ -52,8 +52,8 @@ CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
 CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES =  'ECHR_metadata.csv'
-CSV_ECHR_CASES_NODES = join(DIR_ECHR,'ECHR_nodes.csv')
-CSV_ECHR_CASES_EDGES = join(DIR_ECHR,"ECHR_edges.csv")
+CSV_ECHR_CASES_NODES = 'ECHR_nodes.csv'
+CSV_ECHR_CASES_EDGES = "ECHR_edges.csv"
 JSON_FULL_TEXT_CELLAR = join(DIR_DATA_PROCESSED,'cellar_full_text.json')
 JSON_FULL_TEXT_ECHR = join(DIR_DATA_PROCESSED,'ECHR_full_text.json')
 

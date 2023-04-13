@@ -271,6 +271,7 @@ class DynamoDBRowProcessor:
                     f.write(e + '\n')
 
         return item_counter
+    
 class DynamoDBRowCelexProcessor:
     def __init__(self, path, table):
         self.table = table
@@ -318,3 +319,72 @@ class DynamoDBRowCelexProcessor:
                     f.write(e + '\n')
 
         return item_counter
+
+    
+class DynamoDBRowItemidProcessor:
+    '''
+    This class is used to upload rows to DynamoDB table
+    Item id is the primary key. Due to trasformation, key is renamed to document_id
+    '''
+    def __init__(self, path, table):
+        self.table = table
+        self.path = path
+        schema = self.table.key_schema
+        if schema[0]['KeyType'] == 'HASH':
+            self.pk = schema[0]['AttributeName']
+            self.sk = schema[1]['AttributeName']
+        else:
+            self.pk = schema[1]['AttributeName']
+            self.sk = schema[0]['AttributeName']
+        self.row_processor = self._get_row_processor()
+    
+    def _get_row_processor(self):
+        def row_processor_echr(row):
+            put_items = []
+            update_set_items = []
+            if ECHR_ARTICLES in row:
+                for val in row[ECHR_ARTICLES].split(SET_SEP):
+                    put_items.append({
+                        self.pk: row[ECHR_DOCUMENT_ID],
+                        self.sk: ItemType.DOM.value + KEY_SEP + val,
+                        key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[
+                            ECHR_JUDGEMENT_DATE],
+                        ECHR_ARTICLES[:-1]: val
+                    })
+            for attribute in [ECHR_ARTICLES]:
+                if attribute in row:
+                    update_set_items.append({
+                        self.pk: row[ECHR_DOCUMENT_ID],
+                        self.sk: ItemType.DATA.value,
+                        attribute: set(row[attribute].split(SET_SEP))
+                    })
+                    row.pop(attribute)
+            put_items.append({
+                self.pk: row[ECHR_DOCUMENT_ID],
+                self.sk: ItemType.DATA.value,
+                key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[ECHR_JUDGEMENT_DATE],
+                **row
+            })
+            return put_items, [],update_set_items
+
+        processor_map = {
+            get_path_processed(CSV_ECHR_CASES): row_processor_echr
+        }
+        return processor_map.get(self.path)
+    
+    def upload_row(self, row):
+        item_counter = 0
+        # retrieve lists of items to put and update
+        put_items, update_items, update_set_items = self.row_processor(row)
+        for item in put_items:
+            # print(item)
+            try:
+                self.table.put_item(Item=item)
+                item_counter += 1
+            except Exception as e:
+                print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
+                with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
+                    f.write(item[self.pk] + '\n')
+                    f.write(e + '\n')
+
+        return item_counter 

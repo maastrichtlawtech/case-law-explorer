@@ -35,6 +35,8 @@ def echr_extract(args):
     # parser.add_argument('--output-path', help='path to output file', required=False,default=output_path)
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads',
                         action='store_true')
+    parser.add_argument('--language', nargs='+', help='The languages to be extracted',\
+                         required=False,default=["ENG","FRE"])
     
     args = parser.parse_args(args)
 
@@ -68,13 +70,13 @@ def echr_extract(args):
         'start_id': args.start_id,
         'end_id': args.end_id,
         'count': args.count,
-        'fields': args.fields
+        'fields': args.fields,
+        'language': args.language
         # 'start_date': args.start_date,
        # 'end_date': args.end_date
 
     }
     print(kwargs)
-    # df = echr.get_echr_extra(**kwargs)
     print(f"Downloading {args.count if 'count' in args and args.count is not None else 'all'} ECHR documents")
     if args.fresh:
         df, json_file = echr.get_echr_extra(**kwargs, start_date="1990-01-01",save_file="n")
@@ -83,7 +85,8 @@ def echr_extract(args):
         df, json_file = echr.get_echr_extra(**kwargs, start_date=args.start_date,save_file="n")
     else:
         print('Starting from the last update the script can find')
-        df, json_file = echr.get_echr_extra(**kwargs, start_date=last_updated, end_date=today_date,save_file="n")
+        df, json_file = echr.get_echr_extra(**kwargs, start_date=last_updated,\
+                                             end_date=today_date,save_file="n")
     
 
 

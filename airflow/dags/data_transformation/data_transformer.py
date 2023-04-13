@@ -117,10 +117,11 @@ def transform_data(argsT):
                     row_clean = dict.fromkeys(field_map.values())
                     for col, value in row.items():                        
                         if value:
-                            if col in tool_map :
-                                row_clean[field_map[col]] = tool_map[col](value.strip())
-                            else:
-                                row_clean[field_map[col]] = value.strip()
+                            if col in field_map: # check if column is in field map, as we dont need all the columns
+                                if col in tool_map :
+                                    row_clean[field_map[col]] = tool_map[col](value.strip())
+                                else:
+                                    row_clean[field_map[col]] = value.strip()
                     # write processed row to output file only if ECLI is not empty
                     if row_clean['ECLI'] != None and row_clean['ECLI'] == row_clean['ECLI'] and row_clean['ECLI'] !="":
                         row_clean= {k: v for k, v in row_clean.items() if v is not None}

@@ -6,7 +6,8 @@ sys.path.append(dirname(dirname(abspath(__file__))))
 import os
 from csv import DictReader
 import csv
-from data_loading.row_processors.dynamodb import DynamoDBRowProcessor, DynamoDBRowCelexProcessor
+from data_loading.row_processors.dynamodb import DynamoDBRowProcessor,\
+    DynamoDBRowCelexProcessor, DynamoDBRowItemidProcessor
 from data_loading.clients.dynamodb import DynamoDBClient
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, \
     get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES, \
@@ -60,14 +61,14 @@ def load_data(argv):
     # set up clients
     ddb_client_ecli = DynamoDBClient(os.getenv('DDB_TABLE_NAME'))
     ddb_client_celex = DynamoDBClient(os.getenv('DDB_TABLE_NAME_CELEX'))
-    ddb_full_text_client = DynamoDBClient(os.getenv('DDB_FULL_TEXT_TABLE_NAME'))
+    ddb_client_echr = DynamoDBClient(os.getenv('DDB_NAME_ECHR'))
 
     # evaluate input arguments
     if args.delete == 'ddb':
         # remove all items from table without deleting table itself
         ddb_client_ecli.truncate_table()
         ddb_client_celex.truncate_table()
-        ddb_full_text_client.truncate_table()
+        ddb_client_echr.truncate_table()
     else:
         # process each input csv
         for input_path in input_paths:
@@ -88,6 +89,8 @@ def load_data(argv):
             os_item_counter = 0
             if get_path_processed(CSV_CELLAR_CASES) in input_path:
                 ddb_rp = DynamoDBRowCelexProcessor(input_path, ddb_client_celex.table)
+            elif get_path_processed(CSV_ECHR_CASES) in input_path:
+                ddb_rp = DynamoDBRowItemidProcessor(input_path, ddb_client_echr.table)
             else:
                 ddb_rp = DynamoDBRowProcessor(input_path, ddb_client_ecli.table)
             # process csv by row
@@ -102,7 +105,7 @@ def load_data(argv):
                         case_counter += 1
                         if case_counter % 1000 == 0:
                             print(case_counter, 'rows processed.')
-
+                            
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
             if args.storage == "aws":
                 if os.path.exists(input_path):
