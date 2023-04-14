@@ -89,13 +89,20 @@ def cellar_extract(args):
     with open(json_filepath, 'w') as f:
         json.dump(final_jsons, f)
 
-    nodes, edges = cell.get_nodes_and_edges_lists(df,save_file='n')
-    nodes = '\n'.join(nodes)
-    edges = '\n'.join(edges)
-    with open(get_path_raw(TXT_CELLAR_NODES), 'w') as f:
-        f.write(nodes)
-    with open(get_path_raw(TXT_CELLAR_EDGES), 'w') as f:
-        f.write(edges)
+    nodes, edges = cell.get_nodes_and_edges_lists(df)
+    print
+    if nodes is not False:
+        nodes = '\n'.join(nodes)
+        with open(get_path_raw(TXT_CELLAR_NODES), 'w') as f:
+            f.write(nodes)
+    else:
+        print("No nodes found")
+    if edges is not False:
+        edges = '\n'.join(edges)
+        with open(get_path_raw(TXT_CELLAR_EDGES), 'w') as f:
+            f.write(edges)
+    else:
+        print("No edges found")
 
     end = time.time()
     print("\n--- DONE ---")

@@ -7,7 +7,7 @@ sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time
 from datetime import datetime
 from definitions.storage_handler import DIR_ECHR, Storage,get_path_raw,\
-        CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR,CSV_ECHR_CASES_NODES,CSV_ECHR_CASES_EDGES
+        CSV_ECHR_CASES,JSON_FULL_TEXT_ECHR,CSV_ECHR_CASES_NODES,CSV_ECHR_CASES_EDGES,TXT_ECHR_EDGES,TXT_ECHR_NODES
 import argparse
 from dotenv import load_dotenv,find_dotenv,set_key
 from airflow.models.variable import Variable
@@ -103,8 +103,14 @@ def echr_extract(args):
         nodes, edges = echr.get_nodes_edges(df_filepath, save_file="n")
         df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
         df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
-        nodes.to_csv(df_nodes_path, index=False)
-        edges.to_csv(df_edges_path, index=False)
+        nodes_txt = get_path_raw(TXT_ECHR_NODES)
+        edges_txt = get_path_raw(TXT_ECHR_EDGES)
+        # nodes.to_csv(df_nodes_path, index=False)
+        # edges.to_csv(df_edges_path, index=False)
+        # save to text file from dataframe
+        nodes.to_csv(nodes_txt, index=False, header=False, sep='\t')
+        edges.to_csv(edges_txt, index=False, header=False, sep='\t')
+
 
 
     else:

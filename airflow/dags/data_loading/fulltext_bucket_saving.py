@@ -51,7 +51,7 @@ def upload_fulltext(storage: str ,files_location_paths: list):
                     celex = data[i]['celex']
                     # dump each celex json file to s3 with celex as name
                     s3.Object(bucket_name, f"{celex}.json").put(Body=json.dumps(data[i]))
-            # os.remove(file_location_path)
+            os.remove(file_location_path)
         if storage == 'local':
             # iterating throught the json
             for i in range(len(data)):
