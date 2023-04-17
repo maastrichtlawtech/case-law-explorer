@@ -101,8 +101,11 @@ def echr_extract(args):
             json.dump(json_file, f)
         print("Adding Nodes and Edges lists to storage")
         nodes, edges = echr.get_nodes_edges(df_filepath, save_file="n")
-        df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
-        df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
+        # get only the ecli column in nodes
+        nodes = nodes[['ecli']]
+    
+        # df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
+        # df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
         nodes_txt = get_path_raw(TXT_ECHR_NODES)
         edges_txt = get_path_raw(TXT_ECHR_EDGES)
         # nodes.to_csv(df_nodes_path, index=False)
