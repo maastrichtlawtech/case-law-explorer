@@ -98,13 +98,13 @@ def load_data(argv):
                 reader = DictReader(in_file)
                 for row in reader:
                     # skip empty rows and remove empty attributes
-                    if row != '':
-                        row = {k: v for k, v in row.items() if v is not ''}
-                        ddb_item_counter += ddb_rp.upload_row(row)
+                    # if row != '':
+                    #     row = {k: v for k, v in row.items() if v is not ''}
+                    ddb_item_counter += ddb_rp.upload_row(row)
 
-                        case_counter += 1
-                        if case_counter % 1000 == 0:
-                            print(case_counter, 'rows processed.')
+                    case_counter += 1
+                    if case_counter % 1000 == 0:
+                        print(case_counter, 'rows processed.')
                             
             print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
             if args.storage == "aws":
