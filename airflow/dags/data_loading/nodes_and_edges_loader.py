@@ -13,7 +13,7 @@ access_key = getenv('AWS_ACCESS_KEY_ID')
 secret_key = getenv('AWS_SECRET_ACCESS_KEY')
 s3 = boto3.resource('s3')
 
-input_files = [TXT_ECHR_EDGES,TXT_ECHR_NODES]
+input_files = [TXT_ECHR_EDGES,TXT_ECHR_NODES,TXT_CELLAR_EDGES,TXT_CELLAR_NODES]
 def merge_data(old,new):
     # Merges 2 txt files of nodes or edges data with no repetition
     old_data_set = set(old.splitlines())
@@ -22,7 +22,7 @@ def merge_data(old,new):
     return '\n'.join(old_data_set)
 
 def upload_nodes_and_edges():
-    paths = [get_path_raw(text_file) for text_file in input_files ] # if u wanna expant, then just add more stuff here
+    paths = [get_path_raw(text_file) for text_file in input_files ]
     if s3.Bucket(bucket_name) not in s3.buckets.all():
         print(f"Bucket {bucket_name} does not exist. Creating bucket...")
         s3.create_bucket(Bucket=bucket_name, CreateBucketConfiguration=location)

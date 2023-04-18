@@ -90,7 +90,6 @@ def cellar_extract(args):
         json.dump(final_jsons, f)
 
     nodes, edges = cell.get_nodes_and_edges_lists(df)
-    print
     if nodes is not False:
         nodes = '\n'.join(nodes)
         with open(get_path_raw(TXT_CELLAR_NODES), 'w') as f:
