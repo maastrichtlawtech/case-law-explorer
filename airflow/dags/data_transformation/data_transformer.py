@@ -1,6 +1,7 @@
 from os.path import dirname, abspath, basename, exists
 import sys
 from os import remove
+
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 from definitions.mappings.attribute_name_maps import *
@@ -39,7 +40,7 @@ tool_map_li = {
 }
 tool_map_cellar = {
     'YEAR OF THE LEGAL RESOURCE': format_cellar_year,
-    'CELEX IDENTIFIER' : format_cellar_celex
+    'CELEX IDENTIFIER': format_cellar_celex
 
 }
 tool_map_echr = {
@@ -62,7 +63,7 @@ field_maps = {
 }
 
 
-def transform_data(argsT):
+def transform_data():
     """
     Start processing
     """
@@ -75,18 +76,14 @@ def transform_data(argsT):
         get_path_raw(CSV_CELLAR_CASES),
         get_path_raw(CSV_ECHR_CASES)
     ]
-    parser = argparse.ArgumentParser()
-    parser.add_argument('storage', choices=['local', 'aws'],
-                        help='location to take input data from and save output data to')
-    args = parser.parse_args(args=argsT)
 
-    print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
+    print('INPUT/OUTPUT DATA STORAGE:\t', 'local')
     print('INPUTS:\t\t\t\t', [basename(input_path) for input_path in input_paths])
     print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for input_path in input_paths], '\n')
 
     # run data transformation for each input file
     for input_path in input_paths:
-        storage = Storage(location=args.storage)
+        storage = Storage()
         if not exists(input_path):
             print(f"No such file found as {input_path}")
             continue
@@ -98,8 +95,6 @@ def transform_data(argsT):
         except Exception as e:
             print(e)
             return
-        last_updated = storage.pipeline_last_updated
-        print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
         print(f'\n--- START {file_name} ---\n')
 
         field_map = field_maps.get(input_path)
@@ -115,16 +110,16 @@ def transform_data(argsT):
                 # process input file by row
                 for row in reader:
                     row_clean = dict.fromkeys(field_map.values())
-                    for col, value in row.items():                        
+                    for col, value in row.items():
                         if value:
-                            if col in field_map: # check if column is in field map, as we dont need all the columns
-                                if col in tool_map :
+                            if col in field_map:  # check if column is in field map, as we dont need all the columns
+                                if col in tool_map:
                                     row_clean[field_map[col]] = tool_map[col](value.strip())
                                 else:
                                     row_clean[field_map[col]] = value.strip()
                     # write processed row to output file only if ECLI is not empty
-                    if row_clean['ECLI'] != None and row_clean['ECLI'] == row_clean['ECLI'] and row_clean['ECLI'] !="":
-                        row_clean= {k: v for k, v in row_clean.items() if v is not None}
+                    if row_clean['ECLI'] != None and row_clean['ECLI'] == row_clean['ECLI'] and row_clean['ECLI'] != "":
+                        row_clean = {k: v for k, v in row_clean.items() if v is not None}
                         writer.writerow(row_clean)
         remove(input_path)
     end = time.time()
@@ -134,4 +129,4 @@ def transform_data(argsT):
 
 if __name__ == '__main__':
     # giving arguments to the funtion
-    transform_data(sys.argv[1:])
+    transform_data()

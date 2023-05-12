@@ -2,8 +2,6 @@ from os.path import dirname, abspath
 from os import getenv
 import sys
 import json
-
-sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 import time
 from datetime import datetime
 from definitions.storage_handler import Storage, get_path_raw, JSON_FULL_TEXT_CELLAR, \
@@ -13,8 +11,11 @@ from helpers.csv_manipulator import drop_columns
 import cellar_extractor as cell
 from dotenv import load_dotenv, find_dotenv
 from airflow.models.variable import Variable
+
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
+sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
+
 WEBSERVICE_USERNAME = getenv('EURLEX_WEBSERVICE_USERNAME')
 WEBSERVICE_PASSWORD = getenv('EURLEX_WEBSERVICE_PASSWORD')
 
@@ -22,23 +23,21 @@ WEBSERVICE_PASSWORD = getenv('EURLEX_WEBSERVICE_PASSWORD')
 def cellar_extract(args):
     output_path = get_path_raw(CSV_CELLAR_CASES)
     parser = argparse.ArgumentParser()
-    parser.add_argument('storage', choices=['local', 'aws'], help='location to save output data to')
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
     parser.add_argument('--concurrent-docs', default=200, type=int,
                         help='default number of documents to retrieve concurrently', required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
-
     parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads',
                         action='store_true')
     args = parser.parse_args(args)
 
     print('\n--- PREPARATION ---\n')
-    print('OUTPUT DATA STORAGE:\t', args.storage)
     print('OUTPUT:\t\t\t', output_path)
-    storage = Storage(location=args.storage)
+    storage = Storage()
     try:
         storage.setup_pipeline(output_paths=[output_path])
-    except:
+    except Exception as e:
+        print(e)
         return
     today_date = str(datetime.today().date())
     try:
@@ -71,8 +70,7 @@ def cellar_extract(args):
 
     if isinstance(df, bool):
         sys.exit(0)
-    print(f"\nUpdating {args.storage} storage ...")
-    storage.finish_pipeline()
+    print(f"\nUpdating local storage ...")
 
     drop_columns(df)
 

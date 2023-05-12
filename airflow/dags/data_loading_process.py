@@ -19,6 +19,5 @@ with DAG(
 ) as DAG:
     task1 = PythonOperator(
         task_id='data_loading',
-        python_callable=load_data,
-        op_args=[['aws']]
+        python_callable=load_data
     )

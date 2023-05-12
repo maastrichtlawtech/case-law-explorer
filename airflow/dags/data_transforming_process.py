@@ -19,6 +19,5 @@ with DAG(
 ) as DAG:
     task1 = PythonOperator(
         task_id='data_transformation',
-        python_callable=transform_data,
-        op_args=[['local']]
+        python_callable=transform_data
     )
