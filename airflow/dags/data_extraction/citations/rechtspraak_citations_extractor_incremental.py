@@ -254,11 +254,10 @@ print('\n--- PREPARATION ---\n')
 print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
 print('INPUT:\t\t\t\t', basename(input_path))
 print('OUTPUTS:\t\t\t', f'{basename(output_path_c_citations)}, {basename(output_path_l_citations)}\n')
-storage = Storage(location=args.storage)
+storage = Storage()
 storage.setup_pipeline(output_paths=[output_path_c_citations, output_path_l_citations], input_path=input_path)
 citation_type = "inkomende-links" if args.incoming else "uitgaande-links"
-last_updated = storage.pipeline_last_updated
-print('\nSTART DATE (LAST UPDATE):\t', last_updated.isoformat())
+last_updated = '1900-01-01' #TODO this needs to be removed safely. this functionality from storage_handler is not used anymore.
 
 print('\n--- START ---\n')
 

@@ -2,15 +2,13 @@ from os.path import dirname, abspath, basename, exists
 import sys
 from os import remove
 
-sys.path.append(dirname(dirname(abspath(__file__))))
 
 from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
-from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS, CSV_LI_CASES, \
-    get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES
+from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS,get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES
 import time
-import argparse
 from csv import DictReader, DictWriter
+sys.path.append(dirname(dirname(abspath(__file__))))
 
 """
 Define tool_maps
@@ -49,7 +47,6 @@ tool_map_echr = {
 tool_maps = {
     get_path_raw(CSV_RS_CASES): tool_map_rs,
     get_path_raw(CSV_RS_OPINIONS): tool_map_rs,
-    get_path_raw(CSV_LI_CASES): tool_map_li,
     get_path_raw(CSV_CELLAR_CASES): tool_map_cellar,
     get_path_raw(CSV_ECHR_CASES): tool_map_echr
 }
@@ -57,7 +54,6 @@ tool_maps = {
 field_maps = {
     get_path_raw(CSV_RS_CASES): MAP_RS,
     get_path_raw(CSV_RS_OPINIONS): MAP_RS_OPINION,
-    get_path_raw(CSV_LI_CASES): MAP_LI,
     get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR,
     get_path_raw(CSV_ECHR_CASES): MAP_ECHR
 }
@@ -72,7 +68,6 @@ def transform_data():
     input_paths = [
         get_path_raw(CSV_RS_CASES),
         get_path_raw(CSV_RS_OPINIONS),
-        get_path_raw(CSV_LI_CASES),
         get_path_raw(CSV_CELLAR_CASES),
         get_path_raw(CSV_ECHR_CASES)
     ]

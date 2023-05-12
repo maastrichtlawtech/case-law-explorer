@@ -1,6 +1,4 @@
 import requests, glob, time
-from pathlib import Path
-import pandas as pd
 
 
 # Check whether the API is working or not and return with the response code

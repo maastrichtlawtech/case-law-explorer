@@ -70,31 +70,6 @@ MAP_CELLAR = {
 MAP_RS_OPINION = MAP_RS.copy()
 MAP_RS_OPINION[ECLI_DECISION] = ECLI_DECISION  # not in original data, added through script
 
-# Legal Intelligence provides additional information to cases.
-# It contains a collection of (all/multiple) versions of a case from different publishers.
-# original field names of LI can be found here: https://www.legalintelligence.com/files/li-search-endpoint.pdf
-MAP_LI = {
-    ECLI: ECLI,  # not in original data, added through script
-    'Id': LI_ID,  # internal document id in LI
-    'Title': LI_TITLE,  # title of original document
-    'DisplayTitle': LI_DISPLAY_TITLE,  # title of document entry in LI
-    'DisplaySubtitle': LI_DISPLAY_SUBTITLE,  # subtitle of document entry in LI
-    'Summary': LI_SUMMARY,  # case summary
-    'Url': LI_URL,  # URL to LI entry of document
-    'OriginalUrl': LI_ORIGINAL_URL,  # URL to original document by publisher
-    'Jurisdiction': LI_JURISDICTION,  # country of jurisdiction
-    'DocumentType': LI_DOCUMENT_TYPE,  # source of case (here: always 'Rechtspraak')
-    'LawArea': LI_LAW_AREA,  # domain(s) (area(s) of the law) applicable to case
-    'IssuingInstitution': LI_ISSUING_INSTITUTION,  # name of instance (court)
-    'CaseNumber': LI_CASE_NUMBER,  # unique case identifier (ECLI or previous format)
-    'PublicationNumber': LI_PUBLICATION_NUMBER,  # internal document id of publisher
-    'IssueNumber': LI_ISSUE_NUMBER,  # collection id of publisher
-    'PublicationDate': LI_PUBLICATION_DATE,  # date of document publication (by publisher)
-    'EnactmentDate': LI_ENACTMENT_DATE,  # date of court decision
-    'DateAdded': LI_DATE_ADDED,  # date of document added to the LI platform
-    'Sources': LI_SOURCES,  # alternative publishing institutions
-    'SearchNumbers': LI_SEARCH_NUMBERS  # @ TODO: what is this?
-}
 MAP_ECHR = {
     'itemid': ECHR_DOCUMENT_ID,  # unique document identifier
     'applicability': ECHR_APPLICABLE_ARTICLES,  # which articles are applicable

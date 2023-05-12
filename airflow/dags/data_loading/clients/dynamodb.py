@@ -11,7 +11,7 @@ class DynamoDBClient:
             hash_key_type='S',
             range_key_type='S'
     ):
-        if storage =='local':
+        if storage == 'local':
             ddb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000", region_name="eu-central-1",
                                            aws_access_key_id = "local", aws_secret_access_key = "local")
         else:
