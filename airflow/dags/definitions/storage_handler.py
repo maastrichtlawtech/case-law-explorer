@@ -34,7 +34,6 @@ TXT_CELLAR_NODES = 'cellar_nodes.txt'
 TXT_ECHR_EDGES = 'ECHR_edges.txt'
 TXT_ECHR_NODES = 'ECHR_nodes.txt'
 CSV_RS_INDEX = 'RS_index.csv'  # eclis, decision dates and relations of RS cases and opinions
-CSV_LI_CASES = 'LI_cases.csv'  # metadata of LI cases
 CSV_CASE_CITATIONS = 'caselaw_citations.csv'  # citations of RS cases and opinions
 CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'  # cited legislation of RS cases and opinions
 CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
