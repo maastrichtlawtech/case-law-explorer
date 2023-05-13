@@ -1,8 +1,5 @@
 from os.path import dirname, abspath, basename, exists
-import sys
 from os import remove
-
-
 from definitions.mappings.attribute_name_maps import *
 from data_transformation.utils import *
 from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS,get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES

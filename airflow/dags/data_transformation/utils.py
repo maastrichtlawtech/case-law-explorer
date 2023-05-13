@@ -1,5 +1,4 @@
 import pandas as pd
-import numpy as np
 from definitions.terminology.attribute_names import ECLI
 from definitions.mappings.attribute_value_maps import *
 from definitions.terminology.attribute_values import Domain
