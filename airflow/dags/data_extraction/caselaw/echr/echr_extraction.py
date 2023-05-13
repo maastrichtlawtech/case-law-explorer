@@ -88,7 +88,7 @@ def echr_extract(args):
     df_filepath = get_path_raw(CSV_ECHR_CASES)
     if df is not False:
         df.to_csv(df_filepath, index=False)
-        json_filepath = get_path_raw(JSON_FULL_TEXT_ECHR)
+        json_filepath = JSON_FULL_TEXT_ECHR
         with open(json_filepath, 'w') as f:
             json.dump(json_file, f)
         print("Adding Nodes and Edges lists to storage")

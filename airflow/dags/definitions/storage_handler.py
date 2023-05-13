@@ -42,8 +42,8 @@ CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = 'ECHR_metadata.csv'
 CSV_ECHR_CASES_NODES = 'ECHR_nodes.csv'
 CSV_ECHR_CASES_EDGES = "ECHR_edges.csv"
-JSON_FULL_TEXT_CELLAR = join(DIR_DATA_PROCESSED, 'cellar_full_text.json')
-JSON_FULL_TEXT_ECHR = join(DIR_DATA_PROCESSED, 'ECHR_full_text.json')
+JSON_FULL_TEXT_CELLAR = join(DIR_DATA_FULL_TEXT,'cellar_full_text.json')
+JSON_FULL_TEXT_ECHR = join(DIR_DATA_FULL_TEXT,'ECHR_full_text.json')
 
 
 # raw data:

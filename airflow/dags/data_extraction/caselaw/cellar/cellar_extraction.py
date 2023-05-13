@@ -77,7 +77,7 @@ def cellar_extract(args):
     df_filepath = get_path_raw(CSV_CELLAR_CASES)
     df.to_csv(df_filepath, index=False)
 
-    json_filepath = get_path_raw(JSON_FULL_TEXT_CELLAR)
+    json_filepath = JSON_FULL_TEXT_CELLAR
     final_jsons = []
 
     for jsons in json_file:
