@@ -46,6 +46,10 @@ APPSYNC_ENDPOINT=appsync-endpoint-here
 COGNITO_USER_KEY=my-user-key-here
 COGNITO_CLIENT_ID=client-secret-here
 
+LIDO_ENDPOINT=http://linkeddata.overheid.nl/service/get-links
+LIDO_USERNAME=lido-username-here
+LIDO_PASSWORD=lido-pw-here
+
 # The links below are pointing to eurlex websites containing specific metadata
 # They have a "cIdHere" - it is a place where you put the CELEX ID of a case.
 # If they were to be changed later on, the celex substitute should be put in place of the CELEX ID
@@ -82,68 +86,31 @@ In the storage location, the data directory follows the structure of:
 ## Extract
 
 This walkthrough will extract data from the defined [datasets](/datasets/) into the local storage.
-If you wish to eventually load the processed data into an AWS DynamoDB database and/or store the raw and processed data
-in an AWS S3 bucket, please first follow our guide on [setting up AWS](/graphql/?id=setup-aws) and 
-set the location argument to `aws` when calling the extraction and transformation scripts.
+If you wish to eventually load the processed data into an AWS DynamoDB database, please first follow our guide on [setting up AWS](/graphql/?id=setup-aws).
 
 ### Rechtspraak data
 
-The [Rechtspraak downloader script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_dump_downloader.py) 
-downloads the latest version of the zipped folder with Rechtspraak data from 
-[http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip](http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip) to `data/Rechtspraak/OpenDataUitspraken.zip`. 
+The [Rechtspraak extractor script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_dump_downloader.py) 
+downloads the metadata of Dutch Court cases available at 
+[https://data.rechtspraak.nl/Uitspraken](https://data.rechtspraak.nl/Uitspraken) to `data/raw/RS_cases.csv`. 
+
+
 
 ```bash
-$ python3 data_extraction/caselaw/rechtspraak/rechtspraak_dump_downloader.py local
+$ python3 airflow/dags/data_extraction/caselaw/rechtspraak/rechtspraak_extraction.py
 ```
 
-**Arguments:**
-- `storage` (choices: `local`, `aws`): location to take input data from and save output data to (local directory or AWS S3 bucket).
+**Options:**
+- `amount` (int): number of documents to retrieve
+- `starting_date` (YYYY-MM-DD): Last modification date to look forward from
 
-**Output:**
-- `data/Rechtspraak/OpenDataUitspraken.zip`
-
----
-
-The [Rechtspraak unzipper script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_dump_unzipper.py) 
-extracts the raw `.xml` files from the zipped folder and sub-folders in `data/Rechtspraak/OpenDataUitspraken.zip` to `data/Rechtspraak/OpenDataUitspraken/`
-and creates an index of all extracted case ECLIs with their respective decision dates.
-
-```bash
-$ python3 data_extraction/caselaw/rechtspraak/rechtspraak_dump_unzipper.py local
-```
-
-**Arguments:**
-- `storage` (choices: `local`, `aws`): location to take input data from and save output data to (local directory or AWS S3 bucket).
-
-**Input:**
-- `data/Rechtspraak/OpenDataUitspraken.zip`
-
-**Output:**
-- `data/Rechtspraak/OpenDataUitspraken/`
-- `data/Rechtspraak/OpenDataUitspraken_index.csv`: *ecli*s and corresponding *date_decision*s
-
----
-
-The [Rechtspraak parser script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_metadata_dump_parser.py) 
-parses the `.xml` files from `data/Rechtspraak/OpenDataUitspraken/` into `.csv` files in the `data/raw/` directory
-and generates an index of all parsed *ecli*s, *date_decision*s and *predecessor_successor_cases*.
-
-```bash
-$ python3 data_extraction/caselaw/rechtspraak/rechtspraak_metadata_dump_parser.py local
-```
-
-**Arguments:**
-- `storage` (choices: `local`, `aws`): location to take input data from and save output data to (local directory or AWS S3 bucket).
-
-**Input:**
-- `data/Rechtspraak/OpenDataUitspraken/`
-- `data/Rechtspraak/OpenDataUitspraken_index.csv`
 
 **Output:**
 - `data/raw/RS_cases.csv`
-- `data/raw/RS_index.csv`: *ecli*s, *date_decision*s and *predecessor_successor_cases*
-- `data/raw/RS_opinions.csv`
-
+---
+**Functionality:**
+- Uses the rechtspraak-extractor to download the meta-data of cases 
+- A detailed functionality description is available at the library page of [rechtspraak-extractor](https://pypi.org/project/rechtspraak-extractor/).
 
 ### ECHR data
 
