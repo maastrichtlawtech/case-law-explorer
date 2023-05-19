@@ -80,10 +80,10 @@ class Storage:
             for path in self.pipeline_output_paths:
                 if exists(path):
                     logging.warning(f'{path} exists locally! Move/rename local file before starting pipeline.')
-                    raise Exception(f'{path} exists locally! Move/rename local file before starting pipeline.')
+                    raise Exception(path + ' exists locally! Move/rename local file before starting pipeline.')
 
         # fetch input data
         if self.pipeline_input_path:
             if not exists(input_path):
                 logging.warning(f'{input_path} does not exist locally!')
-                raise Exception(f'{input_path} does not exist locally!')
+                raise Exception(input_path+ ' does not exist locally!')

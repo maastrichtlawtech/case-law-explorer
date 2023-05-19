@@ -7,16 +7,18 @@ import sys
 from os.path import dirname, abspath, basename
 sys.path.append(dirname(dirname(dirname(abspath(__file__)))))
 import pandas as pd
-from definitions.storage_handler import Storage, CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS, CSV_RS_INDEX, \
+from definitions.storage_handler import Storage, CSV_CASE_CITATIONS, CSV_LEGISLATION_CITATIONS, CSV_RS_CASES, \
     CSV_LIDO_ECLIS_FAILED, get_path_raw
 from definitions.terminology.attribute_names import ECLI, LIDO_JURISPRUDENTIE, LIDO_WET, LIDO_ARTIKEL, LIDO_ARTIKEL_TITLE, \
     RS_RELATION, RS_DATE, LIDO_TYPE, LIDO_LABEL
 from dotenv import load_dotenv
 load_dotenv()
-import argparse
 import datetime
 import time
 
+LIDO_ENDPOINT = os.getenv('LIDO_ENDPOINT')
+LIDO_USERNAME = os.getenv('LIDO_USERNAME')
+LIDO_PASSWORD = os.getenv('LIDO_PASSWORD')
 
 def remove_spaces_from_ecli(ecli):
     return ecli.replace(" ", "")
@@ -110,180 +112,185 @@ It allows us to stop the script whenever we want without loosing our data, and w
 # Add the implementation of the incremental writing of rows
 def find_citations_for_cases(filename, case_citations_output_filename, case_citations_fieldnames,
                              legislation_citations_output_filename, legislation_citations_fieldnames):
-    df_eclis = pd.read_csv(filename, usecols=[ECLI, RS_DATE, RS_RELATION])
-    df_eclis = df_eclis.sort_values(by='date_decision').reset_index(drop=True)
+    df_eclis = pd.read_csv(filename, usecols=['ecli'])
+    df_eclis = df_eclis.reset_index(drop=True)
 
-    eclis = list(df_eclis[ECLI])
+    eclis = list(df_eclis['ecli'])
 
-    if os.getenv('SAMPLE_TEST') == 'TRUE':
-        eclis = eclis[-10:]
-
-    if citation_type == "inkomende-links":
-        print("Fetching incoming citations from LIDO...")
-    else:
-        print("Fetching outgoing citations from LIDO...")
 
     for i, ecli in enumerate(eclis):
-        date = datetime.date.fromisoformat(df_eclis[RS_DATE][i])
-        relation = df_eclis[RS_RELATION][i]
-        if date >= last_updated:
-            try:
-                case_citations, legislation_citations = find_citations_for_case(remove_spaces_from_ecli(ecli), date,
-                                                                                relation, case_citations_fieldnames,
+            case_citations_incoming, case_citations_outgoing, legislation_citations = find_citations_for_case(remove_spaces_from_ecli(ecli)
+                                                                        , case_citations_fieldnames,
                                                                                 legislation_citations_fieldnames)
-                write_incremental_rows(filename=case_citations_output_filename, data=case_citations)
-                write_incremental_rows(filename=legislation_citations_output_filename, data=legislation_citations)
-            except Exception as e:
-                print(f'{ecli} failed: {e}')
-                write_incremental_rows(filename=get_path_raw(CSV_LIDO_ECLIS_FAILED),
-                                       data={ECLI: [ecli], RS_DATE: [date], RS_RELATION: [relation]})
-        if (i + 1) % 100 == 0:
-            print(f'{datetime.datetime.now().isoformat()}: {i + 1}/{len(eclis)} eclis processed.')
+            need_to_write_saving_here = True
+            # TODO dict of lists --> list of dicts, saving
+
+            if (i + 1) % 100 == 0:
+                print(f'{datetime.datetime.now().isoformat()}: {i + 1}/{len(eclis)} eclis processed.')
 
     print(f'{datetime.datetime.now().isoformat()}: {i + 1}/{len(eclis)} eclis processed.')
 
 
-# Main method to execute LIDO API call on the ECLI code of the input case and extract the citations
-def find_citations_for_case(ecli, date, relation, case_citations_fieldnames, legislation_citations_fieldnames):
-    global citation_type
-    xml_elements = []
-    case_law_citations = []
+def add_citations_no_duplicates(already_existing_list,element):
+    duplicate = False
+    new_ecli = get_ecli(element)
+    added_sth_new = True
+    for stored in already_existing_list:
+        if stored[LIDO_JURISPRUDENTIE] == new_ecli:
+            added_sth_new = False
+            duplicate = True
+            break
+    if not duplicate:
+        already_existing_list.append({LIDO_JURISPRUDENTIE: new_ecli,
+                                            LIDO_LABEL: element.attrib['label'],
+                                            LIDO_TYPE: element.attrib['type'].split('/id/')[1],
+                                            'keep1': element.attrib['type'].split('/id/')[
+                                                         1] == 'lx-referentie',
+                                            'keep2': get_ecli(element) not in str()})
+    return added_sth_new
+def add_legislations_no_duplicates(list,element):
+    duplicate = False
+    new_legislation = get_legislation_identifier(element)
+    added_sth_new = True
+    for legs in list:
+        if new_legislation == legs:
+            added_sth_new = False
+            duplicate = True
+            break
+    if not duplicate:
+        list.append(get_legislation_identifier(element))
+    return added_sth_new
 
+# Main method to execute LIDO API call on the ECLI code of the input case and extract the citations
+def find_citations_for_case(ecli, case_citations_fieldnames, legislation_citations_fieldnames):
+    xml_elements = []
+    case_law_citations_outgoing = []
     legislation_citations = []
+    case_law_citations_incoming = []
     start_page = 0
     end_of_pages = False
+    outgoing = "uitgaande-links"
+    incoming = "inkomende-links"
+
     while not end_of_pages:
-        num_citations_before_api_call = len(case_law_citations)
+        added_sth_new = True
         url = "{}?id={}&start={}&rows={}&output=xml".format(LIDO_ENDPOINT, get_lido_id(ecli), start_page, 100)
         start_page += 1
+
         xml_text = get_lido_response(url)
         xml_elements.append(etree.fromstring(xml_text.encode('utf8')))
-        for el in xml_elements:
-            # print(el.tag)
-            # print(etree.tostring(el))
-            for sub in list(el.iterchildren('subject')):
-                # print(etree.tostring(sub))
-                if citation_type == "uitgaande-links":
-                    for the_citations in sub.iterchildren(citation_type):
-                        for sub_ref in the_citations.iterchildren():
-                            if is_case_law(sub_ref):
-                                case_law_citations.append({LIDO_JURISPRUDENTIE: get_ecli(sub_ref),
-                                                           LIDO_LABEL: sub_ref.attrib['label'],
-                                                           LIDO_TYPE: sub_ref.attrib['type'].split('/id/')[1],
-                                                           'keep1': sub_ref.attrib['type'].split('/id/')[
-                                                                        1] == 'lx-referentie',
-                                                           'keep2': get_ecli(sub_ref) not in str(relation)})
-                            if is_legislation(sub_ref):
-                                legislation_citations.append(get_legislation_identifier(sub_ref))
-                else:
-                    for the_citations in sub.iterchildren(citation_type):
-                        for sub_ref in the_citations.iterchildren():
-                            if is_case_law(sub_ref):
-                                case_law_citations.append({LIDO_JURISPRUDENTIE: get_ecli(sub_ref),
-                                                           LIDO_LABEL: sub_ref.attrib['label'],
-                                                           LIDO_TYPE: sub_ref.attrib['type'].split('/id/')[1],
-                                                           'keep1': sub_ref.attrib['type'].split('/id/')[
-                                                                        1] == 'lx-referentie',
-                                                           'keep2': get_ecli(sub_ref) not in str(relation)})
-                    for the_other_citations in sub.iterchildren("uitgaande-links"):
-                        for other_sub_ref in the_other_citations.iterchildren():
-                            if is_legislation(other_sub_ref):
-                                legislation_citations.append(get_legislation_identifier(other_sub_ref))
 
-        # Remove duplicates
-        # case_law_citations = list(set(case_law_citations))
-        case_law_citations = [dict(t) for t in {tuple(d.items()) for d in case_law_citations}]
-        if ((len(case_law_citations) == num_citations_before_api_call) and (len(case_law_citations) > 0)) or (
-                (len(case_law_citations) == 0) and (start_page == 5)):
+
+        for el in xml_elements:
+
+            for sub in list(el.iterchildren('subject')):
+
+                for the_citations in sub.iterchildren(outgoing):
+                    for sub_ref in the_citations.iterchildren():
+                        if is_case_law(sub_ref):
+                            added_sth_new = add_citations_no_duplicates(case_law_citations_outgoing,sub_ref)
+                        elif is_legislation(sub_ref):
+                            added_sth_new = add_legislations_no_duplicates(legislation_citations,sub_ref)
+
+                for the_citations in sub.iterchildren(incoming):
+                    for sub_ref in the_citations.iterchildren():
+                        if is_case_law(sub_ref):
+                            added_sth_new = add_citations_no_duplicates(case_law_citations_incoming, sub_ref)
+
+
+
+
+        if not added_sth_new and start_page>10:
             end_of_pages = True
 
-    # Remove duplicates
-    # case_law_citations = list(set(case_law_citations))
-    case_law_citations = [dict(t) for t in {tuple(d.items()) for d in case_law_citations}]
-    for item in case_law_citations:
+    # Remove duplicates empties
+
+    for item in case_law_citations_incoming:
         if item[LIDO_JURISPRUDENTIE] == "":
-            case_law_citations.remove(item)
+            case_law_citations_incoming.remove(item)
+    for item in case_law_citations_outgoing:
+        if item[LIDO_JURISPRUDENTIE] == "":
+            case_law_citations_outgoing.remove(item)
 
-    # Remove duplicates
-    legislation_citations = list(set(legislation_citations))
+
     # Remove input case ECLI (for some reason a case can cite itself...)
-    # if (remove_spaces_from_ecli(ecli) in case_law_citations):
-    #    case_law_citations.remove(remove_spaces_from_ecli(ecli))
+    for dicts in case_law_citations_incoming:
+        if dicts[LIDO_JURISPRUDENTIE] == remove_spaces_from_ecli(ecli):
+            case_law_citations_incoming.remove(dicts)
+            break
+    if (remove_spaces_from_ecli(ecli) in case_law_citations_incoming):
+        case_law_citations_incoming.remove(remove_spaces_from_ecli(ecli))
 
-    case_law_result = {key: [] for key in case_citations_fieldnames}
-    legislation_result = {key: [] for key in legislation_citations_fieldnames}
+    case_law_result_outgoing = extract_results_citations(case_law_citations_outgoing,ecli,case_citations_fieldnames)
+    case_law_results_incoming = extract_results_citations(case_law_citations_incoming,ecli,case_citations_fieldnames)
+    legislation_results = extract_results_legislations(legislation_citations,ecli,legislation_citations_fieldnames)
 
-    for case_citation in case_law_citations:
-        if not case_citation[LIDO_JURISPRUDENTIE] == remove_spaces_from_ecli(ecli):
-            case_law_result[case_citations_fieldnames[0]].append(remove_spaces_from_ecli(ecli))  # Source ECLI
-            case_law_result[case_citations_fieldnames[1]].append(
-                remove_spaces_from_ecli(case_citation[LIDO_JURISPRUDENTIE]))  # Target ECLI
-            case_law_result[case_citations_fieldnames[2]].append(case_citation['label'])  # Target ECLI
-            case_law_result[case_citations_fieldnames[3]].append(case_citation['type'])  # Target ECLI
-            case_law_result[case_citations_fieldnames[4]].append(relation)  # Target ECLI
-            case_law_result[case_citations_fieldnames[5]].append(case_citation['keep1'])  # Target ECLI
-            case_law_result[case_citations_fieldnames[6]].append(case_citation['keep2'])  # Target ECLI
-            case_law_result[case_citations_fieldnames[7]].append(date)
-            # date of decision of ECLI
+    return case_law_results_incoming, case_law_result_outgoing, legislation_results
 
-    for leg_citation in legislation_citations:
-        legislation_result[legislation_citations_fieldnames[0]].append(remove_spaces_from_ecli(ecli))  # Source ECLI
-        legislation_result[legislation_citations_fieldnames[1]].append(leg_citation)  # Target article
-        legislation_result[legislation_citations_fieldnames[2]].append(
+
+def extract_results_citations(list,ecli,fields):
+    case_law_result = {key: [] for key in fields}
+    for case_citation in list:
+        case_law_result[fields[0]].append(remove_spaces_from_ecli(ecli))  # Source ECLI
+        case_law_result[fields[1]].append(
+            remove_spaces_from_ecli(case_citation[LIDO_JURISPRUDENTIE]))  # Target ECLI
+        case_law_result[fields[2]].append(case_citation['label'])  # Target ECLI
+        case_law_result[fields[3]].append(case_citation['type'])  # Target ECLI
+        case_law_result[fields[4]].append("")  # Target ECLI
+        case_law_result[fields[5]].append(case_citation['keep1'])  # Target ECLI
+        case_law_result[fields[6]].append(case_citation['keep2'])  # Target ECLI
+    return case_law_result
+def extract_results_legislations(list,ecli,fields):
+    legislation_result = {key: [] for key in fields}
+    for leg_citation in list:
+        legislation_result[fields[0]].append(remove_spaces_from_ecli(ecli))  # Source ECLI
+        legislation_result[fields[1]].append(leg_citation)  # Target article
+        legislation_result[fields[2]].append(
             get_legislation_webpage(leg_citation))  # Target article webpage
-        legislation_result[legislation_citations_fieldnames[3]].append(
+        legislation_result[fields[3]].append(
             get_legislation_name(leg_citation))  # pref label == article name
-        legislation_result[legislation_citations_fieldnames[4]].append(date)  # date of decision of ecli
+        legislation_result[fields[4]].append("")  # date of decision of ecli
+    return legislation_result
 
-    return case_law_result, legislation_result
+def run_citations_extraction_rechtspraak():
+    start = time.time()
+    input_path =  get_path_raw(CSV_RS_CASES)
+    output_path_c_citations = get_path_raw(CSV_CASE_CITATIONS)
+    output_path_l_citations = get_path_raw(CSV_LEGISLATION_CITATIONS)
+
+    print('\n--- PREPARATION ---\n')
+    print('INPUT/OUTPUT DATA STORAGE:\t', 'local')
+    print('INPUT:\t\t\t\t', basename(input_path))
+    print('OUTPUTS:\t\t\t', f'{basename(output_path_c_citations)}, {basename(output_path_l_citations)}\n')
+    storage = Storage()
+    storage.setup_pipeline(output_paths=[output_path_c_citations, output_path_l_citations], input_path=input_path)
 
 
-start = time.time()
+    print('\n--- START ---\n')
 
-parser = argparse.ArgumentParser()
-parser.add_argument('storage', choices=['local', 'aws'], help='location to take input data from and save output data to')
-parser.add_argument('-f', '--failed', action='store_true', help='parse list of failed eclis instead of full list of eclis')
-parser.add_argument('-i', '--incoming', action='store_true', help='fetch incoming citations instead of outgoing')
-args = parser.parse_args()
 
-input_path = get_path_raw(CSV_LIDO_ECLIS_FAILED) if args.failed else get_path_raw(CSV_RS_INDEX)
-output_path_c_citations = get_path_raw(CSV_CASE_CITATIONS)
-output_path_l_citations = get_path_raw(CSV_LEGISLATION_CITATIONS)
+    case_citations_fieldnames = [ECLI, LIDO_JURISPRUDENTIE, LIDO_LABEL, LIDO_TYPE, RS_RELATION, 'keep1', 'keep2', RS_DATE]
+    legislation_citations_fieldnames = [ECLI, LIDO_WET, LIDO_ARTIKEL, LIDO_ARTIKEL_TITLE, RS_DATE]
 
-print('\n--- PREPARATION ---\n')
-print('INPUT/OUTPUT DATA STORAGE:\t', args.storage)
-print('INPUT:\t\t\t\t', basename(input_path))
-print('OUTPUTS:\t\t\t', f'{basename(output_path_c_citations)}, {basename(output_path_l_citations)}\n')
-storage = Storage()
-storage.setup_pipeline(output_paths=[output_path_c_citations, output_path_l_citations], input_path=input_path)
-citation_type = "inkomende-links" if args.incoming else "uitgaande-links"
-last_updated = '1900-01-01' #TODO this needs to be removed safely. this functionality from storage_handler is not used anymore.
+    #find citations, and save the file incrementally
+    find_citations_for_cases(input_path, output_path_c_citations, case_citations_fieldnames,
+                             output_path_l_citations, legislation_citations_fieldnames)
 
-print('\n--- START ---\n')
+    print('Dropping duplicate legislation citations...')
+    # DROP DUPLICATES from the legislation citation table
+    legislation_citations = pd.read_csv(output_path_l_citations)
+    #print(legislation_citations.head())
+    #print("size leg before droping duplicates : "+str(legislation_citations.shape))
+    legislation_citations = legislation_citations.drop_duplicates()
+    #print("size leg after droping duplicates : " + str(legislation_citations.shape))
+    legislation_citations.to_csv(output_path_l_citations, index=False)
 
-LIDO_ENDPOINT = os.getenv('LIDO_ENDPOINT')
-LIDO_USERNAME = os.getenv('LIDO_USERNAME')
-LIDO_PASSWORD = os.getenv('LIDO_PASSWORD')
+    print(f"\nUpdating storage ...")
 
-case_citations_fieldnames = [ECLI, LIDO_JURISPRUDENTIE, LIDO_LABEL, LIDO_TYPE, RS_RELATION, 'keep1', 'keep2', RS_DATE]
-legislation_citations_fieldnames = [ECLI, LIDO_WET, LIDO_ARTIKEL, LIDO_ARTIKEL_TITLE, RS_DATE]
 
-#find citations, and save the file incrementally
-find_citations_for_cases(input_path, output_path_c_citations, case_citations_fieldnames,
-                         output_path_l_citations, legislation_citations_fieldnames)
+    end = time.time()
+    print("\n--- DONE ---")
+    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
 
-print('Dropping duplicate legislation citations...')
-# DROP DUPLICATES from the legislation citation table
-legislation_citations = pd.read_csv(output_path_l_citations)
-#print(legislation_citations.head())
-#print("size leg before droping duplicates : "+str(legislation_citations.shape))
-legislation_citations = legislation_citations.drop_duplicates()
-#print("size leg after droping duplicates : " + str(legislation_citations.shape))
-legislation_citations.to_csv(output_path_l_citations, index=False)
-
-print(f"\nUpdating {args.storage} storage ...")
-storage.finish_pipeline()
-
-end = time.time()
-print("\n--- DONE ---")
-print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+if __name__ == '__main__':
+    run_citations_extraction_rechtspraak()
