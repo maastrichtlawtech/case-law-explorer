@@ -77,3 +77,4 @@ Selenium == 4.4.3
 cellar-extractor == 1.0.49
 rechtspraak_extractor == 1.1.8
 echr-extractor == 1.0.20
+rechtspraak-citations-extractor==1.0.4

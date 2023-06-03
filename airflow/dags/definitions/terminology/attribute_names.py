@@ -36,6 +36,9 @@ RS_INFO = 'info'  # information about case, often not systematic or already capt
 ECLI_DECISION = 'ecli_decision'  # ecli of case decision corresponding to case opinion
 ECLI_OPINION = 'ecli_opinion'  # ecli of case opinion corresponding to case decision
 RS_FULL_TEXT = 'full_text'  # full text of case
+RS_CITED_BY = 'cited_by'
+RS_CITING = 'citing'
+RS_LEGISLATIONS = 'legislations_cited'
 
 # fields only in LI
 LI_DISPLAY_TITLE = 'display_title'  # title of document entry in LI

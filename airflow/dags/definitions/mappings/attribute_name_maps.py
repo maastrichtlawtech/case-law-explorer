@@ -27,7 +27,10 @@ MAP_RS = {
     # information about case, often not systematic or already captured in other fields (original tag name: either 'uitspraak.info or 'conclusie.info')
     'full_text': RS_FULL_TEXT,  # full text of case (original tag name: either 'uitspraak' or 'conclusie')
     JURISDICTION_COUNTRY: JURISDICTION_COUNTRY,  # not in original data, added through script
-    SOURCE: SOURCE  # not in original data, added through script
+    SOURCE: SOURCE,  # not in original data, added through script
+    'citations_incoming': RS_CITED_BY,  # cases citing current case
+    'citations_outgoing': RS_CITING,  # cases cited in current case
+    'legislations_cited': RS_LEGISLATIONS  # legislations cited in current case
 }
 MAP_CELLAR = {
     'CASE LAW COMMENTED BY AGENT': CELLAR_COMMENTED_AGENT,  # which Member States submitted information
@@ -64,7 +67,7 @@ MAP_CELLAR = {
     'judge_rapporteur': CELLAR_JUDGE_RAPPORTEUR,  # Judge Rapporteur of the case
     'affecting_ids': CELLAR_AFFECTING_ID,  # cellar id's of case affecting
     'affecting_strings': CELLAR_AFFECTING_STRING,  # entire strings with more details about case affecting
-    'citations_extra_info' : CELLAR_CITATIONS_EXTRA_INFO  # Citations with exact paragraphs cited
+    'citations_extra_info': CELLAR_CITATIONS_EXTRA_INFO  # Citations with exact paragraphs cited
 
 }
 MAP_RS_OPINION = MAP_RS.copy()

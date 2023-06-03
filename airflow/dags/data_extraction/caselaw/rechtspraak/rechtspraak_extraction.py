@@ -7,11 +7,15 @@ from definitions.storage_handler import Storage, get_path_raw, CSV_RS_CASES
 import argparse
 from dotenv import load_dotenv, find_dotenv
 from airflow.models.variable import Variable
+import rechtspraak_citations_extractor as rex_citations
+import os
 
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
-
+LIDO_USERNAME = os.getenv('LIDO_USERNAME')
+LIDO_PASSWORD = os.getenv('LIDO_PASSWORD')
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
+
 
 def rechtspraak_extract(args):
     output_path = get_path_raw(CSV_RS_CASES)
@@ -53,9 +57,13 @@ def rechtspraak_extract(args):
         df = rex.get_rechtspraak(max_ecli=amount, sd=last_updated, save_file='n', ed=today_date)
         df_2 = rex.get_rechtspraak_metadata(save_file='n', dataframe=df)
 
+    rex_citations.get_citations(df_2, LIDO_USERNAME, LIDO_PASSWORD, 2)
+
     print(f"\nUpdating local storage ...")
     df_filepath = get_path_raw(CSV_RS_CASES)
+
     df_2.to_csv(df_filepath, index=False)
+
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
