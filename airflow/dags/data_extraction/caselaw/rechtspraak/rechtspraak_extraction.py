@@ -55,7 +55,7 @@ def get_parser_args(args):
     return start, end, amount
 
 
-def rechtspraak_extract(args):
+def rechtspraak_extract(args=None):
     output_path = get_path_raw(CSV_RS_CASES)
     parser = argparse.ArgumentParser()
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
@@ -130,4 +130,4 @@ def rechtspraak_extract(args):
 
 if __name__ == '__main__':
     # giving arguments to the function
-    rechtspraak_extract(sys.argv[1:])
+    rechtspraak_extract()

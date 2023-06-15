@@ -18,8 +18,7 @@ with DAG(
 ) as DAG:
     task1 = PythonOperator(
         task_id='rechtspraak_extraction',
-        python_callable=rechtspraak_extract,
-        op_args=[['--amount', ' 100']]
+        python_callable=rechtspraak_extract
     )
     task2 = TriggerDagRunOperator(
         trigger_dag_id='data_transformation',
