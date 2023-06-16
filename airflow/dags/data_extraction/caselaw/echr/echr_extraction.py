@@ -38,7 +38,7 @@ def echr_extract(args):
     parser.add_argument('--language', nargs='+', help='The languages to be extracted',
                         required=False, default=["ENG", "FRE"])
 
-    args = parser.parse_args(args)
+    args, unknown = parser.parse_known_args(args)
 
     # set up locations
     print('\n--- PREPARATION ---\n')
