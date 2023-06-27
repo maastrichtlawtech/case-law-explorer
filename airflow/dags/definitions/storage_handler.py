@@ -1,6 +1,6 @@
-from os.path import dirname, abspath, join, exists
-from os import makedirs
 import logging
+from os import makedirs
+from os.path import dirname, abspath, join, exists
 
 """
 Purpose of script:
@@ -25,25 +25,19 @@ DIR_DATA_FULL_TEXT = join(DIR_DATA, 'full_text')
 DIR_RECHTSPRAAK = join(DIR_DATA, 'Rechtspraak', 'OpenDataUitspraken')
 DIR_ECHR = join(DIR_DATA, 'echr')
 CELLAR_DIR = join(DIR_DATA, 'cellar')
-CSV_OPENDATA_INDEX = DIR_RECHTSPRAAK + '_index.csv'  # eclis and decision dates of OpenDataUitspraken files
 CSV_RS_CASES = 'RS_cases.csv'  # metadata of RS cases
-CSV_RS_OPINIONS = 'RS_opinions.csv'  # metadata of RS opinions
 CSV_CELLAR_CASES = 'cellar_csv_data.csv'  # Metadata of CELLAR cases
 TXT_CELLAR_EDGES = 'cellar_edges.txt'
 TXT_CELLAR_NODES = 'cellar_nodes.txt'
 TXT_ECHR_EDGES = 'ECHR_edges.txt'
 TXT_ECHR_NODES = 'ECHR_nodes.txt'
 CSV_RS_INDEX = 'RS_index.csv'  # eclis, decision dates and relations of RS cases and opinions
-CSV_CASE_CITATIONS = 'caselaw_citations.csv'  # citations of RS cases and opinions
-CSV_LEGISLATION_CITATIONS = 'legislation_citations.csv'  # cited legislation of RS cases and opinions
-CSV_LIDO_ECLIS_FAILED = 'LIDO_eclis_failed.csv'
 CSV_DDB_ECLIS_FAILED = 'DDB_eclis_failed.csv'
-CSV_OS_ECLIS_FAILED = 'OS_eclis_failed.csv'
 CSV_ECHR_CASES = 'ECHR_metadata.csv'
 CSV_ECHR_CASES_NODES = 'ECHR_nodes.csv'
 CSV_ECHR_CASES_EDGES = "ECHR_edges.csv"
-JSON_FULL_TEXT_CELLAR = join(DIR_DATA_FULL_TEXT,'cellar_full_text.json')
-JSON_FULL_TEXT_ECHR = join(DIR_DATA_FULL_TEXT,'ECHR_full_text.json')
+JSON_FULL_TEXT_CELLAR = join(DIR_DATA_FULL_TEXT, 'cellar_full_text.json')
+JSON_FULL_TEXT_ECHR = join(DIR_DATA_FULL_TEXT, 'ECHR_full_text.json')
 
 
 # raw data:
@@ -86,4 +80,4 @@ class Storage:
         if self.pipeline_input_path:
             if not exists(input_path):
                 logging.warning(f'{input_path} does not exist locally!')
-                raise Exception(input_path+ ' does not exist locally!')
+                raise Exception(input_path + ' does not exist locally!')

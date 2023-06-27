@@ -1,8 +1,14 @@
+"""
+CELLAR extraction DAG.
+"""
 from datetime import datetime
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from data_extraction.caselaw.cellar.cellar_extraction import cellar_extract
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+
+from data_extraction.caselaw.cellar.cellar_extraction import cellar_extract
+
 default_args = {
     'owner': 'airflow',
     # 'retries': 5,
@@ -12,7 +18,7 @@ default_args = {
 with DAG(
         dag_id='cellar_extraction',
         default_args=default_args,
-        description='local working need to check aws',
+        description='fully implemented',
         start_date=datetime.now(),
         schedule_interval='10 1 * * *'
 
@@ -32,4 +38,5 @@ with DAG(
         task_id='data_loading',
         wait_for_completion=True
     )
+# Extraction -> Transformation -> Loading
 task1 >> task2 >> task3

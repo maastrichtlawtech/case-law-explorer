@@ -1,20 +1,26 @@
-from os.path import dirname, abspath, basename
-import sys
-import os
-from csv import DictReader
+"""
+Main data loader. Upload Cellar, ECHR and RS case metadata, full_text, nodes and edges onto the AWS storage.
+
+"""
 import csv
-from data_loading.row_processors.dynamodb import DynamoDBRowProcessor, \
-    DynamoDBRowCelexProcessor, DynamoDBRowItemidProcessor
+import os
+import sys
+import time
+from csv import DictReader
+from ctypes import c_long, sizeof
+from os.path import dirname, abspath, basename
+
+from dotenv import load_dotenv
+
 from data_loading.clients.dynamodb import DynamoDBClient
-from definitions.storage_handler import CSV_RS_CASES, CSV_RS_OPINIONS, \
+from data_loading.fulltext_bucket_saving import upload_fulltext, bucket_name
+from data_loading.nodes_and_edges_loader import upload_nodes_and_edges
+from data_loading.row_processors.dynamodb import DynamoDB_RS_Processor, \
+    DynamoDBRowCelexProcessor, DynamoDBRowItemidProcessor
+from definitions.storage_handler import CSV_RS_CASES, \
     get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES, \
     JSON_FULL_TEXT_CELLAR, \
     JSON_FULL_TEXT_ECHR
-from data_loading.fulltext_bucket_saving import upload_fulltext, bucket_name
-import time
-from ctypes import c_long, sizeof
-from dotenv import load_dotenv
-from data_loading.nodes_and_edges_loader import upload_nodes_and_edges
 
 load_dotenv()
 sys.path.append(dirname(dirname(abspath(__file__))))
@@ -22,6 +28,7 @@ sys.path.append(dirname(dirname(abspath(__file__))))
 # csv.field_size_l
 # imit(sys.maxsize) #appears to be system dependent so is replaced with:
 # from https://stackoverflow.com/questions/52475749/maximum-and-minimum-value-of-c-types-integers-from-python
+
 signed = c_long(-1).value < c_long(0).value
 bit_size = sizeof(c_long) * 8
 signed_limit = 2 ** (bit_size - 1)
@@ -33,7 +40,6 @@ def load_data():
 
     input_paths = [
         get_path_processed(CSV_RS_CASES),
-        get_path_processed(CSV_RS_OPINIONS),
         get_path_processed(CSV_ECHR_CASES),
         get_path_processed(CSV_CELLAR_CASES)
     ]
@@ -71,7 +77,7 @@ def load_data():
         elif get_path_processed(CSV_ECHR_CASES) in input_path:
             ddb_rp = DynamoDBRowItemidProcessor(input_path, ddb_client_echr.table)
         else:
-            ddb_rp = DynamoDBRowProcessor(input_path, ddb_client_ecli.table)
+            ddb_rp = DynamoDB_RS_Processor(input_path, ddb_client_ecli.table)
         # process csv by row
         with open(input_path, 'r', newline='', encoding="utf8") as in_file:
             reader = DictReader(in_file)

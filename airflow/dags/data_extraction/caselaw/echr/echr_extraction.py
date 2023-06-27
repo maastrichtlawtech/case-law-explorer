@@ -1,18 +1,25 @@
-import echr_extractor as echr
-from os.path import dirname, abspath
-import sys
+"""
+Main ECHR extraction routine. Used by the echr_extraction DAG.
+"""
+
+import argparse
 import json
+import sys
 import time
 from datetime import datetime
+from os.path import dirname, abspath
+
+import echr_extractor as echr
+from airflow.models.variable import Variable
+from dotenv import load_dotenv, find_dotenv
+
 from definitions.storage_handler import Storage, get_path_raw, \
     CSV_ECHR_CASES, JSON_FULL_TEXT_ECHR, TXT_ECHR_EDGES, TXT_ECHR_NODES
-import argparse
-from dotenv import load_dotenv, find_dotenv
-from airflow.models.variable import Variable
 
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
+
 
 def echr_extract(args):
     # set up the output path
@@ -47,11 +54,16 @@ def echr_extract(args):
     # set up storage handler
     storage = Storage()
     try:
+        # Now Storage will throw an exception when the output_path is occupied
+        # to make sure airflow doesn't crash it needs to be caught
+        # This way the pipeline goes to the next steps of transformation and extraction, hopefully
+        # eventually dealing with the already-existing output file
         storage.setup_pipeline(output_paths=[output_path])
     except Exception as e:
         print(e)
         return
     try:
+        # Getting date of last update from airflow database
         last_updated = Variable.get('ECHR_LAST_DATE')
     except:
         last_updated = '1900-01-01'
@@ -75,23 +87,24 @@ def echr_extract(args):
     print(kwargs)
     print(f"Downloading {args.count if 'count' in args and args.count is not None else 'all'} ECHR documents")
     if args.fresh:
-        df, json_file = echr.get_echr_extra(**kwargs, start_date="1990-01-01", save_file="n")
+        metadata, full_text = echr.get_echr_extra(**kwargs, start_date="1990-01-01", save_file="n")
     elif args.start_date:
         print(f'Starting from manually specified date: {args.start_date}')
-        df, json_file = echr.get_echr_extra(**kwargs, start_date=args.start_date, save_file="n")
+        metadata, full_text = echr.get_echr_extra(**kwargs, start_date=args.start_date, save_file="n")
     else:
         print('Starting from the last update the script can find')
-        df, json_file = echr.get_echr_extra(**kwargs, start_date=last_updated,
-                                            end_date=today_date, save_file="n")
+        metadata, full_text = echr.get_echr_extra(**kwargs, start_date=last_updated,
+                                                  end_date=today_date, save_file="n")
 
     print("--- saving ECHR data")
     df_filepath = get_path_raw(CSV_ECHR_CASES)
-    if df is not False:
-        df.to_csv(df_filepath, index=False)
+    if metadata is not False:
+        metadata.to_csv(df_filepath, index=False)
         json_filepath = JSON_FULL_TEXT_ECHR
         with open(json_filepath, 'w') as f:
-            json.dump(json_file, f)
+            json.dump(full_text, f)
         print("Adding Nodes and Edges lists to storage")
+        # Getting nodes and edges, citation-based. For creating a citation graph
         nodes, edges = echr.get_nodes_edges(df_filepath, save_file="n")
         # get only the ecli column in nodes
         nodes = nodes[['ecli']]

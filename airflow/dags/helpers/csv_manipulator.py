@@ -1,6 +1,11 @@
+"""
+Contains the method 'drop_columns'. Used by cellar extraction to remove data we are not interested in.
+"""
+
 import glob
-from definitions.storage_handler import DIR_DATA_PROCESSED
+
 from data_transformation.utils import read_csv
+from definitions.storage_handler import DIR_DATA_PROCESSED
 
 X = ['WORK IS CREATED BY AGENT (AU)', 'CASE LAW COMMENTED BY AGENT', 'CASE LAW HAS A TYPE OF PROCEDURE',
      'LEGAL RESOURCE USES ORIGINALLY LANGUAGE', 'CASE LAW USES LANGUAGE OF PROCEDURE',
@@ -42,6 +47,7 @@ Method used to remove unnecessary columns from a dataframe.
 """
 types_to_keep = ['Unknown', 'Opinion of the Advocate General', 'Judgment']
 
+
 def drop_columns(data):
     columns = data_to_drop
     for i in range(len(columns)):
@@ -50,11 +56,11 @@ def drop_columns(data):
         except Exception:
             print(f"Column titled {columns[i]} does not exist in the file!")
     data.drop(data[-data.ECLI.str.contains("ECLI:EU:C")].index, inplace=True)
-    data.drop(data[-data['CELEX IDENTIFIER'].str.startswith('6')].index,inplace=True)
+    data.drop(data[-data['CELEX IDENTIFIER'].str.startswith('6')].index, inplace=True)
     data['WORK HAS RESOURCE TYPE'] = data['WORK HAS RESOURCE TYPE'].fillna('Unknown')
     data.drop(data[-data['WORK HAS RESOURCE TYPE'].str.contains('|'.join(types_to_keep))].index, inplace=True)
 
-  #  data.drop(data[-data['WORK HAS RESOURCE TYPE'].contains("ECLI:EU:C")].index, inplace=True)
+    #  data.drop(data[-data['WORK HAS RESOURCE TYPE'].contains("ECLI:EU:C")].index, inplace=True)
     data.reset_index(inplace=True, drop=True)
 
 

@@ -1,8 +1,15 @@
+"""
+ECHR extraction DAG.
+"""
+
 from datetime import datetime, timedelta
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+
 from data_extraction.caselaw.echr.echr_extraction import echr_extract
+
 default_args = {
     'owner': 'none',
     'retries': 5,
@@ -11,7 +18,7 @@ default_args = {
 with DAG(
         dag_id='echr_extraction',
         default_args=default_args,
-        description=' Still in process',
+        description='fully implemented',
         start_date=datetime.now(),
         schedule_interval='@daily'
 
@@ -31,4 +38,6 @@ with DAG(
         task_id='data_loading',
         wait_for_completion=True
     )
+
+# Extraction -> Transformation -> Loading
 task1 >> task2 >> task3

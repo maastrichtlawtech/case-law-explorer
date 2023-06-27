@@ -1,4 +1,4 @@
-from definitions.terminology.attribute_values import Domain, Jurisdiction, InstanceComponent
+from definitions.terminology.attribute_values import Jurisdiction, InstanceComponent
 
 MAP_INSTANCE = {
     'Sector kanton Rechtbank': InstanceComponent.RECHTBANK.value,

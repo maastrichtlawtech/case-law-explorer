@@ -1,6 +1,14 @@
+"""
+Data transformation DAG.
+Does not actually run itself but !!it has to be active on airflow!!.
+Only externally triggered by the extraction dags.
+"""
+
 from datetime import datetime
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+
 from data_transformation.data_transformer import transform_data
 
 default_args = {
@@ -12,7 +20,7 @@ default_args = {
 with DAG(
         dag_id='data_transformation',
         default_args=default_args,
-        description='works well',
+        description='fully implemented',
         start_date=datetime.now(),
         schedule_interval=None
 

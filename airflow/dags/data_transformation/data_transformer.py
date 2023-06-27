@@ -1,10 +1,17 @@
-from os.path import dirname, abspath, basename, exists
-from os import remove
-from definitions.mappings.attribute_name_maps import *
-from data_transformation.utils import *
-from definitions.storage_handler import Storage, CSV_RS_CASES, CSV_RS_OPINIONS,get_path_raw, get_path_processed, CSV_CELLAR_CASES, CSV_ECHR_CASES
+"""
+Main data transformer. Transforms files from the data/raw file onto data/processed. Cleans up the data, renames columns,
+removes some unnecessary data.
+"""
 import time
 from csv import DictReader, DictWriter
+from os import remove
+from os.path import dirname, abspath, basename, exists
+
+from data_transformation.utils import *
+from definitions.mappings.attribute_name_maps import *
+from definitions.storage_handler import Storage, CSV_RS_CASES, get_path_raw, get_path_processed, CSV_CELLAR_CASES, \
+    CSV_ECHR_CASES
+
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 """
@@ -23,16 +30,6 @@ tool_map_rs = {
     'full_text': format_rs_xml
 }
 
-tool_map_li = {
-    'Jurisdiction': format_jurisdiction,
-    'LawArea': format_li_domains,
-    'IssuingInstitution': format_instance,
-    'PublicationDate': format_li_date,
-    'EnactmentDate': format_li_date,
-    'DateAdded': format_li_date,
-    'Sources': format_li_list,
-    'SearchNumbers': format_li_list
-}
 tool_map_cellar = {
     'YEAR OF THE LEGAL RESOURCE': format_cellar_year,
     'CELEX IDENTIFIER': format_cellar_celex
@@ -43,14 +40,12 @@ tool_map_echr = {
 }
 tool_maps = {
     get_path_raw(CSV_RS_CASES): tool_map_rs,
-    get_path_raw(CSV_RS_OPINIONS): tool_map_rs,
     get_path_raw(CSV_CELLAR_CASES): tool_map_cellar,
     get_path_raw(CSV_ECHR_CASES): tool_map_echr
 }
 
 field_maps = {
     get_path_raw(CSV_RS_CASES): MAP_RS,
-    get_path_raw(CSV_RS_OPINIONS): MAP_RS_OPINION,
     get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR,
     get_path_raw(CSV_ECHR_CASES): MAP_ECHR
 }
@@ -64,7 +59,6 @@ def transform_data():
 
     input_paths = [
         get_path_raw(CSV_RS_CASES),
-        get_path_raw(CSV_RS_OPINIONS),
         get_path_raw(CSV_CELLAR_CASES),
         get_path_raw(CSV_ECHR_CASES)
     ]

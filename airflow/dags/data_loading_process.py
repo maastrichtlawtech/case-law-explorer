@@ -1,6 +1,14 @@
+"""
+Data loading DAG.
+Does not actually run itself but !!it has to be active on airflow!!.
+Only externally triggered by the extraction dags.
+"""
+
 from datetime import datetime
+
 from airflow import DAG
 from airflow.operators.python import PythonOperator
+
 from data_loading.data_loader import load_data
 
 default_args = {
@@ -12,7 +20,7 @@ default_args = {
 with DAG(
         dag_id='data_loading',
         default_args=default_args,
-        description='seems to be working :)',
+        description='fully implemented',
         start_date=datetime.now(),
         schedule_interval=None
 
