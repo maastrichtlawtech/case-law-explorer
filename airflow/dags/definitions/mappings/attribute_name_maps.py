@@ -36,7 +36,6 @@ MAP_RS = {
 MAP_CELLAR = {
     'CASE LAW COMMENTED BY AGENT': CELLAR_COMMENTED_AGENT,  # which Member States submitted information
     'celex_directory_codes': CELLAR_DIRECTORY_CODES,  # directory classification codes for case
-    'celex_subject_matter': CELLAR_SUBJECT_MATTER,  # subject matter
     'celex_eurovoc': CELLAR_EUROVOC,  # eurovoc classification codes for case
     'celex_keywords': CELLAR_KEYWORDS,  # keywords of case
     'celex_summary': CELLAR_SUMMARY,  # summary of case

@@ -29,7 +29,7 @@ You need to edit the `docker-compose.yaml` file, which should be in the root fol
 
 **Setup the .env file**
 
-Follow the same procedure, as described in the [data extraction section]() ###TODO ADD LINK HERE###
+Follow the same procedure, as described in the [data extraction section](/etl/)
 
 
 ### Deployment
@@ -51,7 +51,7 @@ Follow the same procedure, as described in the [data extraction section]() ###TO
 If the image was built successfuly, after logging-in this is what airflow should look like : 
 ![airflow](airflow.png)
 
-DAGs are the tasks, which airflow executes periodically. They can be found in `airflow/dags`. In this setup, they execute the methods mentioned in the [Data extraction section]() ## TO DO ADD LINK HERE IDK HOW YET ##. A detailed explanation of how DAGs work can be found [here](https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html).
+DAGs are the tasks, which airflow executes periodically. They can be found in `airflow/dags`. In this setup, they execute the methods mentioned in the [Data extraction section](/etl/). A detailed explanation of how DAGs work can be found [here](https://airflow.apache.org/docs/apache-airflow/stable/core-concepts/dags.html).
 ### In case you are restarting the deployment...
 
 Extraction tasks store the `last-update date` as Variables in the airflow database. This database will **NOT** be wiped whenever you re-built the airflow image.

@@ -64,10 +64,7 @@ EURLEX_FULL_TEXT=https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:
 EURLEX_WEBSERVICE_USERNAME=
 EURLEX_WEBSERVICE_PASSWORD=
 
-# Minio env
-MINIO_ROOT_USER=admin
-MINIO_ROOT_PASSWORD=
-MINIO_VOLUMES="G:\Github\case-law-explorer\airflow\data"
+RS_SETUP=True
 ```
 ### Storage location
 Read more about the [`Storage` object](/reference/storage). 
@@ -78,7 +75,7 @@ In the storage location, the data directory follows the structure of:
 └── data
     ├── processed <i># processed data as result of the transformation scripts</i>
     ├── raw <i># extracted data as result of the extractions scripts</i>
-    └── Rechtspraak <i># data downloaded from Rechtspraak.nl </i>
+    └── full_text <i># full text data for Cellar and ECHR cases </i>
 
 </pre>
 
@@ -103,7 +100,7 @@ $ python3 airflow/dags/data_extraction/caselaw/rechtspraak/rechtspraak_extractio
 **Options:**
 - `amount` (int): number of documents to retrieve
 - `starting_date` (YYYY-MM-DD): Last modification date to look forward from
-
+- `ending_date` (YYYY-MM-DD): Last modification date to look back from
 
 **Output:**
 - `data/raw/RS_cases.csv`
@@ -150,9 +147,8 @@ $ python3 airflow/dags/data_extraction/caselaw/cellar/cellar_extraction.py
 ```
 **Options:**
 - `--amount` (int): number of documents to retrieve
-- `--concurrent-docs` (int): default number of documents to retrieve concurrently (200)
 - `--starting-date` (str): last modification date to look forward from
-- `--fresh` (flag): if present, runs a complete download
+
 
 **Output:**
 - `data/raw/cellar_csv_data.csv`
@@ -175,9 +171,6 @@ Transform the data available in the `data/raw/` directory. The processed data is
 ```bash
 $ python3 airflow/dags/data_transformation/data_transformer.py 
 ```
-
-**Arguments:**
-- `storage` (choices: `local`, `aws`): location to take input data from and save output data to (local directory or AWS S3 bucket).
 
 **Input:**  
 - `data/raw/cellar_csv_data.csv`

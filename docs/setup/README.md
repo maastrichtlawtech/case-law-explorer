@@ -60,7 +60,6 @@ Import the file paths of your data into `data_transformer.py`.
 ```python
 input_paths = [
         get_path_raw(CSV_RS_CASES),
-        get_path_raw(CSV_RS_OPINIONS),
         get_path_raw(CSV_CELLAR_CASES),
         get_path_raw(CSV_ECHR_CASES)
     ]
@@ -98,7 +97,6 @@ Add your **processed** file paths to the `input_paths` in the `data_loader.py` s
 ```python
 input_paths = [
         get_path_processed(CSV_RS_CASES),
-        get_path_processed(CSV_RS_OPINIONS),
         get_path_processed(CSV_ECHR_CASES),
         get_path_processed(CSV_CELLAR_CASES)
     ]

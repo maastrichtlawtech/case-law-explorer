@@ -36,11 +36,7 @@ def cellar_extract(args):
 
     parser = argparse.ArgumentParser()
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
-    parser.add_argument('--concurrent-docs', default=200, type=int,
-                        help='default number of documents to retrieve concurrently', required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
-    parser.add_argument('--fresh', help='Flag for running a complete download regardless of existing downloads',
-                        action='store_true')
 
     # Airflow gives extra arguments ( 'celery worker').
     # To make sure it doesn't crash the code, the unknown arg catching has to be added
@@ -81,13 +77,10 @@ def cellar_extract(args):
     else:
         amount = args.amount
     # Running the extraction, different options based on passed on arguments
-    if args.fresh:
-        metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd="1880-01-01", threads=15,
-                                                         username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
-    elif args.starting_date:
+    if args.starting_date:
         print(f'Starting from manually specified date: {args.starting_date}')
         metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date,
-                                                         threads=15,
+                                                         ed=today_date, threads=15,
                                                          username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
     else:
         print('Starting from the last update the script can find')
