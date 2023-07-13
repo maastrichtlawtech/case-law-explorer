@@ -29,100 +29,30 @@ Access to the platform and the archive is open.
 
 The following tags are currently extracted from the XML files:
 
-| Name                | Format                             | Definition                                                                                |
-|:--------------------|:-----------------------------------|:------------------------------------------------------------------------------------------|
-| identifier          | String                             | ECLI (European Case Law Identifier): unique identifier for court decisions in Europe      |
-| identifier          | String                             | URL to original document by publisher                                                     |
-| issued              | String / yyyy-mm-dd                | Date of document publication                                                              |
-| language            | String / "nl"                      | Language of jurisdiction to which case belongs                                            |
-| creator             | String                             | Name of instance (court)                                                                  |
-| spatial             | String                             | Court location (municipality)                                                             |
-| date                | String / yyyy-mm-dd                | Date of court decision                                                                    |
-| zaaknummer          | String                             | Case number, for internal use by courts (main identifier prior to introduction of ECLI)   |
-| type                | String / "uitspraak" / "conclusie" | Document type: decision/opinion                                                           |
-| procedure           | String[]                           | Procedure type (e.g. summary proceedings)                                                 |
-| subject             | String / "domain; subdomain"       | Domain (area of the law) applicable to case                                               |
-| relation            | String[]                           | Predecessor and successor cases (in case of appeal, cassation, preliminary decisions etc) |
-| references          | String[]                           | Title of applicable legislation                                                           |
-| hasVersion          | String[]                           | References to other publications                                                          |
-| title               | String                             | Title of case                                                                             |
-| inhoudsindicatie    | XML                                | Case summary                                                                              |
-| uitspraak/conclusie | XML                                | Full text of case decision/opinion                                                        |
-
-### Legal Intelligence API
-
-[Legal Intelligence](https://www.legalintelligence.com) is a legal search engine of a private provider which integrates data from different publishers and thus enhances the data available at rechtspraak.nl, especially for cases before the year 2000. 
-
-#### Access
-The platform can be accessed via institutional login, or by [requesting access](https://www.legalintelligence.com/nl/proef-abonnement/). Once access is granted, the data can also be received through the Legal Intelligence API in JSON (or XML) format.
-
-#### Sources
-
-- Website: https://www.legalintelligence.com/
-- API endpoint: https://api.legalintelligence.com/
-- Documentation: https://www.legalintelligence.com/handleidingen/api-technical-information/
-
-#### Data format
-
-The following fields are currently extracted from the JSON objects:  
-
-| Name                         | Format                 | Definition                                                                              |
-|:-----------------------------|:-----------------------|:----------------------------------------------------------------------------------------|
-| Id                           | String                 | Internal document ID                                                                    |
-| Title                        | String                 | Title of case                                                                           |
-| DisplayTitle                 | String                 | Internal title of document entry                                                        |
-| DisplaySubtitle              | String                 | Internal subtitle of document entry                                                     |
-| Summary                      | String                 | Case summary                                                                            |
-| Url                          | String                 | URL to document entry in Legal Intelligence                                             |
-| OriginalUrl                  | String                 | URL to original document by publisher                                                   |
-| Jurisdiction                 | String / "Nederland"   | Country of jurisdiction                                                                 |
-| DocumentType                 | String / "Rechtspraak" | Source of case                                                                          |
-| LawArea                      | String[]               | Domains (area of the law) applicable to case                                            |
-| IssuingInstitution           | String                 | Name of instance (court)                                                                |
-| CaseNumber                   | String                 | Case number, for internal use by courts (main identifier prior to introduction of ECLI) |
-| PublicationNumber            | String                 | Internal document id of publisher                                                       |
-| IssueNumber                  | String                 | References to other publications                                                        |
-| PublicationDate              | Int / yyyyMMdd         | Date of document publication                                                            |
-| EnactmentDate                | Int / yyyyMMdd         | Date of court decision                                                                  |
-| DateAdded                    | Int / yyyyMMdd         | Date document added to Legal Intelligence                                               |
-| Sources                      | String[]               | References to other publications                                                        |
-| SearchNumbers                | String[]               |                                                                                         |
-| ecli *(generated by script)* | String                 | European Case Law Identifier                                                            |
-
-### Linked Data Overheid (LiDO)
-
-[Linked Data Overheid](https://linkeddata.overheid.nl/) is a public database provided by the Dutch government that contains the links between Dutch and European cases and legislation.
-
-#### Access
-Access to the platform is open. To access the API, one can request a username and password by sending an email to linkeddata@koop.overheid.nl, as per their service documentation.
-
-#### Sources
-
-- Website: https://linkeddata.overheid.nl/
-- API Endpoint: http://linkeddata.overheid.nl/service/get-links
-- Documentation: https://linkeddata.overheid.nl/front/portal/services
-
-#### Data format
-
-The following fields are extracted with the LiDO API:
-
-**Caselaw citations:**
-
-| Name                          | Format | Definition                                                           |
-|:------------------------------|:-------|:---------------------------------------------------------------------|
-| target_ecli                   | String | ECLI of the case that is being cited                                 |
-| label                         | String | Descriptive type of citation (conclusie, appeal, cassatie, ...)      |
-| type                          | String | Type id of citation as given in the linktype URL                     |
-| keep1 *(generated by script)* | String | whether or not *type* equals *'lx-referentie'*                       |
-| keep2 *(generated by script)* | String | whether or not *target_ecli* is not in *predecessor_successor_cases* |
-
-**Legislation citations:**
-
-| Name                     | Format | Definition                              |
-|:-------------------------|:-------|:----------------------------------------|
-| legal_provision          | String | Title of cited legislation              |
-| legal_provision_url      | String | URL to cited legislation (on wetten.nl) |
-| legal_provision_url_lido | String | URL to LiDO entry of cited legislation  |
+| Name                          | Format                             | Definition                                                                                |
+|:------------------------------|:-----------------------------------|:------------------------------------------------------------------------------------------|
+| ECLI                          | String                             | ECLI (European Case Law Identifier): unique identifier for court decisions in Europe      |
+| date_publication              | String / yyyy-mm-dd                | Date of document publication                                                              |
+| language                      | String / "nl"                      | Language of jurisdiction to which case belongs                                            |
+| instance                      | String                             | Name of instance (court)                                                                  |
+| jurisdiction_city             | String                             | Court location (municipality)                                                             |
+| date_decision                 | String / yyyy-mm-dd                | Date of court decision                                                                    |
+| case_number                   | String                             | Case number, for internal use by courts (main identifier prior to introduction of ECLI)   |
+| document_type                 | String / "uitspraak" / "conclusie" | Document type: decision/opinion                                                           |
+| procedure_type                | String[]                           | Procedure type (e.g. summary proceedings)                                                 |
+| domains                       | String / "domain; subdomain"       | Domain (area of the law) applicable to case                                               |
+| referenced_legislation_titles | String[]                           | Title of applicable legislation                                                           |
+| alternative_publications      | String[]                           | References to other publications                                                          |
+| title                         | String                             | Title of case                                                                             |                                                                        |
+| full_text                     | String                             | Full text of case decision/opinion                                                        |
+| summary                       | String                             | Summary of case                                                                           |
+| citing                        | String                             | Cases cited by the case                                                                   |
+| cited_by                      | String                             | Cases citing the case                                                                     |
+| legislations_cited            | String                             | Legislations cited by case                                                                |                                                             |
+| predecessor_successor_cases   | String                             | Predecessor and successor cases                                                           |
+| url_publications              | URL                                | URL (deeplink) to case as published on Rechtspraak.nl                                     |
+| info                          | String                             | Information                                                                               |
+| source                        | String                             | Source of data                                                                            |
 
 
 ## European courts
@@ -130,9 +60,6 @@ The following fields are extracted with the LiDO API:
 We are making efforts to include in our project European and international courts as well. So far we are working to add this European courts to our codebase.
 
 ### European Court of Human Rights (ECHR)
-
-> [!ATTENTION|label:WORK IN PROGRESS]
-> The ECHR extraction, transformation, and loading script are still **work in progress**! This is an overview of the current data format.
 
 The [ECHR](https://www.echr.coe.int/Pages/home.aspx?p=home) is dealing with cases alleging that a state has breached human rights agreed in the European Convention on Human Rights. The [HUDOC database](https://www.echr.coe.int/Pages/home.aspx?p=caselaw/HUDOC&c=) provides access to the caselaw of the ECHR.  
 
@@ -149,41 +76,39 @@ The [ECHR](https://www.echr.coe.int/Pages/home.aspx?p=home) is dealing with case
 
 The following fileds are expected to be found in the CSV files storing ECHR data:
 
-| Name                | Format   | Definition                                       |
-|:--------------------|:---------|:-------------------------------------------------|
-| itemid              | String   | Unique identifier                                |
-| applicability       | String   |                                                  |
-| application         | String   |                                                  |
-| appno               | String   | Application number                               |
-| article             | String   | Alleged violated articles                        |
-| conclusion          | String   | Violated/Non-violated articles                   |
-| docname             | String   | Name of the case                                 |
-| doctype             | String   | Type of document                                 |
-| doctypebranch       | String   |                                                  |
-| ecli                | String   | European Case Law Identifier                     |
-| importance          | Number   |                                                  |
-| isplaceholder       | Boolean  |                                                  |
-| judgementdate       | Date     | Date of judgement                                |
-| kpdate              | Date     | Date of judgement in 12-hours format             |
-| kpdateAsText        | String   | Date of judgement as string                      |
-| kpthesaurus         | String   |                                                  |
-| languageisocode     | String   | Language of case                                 |
-| originatingbody     | Number   |                                                  |
-| Rank                | Number   |                                                  |
-| representedby       | String   | Representation of the case                       |
-| respondent          | String   | Defender of the case                             |
-| respondentOrderEng  | Number   | Defender unique identifier                       |
-| separateopinion     | Boolean  |                                                  |
-| sharepointid        | Number   | Internal identifier                              |
-| typedescription     | Number   |                                                  |
-| violation           | String   | Violated articles                                |
-| typedescription     | Number   |                                                  |
-| violation           | String   |                                                  |
+| Name                          | Format  | Definition                                             |
+|:------------------------------|:--------|:-------------------------------------------------------|
+| document_id                   | String  | Unique identifier                                      |
+| referenced_legislation_titles | String  | Titles of referenced legislations                      |
+| applicants                    | String  |                                                        |
+| domains                       | String  |                                                        |
+| summary                       | String  | Summary of case                                        |
+| title                         | String  | Title of case                                          |
+| source                        | String  | Source of data of case (e.g. HEJUD)                    |
+| document_type                 | String  | Type of document (e.g. CHAMBER/COMMITTEE/GRANDCHAMBER) |
+| date_decision                 | String  | Date of the decision                                   |
+| ECLI                          | String  | European Case Law Identifier                           |
+| importance                    | Number  | Importance of case (1-4)                               |
+| language                      | String  | Language of case                                       |
+| instance                      | Number  | Number of instance                                     |
+| representation                | Date    | Representation in the case                             |
+| alternative_publications      | String  |                                                        |
+| sources                       | String  | Source of the case                                     |
+| extractedappno                | String  |                                                        |
+| citations                     | String  | Cases cited in case                                    |
+| docid                         | String  | Document id                                            |
+| workid                        | String  | Work id                                                |
+| respondent                    | String  | Defender of the case                                   |
+| separateopinion               | Boolean |                                                        |
+| sharepointid                  | Number  | Internal identifier                                    |
+| author                        | Number  |                                                        |
+| violation                     | String  | Violated articles                                      |
+| typedescription               | Number  |                                                        |
+| nonviolation                  | String  |                                                        |
+| path                          | String  |                                                        |
+| description                   | String  |                                                        |
 
 ### Court of Justice of the European Union (CJEU)
-
-> [!ATTENTION|label:WORK IN PROGRESS]
-> The CJEU extraction, transformation, and loading script are still **work in progress**! This is an overview of the current data format.
 
 The [CJEU](https://european-union.europa.eu/institutions-law-budget/institutions-and-bodies/institutions-and-bodies-profiles/court-justice-european-union-cjeu_en) is an European court that makes sure the law is applied in the same way in all EU countries. CJEU cases' metadata and content can be retrieved from [CELLAR](https://data.europa.eu/data/datasets/sparql-cellar-of-the-publications-office?locale=en), an European service that provides data through a SPARQL API. 
 
@@ -194,30 +119,42 @@ The [CJEU](https://european-union.europa.eu/institutions-law-budget/institutions
 
 #### Data format
 
-These fields are expected to be found in the JSON files that store the CJEU data: 
+These fields are expected to be found in the CSV files that store the CJEU data: 
 
-| Name                                     | Format  | Definition                      |
-|:-----------------------------------------|:--------|:--------------------------------|
-| _key                                     | String  | Unique identifier               |
-| Legal resource has type of act           | String  | Type of document                |
-| Case law originates in country           | String  | Country of decision             |
-| Legal resource is about subject matter   | String  | Subject of case                 |
-| ECLI                                     | String  | European Case Law Identifier    |
-| Reference to provisions of national law  | RDF     | Reference to the the judgement  |
-| Publication reference of Court decision  | RDF     | Reference to the decision       |
-| Celex identifier                         | String  | Celex identifier                |
-| Local identifier                         | String  | Local identifier                |
-| Sector identifier                        | Number  | Sector identifier               |
-| Type of legal resource                   | String  | Legal resource type             |
-| Year of the legal resource               | Number  | Legal resource year             |
-| Work is created by agent (AU)            | URL     | Link to the legal agent         |
-| Legacy date of creation of work          | Date    | System date                     |
-| Date of document                         | Date    | Document date                   |
-| Identifier of document                   | String  | Celex unique identifier         |
-| Work title                               | String  | Case title                      |
-| CMR creation date                        | Date    | Creation date                   |
-| last CMR modification date               | Date    | Last updated date               |
-| Case law delivered by national court     | URL     | Link to the court               |
-| Case law based on a legal instrument     | URL     | Link to the legal instrument    |
-| Parties of the case law                  | RDF     | Reference to the parties        |
+| Name                             | Format                    | Definition                                                        |
+|:---------------------------------|:--------------------------|:------------------------------------------------------------------|
+| commented_by_agent               | String                    | Provides information on which Member States submitted information |
+| delivered_by_court_formation     | String                    | Court (Chamber) that delivered the judgment                       | 
+| judicial_procedure_type          | String                    | Type of procedure (eg reference, annulment)                       |
+| type_procedure                   | String                    | Type of procedure with more information                           |
+| conclusions                      | String                    | Opinion of the Advocate-General                                   |
+| legal_resource                   | URL                       | The source (eg law, legal provision) the case interprets          |                                                                   
+| origin_country                   | String                    | Country of  judgement                                             |
+| origin_country_or_role_qualifier | String                    | Country in which the case originated with more information        |
+| language_procedure               | String                    | Language of procedure                                             |
+| celex                            | String                    | Celex identifier                                                  |
+| date_publication                 | Date                      | Document date                                                     |
+| date_of_request                  | Date                      | Date of request for an Opinion of the Advocate-General            |
+| ECLI                             | String                    | European Case Law Identifier                                      |
+| date_of_creation                 | Date                      | Date of latest modification in dataset                            |
+| based_on_treaty                  | String                    | Treaty on which judgment is based                                 |
+| subject_matter                   | String                    | Subject matter                                                    |
+| national_judgement               | RDF                       | Source of national case                                           |
+| references_journals              | RDF                       | References to journal articles                                    |
+| sector                           | Number                    | Indicates the type of source                                      |                                                     
+| resource_type                    | String                    | Document type (judgment, opinion, order)                          |
+| directory_codes                  | String                    | Directory classification codes for case                           |
+| eurovoc                          | String                    | Eurovoc classification codes for case                             |
+| keywords                         | String                    | Keywords of case                                                  |
+| summary                          | String                    | Summary of case                                                   |
+| citing                           | Celex id list             | Cases cited by case                                               |
+| cited_by                         | Celex id list             | Cases citing the case                                             |
+| advocate_general                 | String                    | Advocate General of the case                                      |
+| judge_rapporteur                 | String                    | Judge Rapporteur of the case                                      |
+| affecting_ids                    | Celex id list             | Cellar id's of case affecting                                     |
+| affecting_string                 | String                    | List of entire strings with more details about case affecting     |
+| citations_extra_info             | String                    | Citations with exact paragraphs cited                             |
+
+
+ 
 

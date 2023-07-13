@@ -24,7 +24,6 @@ See [Datasets](/datasets/). Currently, we gather the case law of the Netherlands
 
 - **Published and operable**
     - [Rechtspraak](datasets/?id=rechtspraak-archive), backed by [Legal Intelligence](datasets/?id=legal-intelligence-api), and citations provided by [LiDO](datasets/?id=linked-data-overheid-lido)
-- **Work in progress**
     - [European Court of Human Rights](datasets/?id=european-court-of-human-rights-echr) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/echr/ECHR_metadata_harvester.py) 
     - [Court of Justice of the European Union](datasets/?id=court-of-justice-of-the-european-union-cjeu) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/cellar/cellar_extraction.py)
 
