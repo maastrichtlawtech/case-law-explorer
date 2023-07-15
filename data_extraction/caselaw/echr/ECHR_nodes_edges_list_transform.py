@@ -9,7 +9,7 @@ import dateparser
 import datetime
 import argparse
 from os.path import dirname, abspath
-from definitions.storage_handler import Storage, CSV_ECHR_NODES, CSV_ECHR_EDGES, JSON_ECHR_EDGES, JSON_ECHR_NODES
+#from definitions.storage_handler import Storage, CSV_ECHR_NODES, CSV_ECHR_EDGES, JSON_ECHR_EDGES, JSON_ECHR_NODES
 
 current_dir = dirname(dirname(abspath(__file__)))
 correct_dir = '\\'.join(current_dir.replace('\\', '/').split('/')[:-2])
@@ -69,8 +69,8 @@ def retrieve_edges_list(df, df_unfiltered):
     count = 0
     tot_num_refs = 0
     missing_cases = []
-    for index, item in df.iloc[0:100].iterrows():
-        print(index)
+    for index, item in df.iterrows(): #df.iloc[0:100].iterrows():
+        print(index, ' ', item.docname)
         eclis = []
         app_number = [] #################
 
@@ -98,6 +98,7 @@ def retrieve_edges_list(df, df_unfiltered):
             tot_num_refs = tot_num_refs + len(ref_list)
 
             for ref in new_ref_list:
+                num_ref = len(new_ref_list)
                 #print("ref: ", ref)
 
                 app_number = re.findall("[0-9]{3,5}\/[0-9]{2}", ref) ################
@@ -157,6 +158,7 @@ def retrieve_edges_list(df, df_unfiltered):
                     missing_cases.append(ref)
 
             eclis = set(eclis)
+            print('found/total: ', len(eclis), '/', num_ref)
             #eclis = list(eclis)
             #print(len(eclis))
             #add ecli to edges list
@@ -172,7 +174,7 @@ def retrieve_edges_list(df, df_unfiltered):
     missing_cases = list(missing_cases_set)
 
     missing_df = pd.DataFrame(missing_cases)
-    #missing_df.to_csv('C:/Users/Chloe/PycharmProjects/case-law-explorer/data/echr/missing_cases.csv', index=False, encoding='utf-8')
+    missing_df.to_csv('C:/Users/Chloe/PycharmProjects/case-law-explorer/data/echr/missing_cases_eng.csv', index=False, encoding='utf-8')
     edges = edges.groupby('ecli', as_index=False).agg({'references' : 'sum'})
     return edges
 
@@ -224,11 +226,11 @@ def lookup_casename(ref, df):
     name = get_casename(ref)
     #print("name: ", name)
 
-    f = open('CLEAN_REF.txt', 'r')
+    f = open('C:/Users/Chloe/PycharmProjects/case-law-explorer/data_extraction/caselaw/echr/CLEAN_REF.txt', 'r')
     patterns = f.read().splitlines()
 
     uptext = name.upper()
-    #print("upper: ",uptext)
+    #("upper: ",uptext)
 
     if 'NO.' in uptext:
         uptext = uptext.replace('NO.', 'No.')
@@ -247,10 +249,15 @@ def lookup_casename(ref, df):
         uptext = re.sub(pattern, '', uptext)
 
     uptext = re.sub(r'\[.*', "", uptext)
+    uptext = re.sub("[\(\[].*?[\)\]]", "", uptext) # remove text with (...)
     uptext = uptext.strip()
-    #print("final text: ", uptext)
-
-    row = df[df['docname'].str.contains(uptext, regex=False, flags=re.IGNORECASE)]
+    print("final text: -"+uptext+'-')
+    
+    if len(uptext) <= 1:
+        row = pd.DataFrame()
+        print('no')
+    else:
+        row = df[df['docname'].str.contains(uptext, regex=False, flags=re.IGNORECASE)]
 
     if len(row) == 0:
         print("no cases matched: ", name)
@@ -325,7 +332,8 @@ def get_year_from_ref(ref):
 
 # ---- RUN ----
 print('\n--- PREPARING DATAFRAME ---\n')
-data = open_metadata(filename_metadata='ECHR_metadata_eng_fre.csv')
+data = open_metadata(filename_metadata='ECHR_metadata.csv')
+complete_data = open_metadata(filename_metadata='ECHR_metadata_eng_fre.csv')
 
 print('\n--- CREATING NODES LIST ---\n')
 nodes = retrieve_nodes_list(data)
@@ -336,7 +344,7 @@ print('\n--- START EDGES LIST ---\n')
 start = time.time()
 
 print('\n--- CREATING EDGES LIST ---\n')
-edges = retrieve_edges_list(nodes, data)
+edges = retrieve_edges_list(nodes, complete_data)
 print(edges)
 #final_edges = edges.groupby('ecli', as_index=False)['references'].agg(lambda x : list(set([e for l in x for e in l])))
 print("Done!")
@@ -348,9 +356,9 @@ print("Done!")
 
 print('\n--- CREATING CSV FILES ---\n')
 # nodes.to_csv(CSV_ECHR_CASES_NODES, index=False, encoding='utf-8')
-edges.to_csv(CSV_ECHR_EDGES, index=False, encoding='utf-8')
-nodes.to_json(JSON_ECHR_NODES, orient="records")
-edges.to_json(JSON_ECHR_EDGES, orient="records")
+edges.to_csv('edges.csv', index=False, encoding='utf-8')
+nodes.to_json('nodes.json', orient="records")
+edges.to_json('edges_json.json', orient="records")
 print("Done!")
 
 end = time.time()
