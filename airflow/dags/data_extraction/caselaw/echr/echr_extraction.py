@@ -19,7 +19,7 @@ from definitions.storage_handler import Storage, get_path_raw, \
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-
+import pandas as pd
 
 def echr_extract(args):
     # set up the output path
@@ -46,7 +46,10 @@ def echr_extract(args):
                         required=False, default=["ENG", "FRE"])
 
     args, unknown = parser.parse_known_args(args)
-
+    print('args')
+    print(args)
+    print('unknown')
+    print(unknown)
     # set up locations
     print('\n--- PREPARATION ---\n')
     print('OUTPUT:\t\t\t', output_path)
@@ -58,7 +61,8 @@ def echr_extract(args):
         # to make sure airflow doesn't crash it needs to be caught
         # This way the pipeline goes to the next steps of transformation and extraction, hopefully
         # eventually dealing with the already-existing output file
-        storage.setup_pipeline(output_paths=[output_path])
+      #  storage.setup_pipeline(output_paths=[output_path])
+        pass
     except Exception as e:
         print(e)
         return
@@ -88,13 +92,23 @@ def echr_extract(args):
     print(f"Downloading {args.count if 'count' in args and args.count is not None else 'all'} ECHR documents")
     if args.fresh:
         metadata, full_text = echr.get_echr_extra(**kwargs, start_date="1990-01-01", save_file="n")
+
+    elif args.start_date and args.end_date:
+        print(f'Starting from manually specified date: {args.start_date} and ending at end date: {args.end_date}')
+        metadata, full_text = echr.get_echr_extra(**kwargs, start_date=args.start_date,end_date=args.end_date, save_file="n")
     elif args.start_date:
         print(f'Starting from manually specified date: {args.start_date}')
-        metadata, full_text = echr.get_echr_extra(**kwargs, start_date=args.start_date, save_file="n")
+        metadata, full_text = echr.get_echr_extra(**kwargs, start_date=args.start_date,
+                                                  save_file="n")
+    elif args.end_date:
+        print(f'Ending at manually specified end date {args.end_date}')
+        metadata, full_text = echr.get_echr_extra(**kwargs,  end_date=args.end_date,
+                                                  save_file="n")
     else:
         print('Starting from the last update the script can find')
         metadata, full_text = echr.get_echr_extra(**kwargs, start_date=last_updated,
                                                   end_date=today_date, save_file="n")
+
 
     print("--- saving ECHR data")
     df_filepath = get_path_raw(CSV_ECHR_CASES)
@@ -105,7 +119,7 @@ def echr_extract(args):
             json.dump(full_text, f)
         print("Adding Nodes and Edges lists to storage")
         # Getting nodes and edges, citation-based. For creating a citation graph
-        nodes, edges = echr.get_nodes_edges(df_filepath, save_file="n")
+        nodes, edges = echr.get_nodes_edges(dataframe=metadata, save_file="n")
         # get only the ecli column in nodes
         nodes = nodes[['ecli']]
 
@@ -113,7 +127,7 @@ def echr_extract(args):
         # df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
         nodes_txt = get_path_raw(TXT_ECHR_NODES)
         edges_txt = get_path_raw(TXT_ECHR_EDGES)
-        # nodes.to_csv(df_nodes_path, index=False)
+         #nodes.to_csv(df_nodes_path, index=False)
         # edges.to_csv(df_edges_path, index=False)
         # save to text file from dataframe
         nodes.to_csv(nodes_txt, index=False, header=False, sep='\t')

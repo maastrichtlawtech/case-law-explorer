@@ -131,7 +131,7 @@ def rechtspraak_extract(args=None):
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=last_updated, save_file='n', ed=today_date)
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
     print(f"Length of metadata df is {len(metadata_df)}")
-    rex_citations.get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 2)
+    rex_citations.get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
 
     print(f"\nUpdating local storage ...")
     df_filepath = get_path_raw(CSV_RS_CASES)
