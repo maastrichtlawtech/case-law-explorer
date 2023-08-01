@@ -198,7 +198,7 @@ class DynamoDBRowItemidProcessor:
                         self.pk: row[ECHR_DOCUMENT_ID],
                         self.sk: ItemType.DOM.value + KEY_SEP + val,
                         key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[
-                            ECHR_JUDGEMENT_DATE],
+                            ECHR_JUDGMENT_DATE],
                         ECHR_ARTICLES[:-1]: val
                     })
             for attribute in [ECHR_ARTICLES]:
@@ -212,7 +212,7 @@ class DynamoDBRowItemidProcessor:
             put_items.append({
                 self.pk: row[ECHR_DOCUMENT_ID],
                 self.sk: ItemType.DATA.value,
-                key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[ECHR_JUDGEMENT_DATE],
+                key_sdd: DataSource.ECHR.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[ECHR_JUDGMENT_DATE],
                 **row
             })
             return put_items, [], update_set_items

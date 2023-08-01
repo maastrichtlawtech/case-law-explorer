@@ -1,8 +1,11 @@
 from data_extraction.caselaw.echr.echr_extraction import echr_extract
 from data_loading.data_loader import load_data
 from data_transformation.data_transformer import transform_data
-
-
+import echr_extractor as echr
+from definitions.storage_handler import *
+import pandas as pd
+import json
+from os.path import exists
 def get_echr_setup_args(last_index):
     """
     ECHR database setup routine - for building entire DB from scratch.
@@ -35,13 +38,53 @@ def get_echr_setup_args(last_index):
 
 
 if __name__ == "__main__":
-    for i in range(-1, 29):
+    df_filepath = get_path_raw(CSV_ECHR_CASES)
+    json_filepath = JSON_FULL_TEXT_ECHR
+    for i in range(-1, 29): # ending at 2019 last one
         starting, ending = get_echr_setup_args(i)
         if starting and ending:
-            echr_extract(["--start-date", starting, "--end-date", ending])
+            print(f'Starting from manually specified date: {starting} and ending at end date: {ending}')
+            metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting, end_date=ending,
+                                                      save_file="n")
         elif starting:
-            echr_extract(["--start-date", starting])
+            print(f'Starting from manually specified date: {starting}')
+            metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting,
+                                                      save_file="n")
         elif ending:
-            echr_extract(["--end-date", ending])
-        transform_data()
-        load_data()
+            print(f'Ending at manually specified end date {ending}')
+            metadata, full_text = echr.get_echr_extra(count=100000, end_date=ending,
+                                                      save_file="n")
+
+        if exists(df_filepath):
+            df = pd.read_csv(df_filepath)
+            df_appended = pd.concat([df, metadata])
+            df_appended.to_csv(df_filepath, index=False)
+        else:
+            metadata.to_csv(df_filepath, index=False)
+
+        if exists(json_filepath):
+            with open (json_filepath,"r+") as file:
+                file_data = json.load(file)
+                file_data.append(full_text)
+                file.seek(0)
+                json.dump(file_data,file)
+        else:
+            with open(json_filepath, 'w') as f:
+                json.dump(full_text, f)
+    print("Adding Nodes and Edges lists to storage should happen now")
+    big_metadata = pd.read_csv(df_filepath)
+    nodes, edges = echr.get_nodes_edges(dataframe=big_metadata, save_file="n")
+    # get only the ecli column in nodes
+    nodes = nodes[['ecli']]
+
+    # df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
+    # df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
+    nodes_txt = get_path_raw(TXT_ECHR_NODES)
+    edges_txt = get_path_raw(TXT_ECHR_EDGES)
+    # nodes.to_csv(df_nodes_path, index=False)
+    # edges.to_csv(df_edges_path, index=False)
+    # save to text file from dataframe
+    nodes.to_csv(nodes_txt, index=False, header=False, sep='\t')
+    edges.to_csv(edges_txt, index=False, header=False, sep='\t')
+    transform_data()
+    load_data()

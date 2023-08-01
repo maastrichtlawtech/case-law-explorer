@@ -61,7 +61,7 @@ def echr_extract(args):
         # to make sure airflow doesn't crash it needs to be caught
         # This way the pipeline goes to the next steps of transformation and extraction, hopefully
         # eventually dealing with the already-existing output file
-      #  storage.setup_pipeline(output_paths=[output_path])
+        storage.setup_pipeline(output_paths=[output_path])
         pass
     except Exception as e:
         print(e)
