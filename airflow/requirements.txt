@@ -1,5 +1,5 @@
 apache-airflow==2.4.0
-pandas~=1.2.4
+pandas~=2.0.3
 urllib3
 bs4~=0.0.1
 requests_aws4auth
