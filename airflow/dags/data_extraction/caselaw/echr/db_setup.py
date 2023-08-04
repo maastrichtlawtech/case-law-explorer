@@ -1,6 +1,4 @@
-from data_extraction.caselaw.echr.echr_extraction import echr_extract
-from data_loading.data_loader import load_data
-from data_transformation.data_transformer import transform_data
+
 import echr_extractor as echr
 from definitions.storage_handler import *
 import pandas as pd
@@ -11,7 +9,7 @@ def get_echr_setup_args(last_index):
     ECHR database setup routine - for building entire DB from scratch.
     This method returns the start&end dates for extraction
     Index referenced in code is the index of last visited point in the var_list.
-    Proper usage will setup the entire database, with small increments, year by year.
+    Proper usage will set up the entire database, with small increments, year by year.
     """
     var_list = ['1995-01-01', '1996-01-01', '1997-01-01', '1998-01-01', '1999-01-01', '2000-01-01', '2001-01-01',
                 '2002-01-01',
@@ -35,12 +33,10 @@ def get_echr_setup_args(last_index):
         ending = var_list[0]
 
     return starting, ending
-
-
-if __name__ == "__main__":
+def setup_db():
     df_filepath = get_path_raw(CSV_ECHR_CASES)
     json_filepath = JSON_FULL_TEXT_ECHR
-    for i in range(-1, 29): # ending at 2019 last one
+    for i in range(-1, 29):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
         starting, ending = get_echr_setup_args(i)
         if starting and ending:
             print(f'Starting from manually specified date: {starting} and ending at end date: {ending}')
@@ -63,11 +59,11 @@ if __name__ == "__main__":
             metadata.to_csv(df_filepath, index=False)
 
         if exists(json_filepath):
-            with open (json_filepath,"r+") as file:
+            with open(json_filepath, "r+") as file:
                 file_data = json.load(file)
                 file_data.append(full_text)
                 file.seek(0)
-                json.dump(file_data,file)
+                json.dump(file_data, file)
         else:
             with open(json_filepath, 'w') as f:
                 json.dump(full_text, f)
@@ -77,14 +73,13 @@ if __name__ == "__main__":
     # get only the ecli column in nodes
     nodes = nodes[['ecli']]
 
-    # df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
-    # df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
     nodes_txt = get_path_raw(TXT_ECHR_NODES)
     edges_txt = get_path_raw(TXT_ECHR_EDGES)
-    # nodes.to_csv(df_nodes_path, index=False)
-    # edges.to_csv(df_edges_path, index=False)
+
     # save to text file from dataframe
     nodes.to_csv(nodes_txt, index=False, header=False, sep='\t')
     edges.to_csv(edges_txt, index=False, header=False, sep='\t')
-    transform_data()
-    load_data()
+
+
+if __name__ == "__main__":
+    pass
