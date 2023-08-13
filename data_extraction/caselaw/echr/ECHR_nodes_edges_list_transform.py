@@ -69,15 +69,11 @@ def retrieve_edges_list(df, df_unfiltered):
     count = 0
     tot_num_refs = 0
     missing_cases = []
-    for index, item in df.iterrows(): #df.iloc[0:100].iterrows():
-        print(index, ' ', item.docname)
+    for index, item in df.iterrows():
+        print(index)
         eclis = []
-        app_number = [] #################
 
-        if item.extractedappno is not np.nan:
-            extracted_appnos = item.extractedappno.split(';') ##############
-
-        if item.scl is not np.nan:
+        if item.scl is not np.nan and item.languageisocode == 'FRE':
             """
             Split the references from the scl column i nto a list of references.
 
@@ -89,22 +85,31 @@ def retrieve_edges_list(df, df_unfiltered):
             Decisions 1998-V", "Sevgi Erdogan v. Turkey (striking out), no. 
             28492/95, 29 April 2003"]
             """
-            ref_list = item.scl.split(';')
+            if item.extractedappno is not np.nan:
+                extracted_appnos = item.extractedappno.split(';')
+            else:
+                extracted_appnos = []
+
+            scl = re.sub('\n', '', item.scl)
+            ref_list = scl.split(';')
+            num_ref = len(ref_list)
+
+            """
             new_ref_list = []
             for ref in ref_list:
                 ref = re.sub('\n', '', ref)
                 new_ref_list.append(ref)
+            """
 
             tot_num_refs = tot_num_refs + len(ref_list)
 
-            for ref in new_ref_list:
-                num_ref = len(new_ref_list)
-                #print("ref: ", ref)
+            for ref in ref_list:
+                print("ref: ", ref)
 
                 app_number = re.findall("[0-9]{3,5}\/[0-9]{2}", ref) ################
                 app_number = app_number + extracted_appnos
                 app_number = set(app_number)
-                #print(len(app_number))
+                print(app_number)
                 if len(app_number) > 0:
                     # get dataframe with all possible cases by application number
                     if len(app_number) > 1:
@@ -158,10 +163,9 @@ def retrieve_edges_list(df, df_unfiltered):
                     missing_cases.append(ref)
 
             eclis = set(eclis)
+            print('set: ', eclis)
             print('found/total: ', len(eclis), '/', num_ref)
-            #eclis = list(eclis)
-            #print(len(eclis))
-            #add ecli to edges list
+
             if len(eclis) == 0:
                 continue
             else:
@@ -174,7 +178,7 @@ def retrieve_edges_list(df, df_unfiltered):
     missing_cases = list(missing_cases_set)
 
     missing_df = pd.DataFrame(missing_cases)
-    missing_df.to_csv('C:/Users/Chloe/PycharmProjects/case-law-explorer/data/echr/missing_cases_eng.csv', index=False, encoding='utf-8')
+    missing_df.to_csv('C:/Users/Chloe/PycharmProjects/case-law-explorer/data/echr/missing_cases_fre.csv', index=False, encoding='utf-8')
     edges = edges.groupby('ecli', as_index=False).agg({'references' : 'sum'})
     return edges
 
@@ -230,7 +234,7 @@ def lookup_casename(ref, df):
     patterns = f.read().splitlines()
 
     uptext = name.upper()
-    #("upper: ",uptext)
+    #print("upper: ",uptext)
 
     if 'NO.' in uptext:
         uptext = uptext.replace('NO.', 'No.')
@@ -249,15 +253,10 @@ def lookup_casename(ref, df):
         uptext = re.sub(pattern, '', uptext)
 
     uptext = re.sub(r'\[.*', "", uptext)
-    uptext = re.sub("[\(\[].*?[\)\]]", "", uptext) # remove text with (...)
     uptext = uptext.strip()
-    print("final text: -"+uptext+'-')
-    
-    if len(uptext) <= 1:
-        row = pd.DataFrame()
-        print('no')
-    else:
-        row = df[df['docname'].str.contains(uptext, regex=False, flags=re.IGNORECASE)]
+    #print("final text: ", uptext)
+
+    row = df[df['docname'].str.contains(uptext, regex=False, flags=re.IGNORECASE)]
 
     if len(row) == 0:
         print("no cases matched: ", name)
@@ -332,8 +331,7 @@ def get_year_from_ref(ref):
 
 # ---- RUN ----
 print('\n--- PREPARING DATAFRAME ---\n')
-data = open_metadata(filename_metadata='ECHR_metadata.csv')
-complete_data = open_metadata(filename_metadata='ECHR_metadata_eng_fre.csv')
+data = open_metadata(filename_metadata='ECHR_metadata_eng_fre.csv')
 
 print('\n--- CREATING NODES LIST ---\n')
 nodes = retrieve_nodes_list(data)
@@ -344,7 +342,7 @@ print('\n--- START EDGES LIST ---\n')
 start = time.time()
 
 print('\n--- CREATING EDGES LIST ---\n')
-edges = retrieve_edges_list(nodes, complete_data)
+edges = retrieve_edges_list(nodes, data)
 print(edges)
 #final_edges = edges.groupby('ecli', as_index=False)['references'].agg(lambda x : list(set([e for l in x for e in l])))
 print("Done!")
@@ -355,11 +353,18 @@ for index, item in edges.iterrows():
 print("Done!")
 
 print('\n--- CREATING CSV FILES ---\n')
-# nodes.to_csv(CSV_ECHR_CASES_NODES, index=False, encoding='utf-8')
-edges.to_csv('edges.csv', index=False, encoding='utf-8')
+edges.to_csv(' edges.csv', index=False, encoding='utf-8')
 nodes.to_json('nodes.json', orient="records")
-edges.to_json('edges_json.json', orient="records")
+edges.to_json('edges.json', orient="records")
+
+
+"""
+# nodes.to_csv(CSV_ECHR_CASES_NODES, index=False, encoding='utf-8')
+edges.to_csv(CSV_ECHR_EDGES, index=False, encoding='utf-8')
+nodes.to_json(JSON_ECHR_NODES, orient="records")
+edges.to_json(JSON_ECHR_EDGES, orient="records")
 print("Done!")
+"""
 
 end = time.time()
 print("\n--- DONE ---")
