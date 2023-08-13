@@ -52,6 +52,7 @@ def retrieve_nodes_list(df):
     col = df.pop("ecli")
     df.insert(1, col.name, col)
     df.drop(df.columns[0], axis=1, inplace=True)
+    df = df[df.languageisocode != 'FRE']
     return df
 
 
