@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 from os.path import dirname, abspath
-
+from os import getenv
 import echr_extractor as echr
 from airflow.models.variable import Variable
 from dotenv import load_dotenv, find_dotenv
@@ -70,7 +70,7 @@ def echr_extract(args):
         # Getting date of last update from airflow database
         last_updated = Variable.get('ECHR_LAST_DATE')
     except:
-        last_updated = '1900-01-01'
+        last_updated = getenv('ECHR_START_DATE')
         Variable.set(key='ECHR_LAST_DATE', value=last_updated)
 
     today_date = str(datetime.today().date())

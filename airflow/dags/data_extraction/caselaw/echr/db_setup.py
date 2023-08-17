@@ -35,38 +35,40 @@ def get_echr_setup_args(last_index):
     return starting, ending
 def setup_db():
     df_filepath = get_path_raw(CSV_ECHR_CASES)
-    json_filepath = JSON_FULL_TEXT_ECHR
-    for i in range(-1, 29):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
-        starting, ending = get_echr_setup_args(i)
-        if starting and ending:
-            print(f'Starting from manually specified date: {starting} and ending at end date: {ending}')
-            metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting, end_date=ending,
-                                                      save_file="n")
-        elif starting:
-            print(f'Starting from manually specified date: {starting}')
-            metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting,
-                                                      save_file="n")
-        elif ending:
-            print(f'Ending at manually specified end date {ending}')
-            metadata, full_text = echr.get_echr_extra(count=100000, end_date=ending,
-                                                      save_file="n")
+    download = False
+    if download:
+        json_filepath = JSON_FULL_TEXT_ECHR
+        for i in range(-1, 29):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
+            starting, ending = get_echr_setup_args(i)
+            if starting and ending:
+                print(f'Starting from manually specified date: {starting} and ending at end date: {ending}')
+                metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting, end_date=ending,
+                                                          save_file="n")
+            elif starting:
+                print(f'Starting from manually specified date: {starting}')
+                metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting,
+                                                          save_file="n")
+            elif ending:
+                print(f'Ending at manually specified end date {ending}')
+                metadata, full_text = echr.get_echr_extra(count=100000, end_date=ending,
+                                                          save_file="n")
 
-        if exists(df_filepath):
-            df = pd.read_csv(df_filepath)
-            df_appended = pd.concat([df, metadata])
-            df_appended.to_csv(df_filepath, index=False)
-        else:
-            metadata.to_csv(df_filepath, index=False)
+            if exists(df_filepath):
+                df = pd.read_csv(df_filepath)
+                df_appended = pd.concat([df, metadata])
+                df_appended.to_csv(df_filepath, index=False)
+            else:
+                metadata.to_csv(df_filepath, index=False)
 
-        if exists(json_filepath):
-            with open(json_filepath, "r+") as file:
-                file_data = json.load(file)
-                file_data.append(full_text)
-                file.seek(0)
-                json.dump(file_data, file)
-        else:
-            with open(json_filepath, 'w') as f:
-                json.dump(full_text, f)
+            if exists(json_filepath):
+                with open(json_filepath, "r+") as file:
+                    file_data = json.load(file)
+                    file_data.append(full_text)
+                    file.seek(0)
+                    json.dump(file_data, file)
+            else:
+                with open(json_filepath, 'w') as f:
+                    json.dump(full_text, f)
     print("Adding Nodes and Edges lists to storage should happen now")
     big_metadata = pd.read_csv(df_filepath)
     nodes, edges = echr.get_nodes_edges(dataframe=big_metadata, save_file="n")
@@ -82,4 +84,4 @@ def setup_db():
 
 
 if __name__ == "__main__":
-    pass
+    setup_db()

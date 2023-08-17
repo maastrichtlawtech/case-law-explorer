@@ -62,9 +62,7 @@ def cellar_extract(args):
         last_updated = Variable.get('CELEX_LAST_DATE')
         print("database connection works")
     except:
-        last_updated = '1900-01-01'
-        # If doesn't exist, set to 1900-01-01,
-        # internet didn't exist back then, so I don't think they could update the database
+        last_updated = getenv('CELLAR_START_DATE')
         Variable.set(key='CELEX_LAST_DATE', value=last_updated)
 
     print('\nSTART DATE (LAST UPDATE):\t', last_updated)

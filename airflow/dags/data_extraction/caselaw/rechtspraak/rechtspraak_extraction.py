@@ -101,8 +101,7 @@ def rechtspraak_extract(args=None):
         # Getting date of last update from airflow database
         last_updated = Variable.get('RSPRAAK_LAST_DATE')
     except Exception as e:
-        print(e)
-        last_updated = '1900-01-01'
+        last_updated = os.getenv('RS_START_DATE')
         Variable.set(key='RSPRAAK_LAST_DATE', value=last_updated)
 
     today_date = str(datetime.today().date())

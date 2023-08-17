@@ -20,7 +20,7 @@ with DAG(
         default_args=default_args,
         description='fully implemented',
         start_date=datetime.now(),
-        schedule_interval='1 1 1 * *'
+        schedule_interval='@monthly'
 
 ) as DAG:
     task1 = PythonOperator(
