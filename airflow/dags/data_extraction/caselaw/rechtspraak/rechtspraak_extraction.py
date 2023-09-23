@@ -19,7 +19,13 @@ env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 LIDO_USERNAME = os.getenv('LIDO_USERNAME')
 LIDO_PASSWORD = os.getenv('LIDO_PASSWORD')
-RS_SETUP = eval(os.getenv('RS_SETUP'))
+
+try:
+    RS_SETUP = eval(Variable.get('RS_SETUP'))
+except:
+    RS_SETUP = True
+    Variable.set(key='RS_SETUP', value=True)
+
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 
 
@@ -40,13 +46,14 @@ def get_rs_setup_args():
                 '2010-01-01',
                 '2011-01-01', '2012-01-01', '2013-01-01', '2014-01-01', '2015-01-01', '2016-01-01', '2017-01-01',
                 '2018-01-01',
-                '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']
+                '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']  # 29
     try:
         index = eval(Variable.get('RS_SETUP_INDEX'))  # start index
         next_index = index + 1  # end index
         if index >= len(var_list):  # if start is out, no extraction out
             starting = None
             ending = None
+            Variable.set(key='RS_SETUP', value=False)
         else:  # starting is in
             starting = var_list[index]
             if next_index >= len(var_list):  # determine if end is there or no
