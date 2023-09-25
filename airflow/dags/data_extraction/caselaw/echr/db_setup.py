@@ -1,9 +1,12 @@
-
-import echr_extractor as echr
-from definitions.storage_handler import *
-import pandas as pd
 import json
 from os.path import exists
+
+import echr_extractor as echr
+import pandas as pd
+
+from definitions.storage_handler import *
+
+
 def get_echr_setup_args(last_index):
     """
     ECHR database setup routine - for building entire DB from scratch.
@@ -33,12 +36,15 @@ def get_echr_setup_args(last_index):
         ending = var_list[0]
 
     return starting, ending
+
+
 def setup_db():
     df_filepath = get_path_raw(CSV_ECHR_CASES)
     download = False
     if download:
         json_filepath = JSON_FULL_TEXT_ECHR
-        for i in range(-1, 29):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
+        for i in range(-1,
+                       29):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
             starting, ending = get_echr_setup_args(i)
             if starting and ending:
                 print(f'Starting from manually specified date: {starting} and ending at end date: {ending}')

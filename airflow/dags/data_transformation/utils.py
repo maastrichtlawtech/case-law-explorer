@@ -1,18 +1,20 @@
-import pandas as pd
-from definitions.terminology.attribute_names import ECLI
-from definitions.mappings.attribute_value_maps import *
-from definitions.terminology.attribute_values import Domain
-from lxml import etree
-import dateutil.parser
+import csv
 import re
 import sys
-import csv
 from ctypes import c_long, sizeof
-signed = c_long(-1).value < c_long(0).value
-bit_size = sizeof(c_long)*8
-signed_limit = 2**(bit_size-1)
-csv.field_size_limit(signed_limit-1 if signed else 2*signed_limit-1)
 
+import dateutil.parser
+import pandas as pd
+from lxml import etree
+
+from definitions.mappings.attribute_value_maps import *
+from definitions.terminology.attribute_names import ECLI
+from definitions.terminology.attribute_values import Domain
+
+signed = c_long(-1).value < c_long(0).value
+bit_size = sizeof(c_long) * 8
+signed_limit = 2 ** (bit_size - 1)
+csv.field_size_limit(signed_limit - 1 if signed else 2 * signed_limit - 1)
 
 # %%
 """ CLEANING: """
@@ -48,6 +50,7 @@ def format_li_list(text):
         text = text.replace(i, j)
     return text
 
+
 def format_cellar_celex(celex):
     if ';' in celex:
         separate = celex.split(sep=';')
@@ -57,14 +60,19 @@ def format_cellar_celex(celex):
     else:
         return celex
 
+
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original RS date format YYYY-MM-DD
 def format_rs_date(text):
     return dateutil.parser.parse(text).date()
+
+
 # converts string representation of a date into datetime
 # from original LI date format YYYYMMDD or YYYYMMDD.0 (if numeric date was accidentally stored as float)
 def format_li_date(text):
     return dateutil.parser.parse(str(int(float(text)))).date()
+
+
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original ECHR date format DD-MM-YYYY
 def format_echr_date(text):
@@ -84,9 +92,12 @@ def format_li_domains(text):
         domains = domains.union(MAP_LI_DOMAINS[domain])
     domains_str = format_li_list(str(list(domains)))
     return format_domains(domains_str)
+
+
 def format_cellar_year(text):
     all = text.split("-")
     return all[0]
+
 
 def format_instance(text):
     for key, value in MAP_INSTANCE.items():
@@ -109,6 +120,7 @@ def format_jurisdiction(text):
 
 
 """ DF OPERATIONS (READ, WRITE, PRINT, SELECT): """
+
 
 # make sure all csvs are read in the same way
 def read_csv(file_path):

@@ -7,8 +7,9 @@ import json
 import sys
 import time
 from datetime import datetime
-from os.path import dirname, abspath
 from os import getenv
+from os.path import dirname, abspath
+
 import echr_extractor as echr
 from airflow.models.variable import Variable
 from dotenv import load_dotenv, find_dotenv
@@ -19,7 +20,7 @@ from definitions.storage_handler import Storage, get_path_raw, \
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
-import pandas as pd
+
 
 def echr_extract(args):
     # set up the output path
@@ -46,10 +47,6 @@ def echr_extract(args):
                         required=False, default=["ENG", "FRE"])
 
     args, unknown = parser.parse_known_args(args)
-    print('args')
-    print(args)
-    print('unknown')
-    print(unknown)
     # set up locations
     print('\n--- PREPARATION ---\n')
     print('OUTPUT:\t\t\t', output_path)
@@ -95,20 +92,20 @@ def echr_extract(args):
 
     elif args.start_date and args.end_date:
         print(f'Starting from manually specified date: {args.start_date} and ending at end date: {args.end_date}')
-        metadata, full_text = echr.get_echr_extra(**kwargs, start_date=args.start_date,end_date=args.end_date, save_file="n")
+        metadata, full_text = echr.get_echr_extra(**kwargs, start_date=args.start_date, end_date=args.end_date,
+                                                  save_file="n")
     elif args.start_date:
         print(f'Starting from manually specified date: {args.start_date}')
         metadata, full_text = echr.get_echr_extra(**kwargs, start_date=args.start_date,
                                                   save_file="n")
     elif args.end_date:
         print(f'Ending at manually specified end date {args.end_date}')
-        metadata, full_text = echr.get_echr_extra(**kwargs,  end_date=args.end_date,
+        metadata, full_text = echr.get_echr_extra(**kwargs, end_date=args.end_date,
                                                   save_file="n")
     else:
         print('Starting from the last update the script can find')
         metadata, full_text = echr.get_echr_extra(**kwargs, start_date=last_updated,
                                                   end_date=today_date, save_file="n")
-
 
     print("--- saving ECHR data")
     df_filepath = get_path_raw(CSV_ECHR_CASES)
@@ -127,7 +124,7 @@ def echr_extract(args):
         # df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
         nodes_txt = get_path_raw(TXT_ECHR_NODES)
         edges_txt = get_path_raw(TXT_ECHR_EDGES)
-         #nodes.to_csv(df_nodes_path, index=False)
+        # nodes.to_csv(df_nodes_path, index=False)
         # edges.to_csv(df_edges_path, index=False)
         # save to text file from dataframe
         nodes.to_csv(nodes_txt, index=False, header=False, sep='\t')

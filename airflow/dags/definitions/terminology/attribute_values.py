@@ -128,17 +128,17 @@ class Source(Enum):
 # --- DynamoDB schema keys ---
 
 class DataSource(Enum):
-    RS = 'RS'               # Rechtspraak
-    ECHR = 'ECHR'           # European Court of Human Rights
-    EURLEX = 'EURLEX'       # Court of Justice of the European Union
+    RS = 'RS'  # Rechtspraak
+    ECHR = 'ECHR'  # European Court of Human Rights
+    EURLEX = 'EURLEX'  # Court of Justice of the European Union
 
 
 class DocType(Enum):
-    DEC = 'DEC'             # case decision
-    OPI = 'OPI'             # case opinion
+    DEC = 'DEC'  # case decision
+    OPI = 'OPI'  # case opinion
 
 
 class ItemType(Enum):
     DATA = 'DATA'
-    DOM = 'DOM'             # associated domain
+    DOM = 'DOM'  # associated domain
     DOM_LI = 'DOM-LI'

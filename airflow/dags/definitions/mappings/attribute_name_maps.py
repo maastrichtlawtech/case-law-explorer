@@ -31,7 +31,7 @@ MAP_RS = {
     'citations_incoming': RS_CITED_BY,  # cases citing current case
     'citations_outgoing': RS_CITING,  # cases cited in current case
     'legislations_cited': RS_LEGISLATIONS,  # legislations cited in current case
-    'summary' : RS_SUMMARY
+    'summary': RS_SUMMARY
 }
 MAP_CELLAR = {
     'CASE LAW COMMENTED BY AGENT': CELLAR_COMMENTED_AGENT,  # which Member States submitted information
