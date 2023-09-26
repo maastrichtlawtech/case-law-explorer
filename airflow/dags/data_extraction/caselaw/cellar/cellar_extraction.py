@@ -4,6 +4,7 @@ Main cellar extraction routine. Used by the cellar_extraction DAG.
 
 import argparse
 import json
+import logging
 import sys
 import time
 from datetime import datetime
@@ -42,8 +43,8 @@ def cellar_extract(args):
     # To make sure it doesn't crash the code, the unknown arg catching has to be added
     args, unknown = parser.parse_known_args(args)
 
-    print('\n--- PREPARATION ---\n')
-    print('OUTPUT:\t\t\t', output_path)
+    logging.info('--- PREPARATION ---')
+    logging.info('OUTPUT:\t\t\t' + output_path)
     storage = Storage()
 
     try:
@@ -53,22 +54,23 @@ def cellar_extract(args):
         # eventually dealing with the already-existing output file
         storage.setup_pipeline(output_paths=[output_path])
     except Exception as e:
-        print(e)
+        logging.error(e)
         return
 
     today_date = str(datetime.today().date())
     try:
         # Getting date of last update from airflow database
         last_updated = Variable.get('CELEX_LAST_DATE')
-        print("database connection works")
+        logging.info("database connection works")
     except:
         last_updated = getenv('CELLAR_START_DATE')
         Variable.set(key='CELEX_LAST_DATE', value=last_updated)
 
-    print('\nSTART DATE (LAST UPDATE):\t', last_updated)
-    print('\n--- START ---\n')
+    logging.info('START DATE (LAST UPDATE):\t' + last_updated)
+    logging.info('--- START ---')
     start = time.time()
-    print(f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents")
+    logging.info(
+        f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents")
 
     if args.amount is None:
         amount = 1000000
@@ -76,12 +78,12 @@ def cellar_extract(args):
         amount = args.amount
     # Running the extraction, different options based on passed on arguments
     if args.starting_date:
-        print(f'Starting from manually specified date: {args.starting_date}')
+        logging.info(f'Starting from manually specified date: {args.starting_date}')
         metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date,
                                                          ed=today_date, threads=15,
                                                          username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
     else:
-        print('Starting from the last update the script can find')
+        logging.info('Starting from the last update the script can find')
         metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated, ed=today_date,
                                                          threads=15,
                                                          username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
@@ -89,7 +91,7 @@ def cellar_extract(args):
     if isinstance(metadata, bool):
         # package returns False if no data was found
         sys.exit(0)
-    print(f"\nUpdating local storage ...")
+    logging.info(f"\nUpdating local storage ...")
 
     # We are only interested in european cases.
     # Cellar extractor extracts everything with an ecli
@@ -121,17 +123,17 @@ def cellar_extract(args):
         with open(get_path_raw(TXT_CELLAR_NODES), 'w') as f:
             f.write(nodes)
     else:
-        print("No nodes found")
+        logging.info("No nodes found")
     if edges is not False:
         edges = '\n'.join(edges)
         with open(get_path_raw(TXT_CELLAR_EDGES), 'w') as f:
             f.write(edges)
     else:
-        print("No edges found")
+        logging.info("No edges found")
 
     end = time.time()
-    print("\n--- DONE ---")
-    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+    logging.info("\n--- DONE ---")
+    logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
     # Settings the date of current download, as the start date of next download via airflow database
     Variable.set(key='CELEX_LAST_UPDATE', value=today_date)
 

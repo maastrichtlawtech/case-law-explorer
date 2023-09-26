@@ -55,14 +55,14 @@ class Storage:
         self.location = 'local'
         self.pipeline_input_path = None
         self.pipeline_output_paths = None
-        print(f'\nSetting up {self.location} storage ...')
+        logging.info(f'Setting up {self.location} storage ...')
         self._setup()
 
     def _setup(self):
         # create local data folder structure, if it doesn't exist yet
         for d in [DIR_DATA_RAW, DIR_DATA_PROCESSED, DIR_DATA_FULL_TEXT]:
             makedirs(d, exist_ok=True)
-        print('Storage set up.')
+        logging.info('Storage set up.')
 
     def setup_pipeline(self, output_paths=None, input_path=None):
         self.pipeline_input_path = input_path
@@ -70,7 +70,7 @@ class Storage:
 
         # fetch output data
         if self.pipeline_output_paths:
-            print(f'\nFetching output data from {self.location} storage ...')
+            logging.info(f'Fetching output data from {self.location} storage ...')
             for path in self.pipeline_output_paths:
                 if exists(path):
                     logging.warning(f'{path} exists locally! Move/rename local file before starting pipeline.')

@@ -1,5 +1,4 @@
 import json
-from os.path import exists
 
 import echr_extractor as echr
 import pandas as pd
@@ -47,15 +46,15 @@ def setup_db():
                        29):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
             starting, ending = get_echr_setup_args(i)
             if starting and ending:
-                print(f'Starting from manually specified date: {starting} and ending at end date: {ending}')
+                logging.info(f'Starting from manually specified date: {starting} and ending at end date: {ending}')
                 metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting, end_date=ending,
                                                           save_file="n")
             elif starting:
-                print(f'Starting from manually specified date: {starting}')
+                logging.info(f'Starting from manually specified date: {starting}')
                 metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting,
                                                           save_file="n")
             elif ending:
-                print(f'Ending at manually specified end date {ending}')
+                logging.info(f'Ending at manually specified end date {ending}')
                 metadata, full_text = echr.get_echr_extra(count=100000, end_date=ending,
                                                           save_file="n")
 
@@ -75,7 +74,7 @@ def setup_db():
             else:
                 with open(json_filepath, 'w') as f:
                     json.dump(full_text, f)
-    print("Adding Nodes and Edges lists to storage should happen now")
+    logging.info("Adding Nodes and Edges lists to storage should happen now")
     big_metadata = pd.read_csv(df_filepath)
     nodes, edges = echr.get_nodes_edges(dataframe=big_metadata, save_file="n")
     # get only the ecli column in nodes

@@ -2,6 +2,7 @@
 Main data transformer. Transforms files from the data/raw file onto data/processed. Cleans up the data, renames columns,
 removes some unnecessary data.
 """
+import logging
 import time
 from csv import DictReader, DictWriter
 from os import remove
@@ -63,25 +64,26 @@ def transform_data():
         get_path_raw(CSV_ECHR_CASES)
     ]
 
-    print('INPUT/OUTPUT DATA STORAGE:\t', 'local')
-    print('INPUTS:\t\t\t\t', [basename(input_path) for input_path in input_paths])
-    print('OUTPUTS:\t\t\t', [basename(get_path_processed(basename(input_path))) for input_path in input_paths], '\n')
+    logging.info('INPUT/OUTPUT DATA STORAGE:\t' + 'local')
+    logging.info('INPUTS:\t\t\t\t' + ','.join([basename(input_path) for input_path in input_paths]))
+    logging.info(
+        'OUTPUTS:\t\t\t' + ','.join([basename(get_path_processed(basename(input_path))) for input_path in input_paths]))
 
     # run data transformation for each input file
     for input_path in input_paths:
         storage = Storage()
         if not exists(input_path):
-            print(f"No such file found as {input_path}")
+            logging.info(f"No such file found as {input_path}")
             continue
         file_name = basename(input_path)
         output_path = get_path_processed(file_name)
-        print(f'\n--- PREPARATION {file_name} ---\n')
+        logging.info(f'--- PREPARATION {file_name} ---')
         try:
             storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
         except Exception as e:
-            print(e)
+            logging.info(e)
             return
-        print(f'\n--- START {file_name} ---\n')
+        logging.info(f'--- START {file_name} ---')
 
         field_map = field_maps.get(input_path)
         tool_map = tool_maps.get(input_path)
@@ -109,8 +111,8 @@ def transform_data():
                         writer.writerow(row_clean)
         remove(input_path)
     end = time.time()
-    print("\n--- DONE ---")
-    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+    logging.info("\n--- DONE ---")
+    logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
 
 
 if __name__ == '__main__':
