@@ -2,6 +2,7 @@
 Main RS extraction routine. Used by the rechtspaark_extraction DAG.
 """
 import argparse
+import logging
 import os
 import sys
 import time
@@ -19,7 +20,13 @@ env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 LIDO_USERNAME = os.getenv('LIDO_USERNAME')
 LIDO_PASSWORD = os.getenv('LIDO_PASSWORD')
-RS_SETUP = eval(os.getenv('RS_SETUP'))
+
+try:
+    RS_SETUP = eval(Variable.get('RS_SETUP'))
+except:
+    RS_SETUP = True
+    Variable.set(key='RS_SETUP', value=True)
+
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 
 
@@ -40,13 +47,14 @@ def get_rs_setup_args():
                 '2010-01-01',
                 '2011-01-01', '2012-01-01', '2013-01-01', '2014-01-01', '2015-01-01', '2016-01-01', '2017-01-01',
                 '2018-01-01',
-                '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']
+                '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']  # 29
     try:
         index = eval(Variable.get('RS_SETUP_INDEX'))  # start index
         next_index = index + 1  # end index
         if index >= len(var_list):  # if start is out, no extraction out
             starting = None
             ending = None
+            Variable.set(key='RS_SETUP', value=False)
         else:  # starting is in
             starting = var_list[index]
             if next_index >= len(var_list):  # determine if end is there or no
@@ -54,7 +62,7 @@ def get_rs_setup_args():
             else:
                 ending = var_list[next_index]
     except:
-        print("NO INDEX YET SET")
+        logging.info("NO INDEX YET SET")
         next_index = 0
         ending = var_list[0]
         starting = None
@@ -79,13 +87,13 @@ def rechtspraak_extract(args=None):
     args, unknown = parser.parse_known_args(args)
 
     if RS_SETUP:
-        print('RS DATABASE SETUP RUN')
+        logging.info('RS DATABASE SETUP RUN')
         start, end, amount, next_index = get_rs_setup_args()
     else:
         start, end, amount = get_parser_args(args)
 
-    print('\n--- PREPARATION ---\n')
-    print('OUTPUT:\t\t\t', output_path)
+    logging.info('--- PREPARATION ---')
+    logging.info('OUTPUT:\t\t\t' + output_path)
     storage = Storage()
     # Setting up storage. In case output exists - throws an Exception.
     # To make sure it doesnt crash airflow dags, needs to be caught.
@@ -94,53 +102,52 @@ def rechtspraak_extract(args=None):
     try:
         storage.setup_pipeline(output_paths=[output_path])
     except Exception as e:
-        print(e)
+        logging.error(e)
         return
 
     try:
         # Getting date of last update from airflow database
         last_updated = Variable.get('RSPRAAK_LAST_DATE')
     except Exception as e:
-        print(e)
-        last_updated = '1900-01-01'
+        last_updated = os.getenv('RS_START_DATE')
         Variable.set(key='RSPRAAK_LAST_DATE', value=last_updated)
 
     today_date = str(datetime.today().date())
-    print('\nSTART DATE (LAST UPDATE):\t', last_updated)
-    print('\n--- START ---\n')
+    logging.info('START DATE (LAST UPDATE):\t' + last_updated)
+    logging.info('--- START ---')
     start_time = time.time()
-    print(f"Downloading {amount if amount else 'all'} Rechtspraak documents")
+    logging.info(f"Downloading {amount if amount else 'all'} Rechtspraak documents")
 
     if not amount:
         amount = 1200000
 
     if start and end:
-        print(f'Starting from manually specified dates: {start} - {end}')
+        logging.info(f'Starting from manually specified dates: {start} - {end}')
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n', ed=end)
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
     elif end:
-        print(f'Ending at manually specified date: {end}')
+        logging.info(f'Ending at manually specified date: {end}')
         base_extraction = rex.get_rechtspraak(max_ecli=amount, ed=end, save_file='n')
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
     elif start:
-        print(f'Starting from manually specified date: {start} ')
+        logging.info(f'Starting from manually specified date: {start} ')
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n')
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
     else:
-        print('Starting from the last update the script can find')
+        logging.info('Starting from the last update the script can find')
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=last_updated, save_file='n', ed=today_date)
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
-    print(f"Length of metadata df is {len(metadata_df)}")
-    rex_citations.get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 2)
+    logging.info(f"Length of metadata df is {len(metadata_df)}")
+    rex_citations.get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
 
-    print(f"\nUpdating local storage ...")
+    logging.info(f"Updating local storage ...")
     df_filepath = get_path_raw(CSV_RS_CASES)
 
     metadata_df.to_csv(df_filepath, index=False)
 
     end_time = time.time()
-    print("\n--- DONE ---")
-    print("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end_time - start_time)))
+    logging.info("--- DONE ---")
+    logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end_time - start_time)))
     Variable.set(key='RSPRAAK_LAST_DATE', value=today_date)
     if RS_SETUP:
         Variable.set(key='RS_SETUP_INDEX', value=next_index)

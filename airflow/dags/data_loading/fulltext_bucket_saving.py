@@ -1,7 +1,9 @@
-import boto3
 import json
-import os, sys
+import os
+import sys
 from os.path import basename, dirname, join, abspath
+
+import boto3
 
 sys.path.append(dirname(dirname(abspath(__file__))))
 from definitions.storage_handler import DIR_DATA_FULL_TEXT, JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR

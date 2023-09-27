@@ -1,5 +1,6 @@
-import boto3
 import logging
+
+import boto3
 
 
 class DynamoDBClient:
@@ -13,7 +14,7 @@ class DynamoDBClient:
     ):
         if storage == 'local':
             ddb = boto3.resource("dynamodb", endpoint_url="http://localhost:8000", region_name="eu-central-1",
-                                           aws_access_key_id = "local", aws_secret_access_key = "local")
+                                 aws_access_key_id="local", aws_secret_access_key="local")
         else:
             ddb = boto3.resource('dynamodb')
 

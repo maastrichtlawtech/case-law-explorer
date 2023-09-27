@@ -31,7 +31,7 @@ MAP_RS = {
     'citations_incoming': RS_CITED_BY,  # cases citing current case
     'citations_outgoing': RS_CITING,  # cases cited in current case
     'legislations_cited': RS_LEGISLATIONS,  # legislations cited in current case
-    'summary' : RS_SUMMARY
+    'summary': RS_SUMMARY
 }
 MAP_CELLAR = {
     'CASE LAW COMMENTED BY AGENT': CELLAR_COMMENTED_AGENT,  # which Member States submitted information
@@ -84,7 +84,7 @@ MAP_ECHR = {
     'doctypebranch': ECHR_BRANCH,  # branch of court
     'ecli': ECLI,  # European Case Law Identifier
     'importance': ECHR_IMPORTANCE,  # case importance from 1 (least) to 4 (most)
-    'judgementdate': ECHR_JUDGEMENT_DATE,  # date and time of judgement
+    'judgementdate': ECHR_JUDGMENT_DATE,  # date and time of judgement
     'languageisocode': ECHR_LANGUAGE,  # language of document
     'originatingbody': ECHR_DIVISION,  # division of court
     'representedby': ECHR_REPRESENTATION,  # representation of the case (could be of use)

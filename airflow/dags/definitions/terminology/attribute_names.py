@@ -8,7 +8,7 @@ Original LI terminology: see https://www.legalintelligence.com/files/li-search-e
 SOURCE = LI_DOCUMENT_TYPE = ECHR_DOCUMENT_TYPE = 'source'  # source of case (so far: always 'Rechtspraak')
 JURISDICTION_COUNTRY = LI_JURISDICTION = 'jurisdiction_country'  # country of jurisdiction (so far: always 'NL')
 RS_CREATOR = LI_ISSUING_INSTITUTION = ECHR_DIVISION = 'instance'  # name of instance (court)
-RS_DATE = LI_ENACTMENT_DATE = ECHR_JUDGEMENT_DATE = 'date_decision'  # date of court decision
+RS_DATE = LI_ENACTMENT_DATE = ECHR_JUDGMENT_DATE = 'date_decision'  # date of court decision
 RS_ZAAKNUMMER = LI_CASE_NUMBER = 'case_number'  # case number, for internal use by courts -- main identifier prior to introduction of ECLI
 RS_SUBJECT = LI_LAW_AREA = ECHR_ARTICLES = 'domains'  # domain(s) (area(s) of the law) applicable to case
 RS_HASVERSION = LI_SOURCES = ECHR_PUBLISHED_BY = 'alternative_publications'  # references to other publications
@@ -74,7 +74,7 @@ CELLAR_CELEX = 'celex'  # celex identifier
 CELLAR_REQUEST_DATE = 'date_of_request'  # date of request for an opinion of Advocate-General
 CELLAR_CREATION_OF_WORK = 'date_of_creation'  # date of latest modification in dataset
 CELLAR_BASED_ON_TREATY = 'based_on_treaty'  # treaty on which judgement is based
-CELLAR_NATIONAL_JUDGEMENT = 'national_judgement'  # source of national case
+CELLAR_NATIONAL_JUDGMENT = 'national_judgement'  # source of national case
 CELLAR_JOURNAL_ARTICLES = 'references_journals'  # references to journal articles
 CELLAR_SECTOR = 'sector'  # type of source
 CELLAR_RESOURCE_TYPE = 'resource_type'  # document type
