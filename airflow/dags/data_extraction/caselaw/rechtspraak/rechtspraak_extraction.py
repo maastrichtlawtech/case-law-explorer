@@ -8,8 +8,7 @@ import sys
 import time
 from datetime import datetime
 from os.path import dirname, abspath
-
-import rechtspraak_citations_extractor as rex_citations
+from rechtspraak_citations_extractor import get_citations
 import rechtspraak_extractor as rex
 from airflow.models.variable import Variable
 from dotenv import load_dotenv, find_dotenv
@@ -138,7 +137,7 @@ def rechtspraak_extract(args=None):
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=last_updated, save_file='n', ed=today_date)
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
     logging.info(f"Length of metadata df is {len(metadata_df)}")
-    rex_citations.get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
+    get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
 
     logging.info(f"Updating local storage ...")
     df_filepath = get_path_raw(CSV_RS_CASES)
