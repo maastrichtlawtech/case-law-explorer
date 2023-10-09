@@ -8,7 +8,7 @@ import sys
 import time
 from datetime import datetime
 from os.path import dirname, abspath
-from rechtspraak_citations_extractor import get_citations
+from rechtspraak_citations_extractor.citations_extractor import get_citations
 import rechtspraak_extractor as rex
 from airflow.models.variable import Variable
 from dotenv import load_dotenv, find_dotenv
@@ -118,7 +118,7 @@ def rechtspraak_extract(args=None):
     logging.info(f"Downloading {amount if amount else 'all'} Rechtspraak documents")
 
     if not amount:
-        amount = 1200000
+        amount = 12
 
     if start and end:
         logging.info(f'Starting from manually specified dates: {start} - {end}')
@@ -130,6 +130,7 @@ def rechtspraak_extract(args=None):
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
     elif start:
         logging.info(f'Starting from manually specified date: {start} ')
+        amount = 100
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n')
         metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
     else:
@@ -146,7 +147,7 @@ def rechtspraak_extract(args=None):
 
     end_time = time.time()
     logging.info("--- DONE ---")
-    logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end_time - start_time)))
+    logging.info("Time taken: " + time.strftime('%H:%M:%S', time.gmtime(end_time - start_time)))
     Variable.set(key='RSPRAAK_LAST_DATE', value=today_date)
     if RS_SETUP:
         Variable.set(key='RS_SETUP_INDEX', value=next_index)
