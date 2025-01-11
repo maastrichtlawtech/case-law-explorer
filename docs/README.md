@@ -1,7 +1,7 @@
 # Case Law Explorer: ETL
 
 This documentation covers the data pipeline used to extract, transform and load Dutch and European case law from different data sources into an AWS DynamoDB database, as well as the creation of a GraphQL API to query the data (see repository [maastrichtlawtech/case-law-explorer](https://github.com/maastrichtlawtech/case-law-explorer)).
-The data transformation and database schema are designed to serve our [Case Law Explorer app](https://dev.d11iy22xsphp3a.amplifyapp.com/) (see repository [maastrichtlawtech/case-explorer-ui](https://github.com/maastrichtlawtech/case-explorer-ui)).
+The data transformation and database schema are designed to serve our [Case Law Explorer app](https://maastrichtlawtech.github.io/case-explorer-ui/#/userguide/) (see repository [maastrichtlawtech/case-explorer-ui](https://github.com/maastrichtlawtech/case-explorer-ui)).
 More information about the app can be found in our [use case example](/graphql/?id=usecase-case-law-explorer-ui).
 
 <p align="center">
