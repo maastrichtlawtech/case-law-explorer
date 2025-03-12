@@ -47,11 +47,15 @@ class DynamoDB_RS_Processor:
                         attribute: set(row[attribute].split(SET_SEP))
                     })
                     row.pop(attribute)
-            put_items.append({
-                self.sk: ItemType.DATA.value,
-                key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
-                **row
-            })
+            if ECLI in row:
+                put_items.append({
+                    self.pk: row[ECLI],
+                    self.sk: ItemType.DATA.value,
+                    key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
+                    **row
+                })
+            else:
+                print(f"NO ECLI FOUND")
             return put_items, [], update_set_items
 
         return row_processor_rs_cases
