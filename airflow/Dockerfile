@@ -1,5 +1,4 @@
-FROM apache/airflow:2.3.0
-USER root
+FROM apache/airflow:2.3.0-python3.8
 LABEL org.opencontainers.image.source=https://github.com/maastrichtlawtech/case-law-explorer
 RUN apt-get update && apt-get autoremove -yqq --purge && apt-get clean
 USER airflow 
