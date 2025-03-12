@@ -78,52 +78,55 @@ class DynamoDB_RS_Processor:
         # retrieve lists of items to put and update
         put_items, update_items, update_set_items = self.row_processor(row)
         for item in put_items:
-            try:
-                self.table.put_item(Item=item)
-                item_counter += 1
-            except Exception as e:
-                print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
-                with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
-                    f.write(item[self.pk] + '\n')
-                    f.write(e + '\n')
+            if item[self.pk] and item[self.sk]:
+                try:
+                    self.table.put_item(Item=item)
+                    item_counter += 1
+                except Exception as e:
+                    print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
+                    with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
+                        f.write(item[self.pk] + '\n')
+                        f.write(e + '\n')
 
         # update item attributes
         for item in update_items:
-            try:
-                pk_val, sk_val, expression_att_names, expression_att_values = self._extract_attributes(item)
-                update_expression = 'SET ' + ', '.join(list(expression_att_names.keys())[i] + '=' +
-                                                       list(expression_att_values.keys())[i]
-                                                       for i in range(len(expression_att_names)))
-                self.table.update_item(
-                    Key={self.pk: pk_val, self.sk: sk_val},
-                    UpdateExpression=update_expression,
-                    ExpressionAttributeNames=expression_att_names,
-                    ExpressionAttributeValues=expression_att_values
-                )
-            except Exception as e:
-                print(e, item[self.pk], item[self.sk], ";while updating item attributes")
-                with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
-                    f.write(item[self.pk] + '\n')
-                    f.write(e + '\n')
+            if item[self.pk] and item[self.sk]:
+                try:
+                    pk_val, sk_val, expression_att_names, expression_att_values = self._extract_attributes(item)
+                    update_expression = 'SET ' + ', '.join(list(expression_att_names.keys())[i] + '=' +
+                                                           list(expression_att_values.keys())[i]
+                                                           for i in range(len(expression_att_names)))
+                    self.table.update_item(
+                        Key={self.pk: pk_val, self.sk: sk_val},
+                        UpdateExpression=update_expression,
+                        ExpressionAttributeNames=expression_att_names,
+                        ExpressionAttributeValues=expression_att_values
+                    )
+                except Exception as e:
+                    print(e, item[self.pk], item[self.sk], ";while updating item attributes")
+                    with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
+                        f.write(item[self.pk] + '\n')
+                        f.write(e + '\n')
 
         # update item set attributes
         for item in update_set_items:
-            try:
-                pk_val, sk_val, expression_att_names, expression_att_values = self._extract_attributes(item)
-                update_expression = f'ADD {list(expression_att_names.keys())[0]} {list(expression_att_values.keys())[0]}'
-                self.table.update_item(
-                    Key={self.pk: pk_val, self.sk: sk_val},
-                    UpdateExpression=update_expression,
-                    ExpressionAttributeNames=expression_att_names,
-                    ExpressionAttributeValues={
-                        list(expression_att_values.keys())[0]: list(expression_att_values.values())[0]
-                    }
-                )
-            except Exception as e:
-                print(e, item[self.pk], item[self.sk], ";while updating item set attributes")
-                with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
-                    f.write(item[self.pk] + '\n')
-                    f.write(e + '\n')
+            if item[self.pk] and item[self.sk]:
+                try:
+                    pk_val, sk_val, expression_att_names, expression_att_values = self._extract_attributes(item)
+                    update_expression = f'ADD {list(expression_att_names.keys())[0]} {list(expression_att_values.keys())[0]}'
+                    self.table.update_item(
+                        Key={self.pk: pk_val, self.sk: sk_val},
+                        UpdateExpression=update_expression,
+                        ExpressionAttributeNames=expression_att_names,
+                        ExpressionAttributeValues={
+                            list(expression_att_values.keys())[0]: list(expression_att_values.values())[0]
+                        }
+                    )
+                except Exception as e:
+                    print(e, item[self.pk], item[self.sk], ";while updating item set attributes")
+                    with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
+                        f.write(item[self.pk] + '\n')
+                        f.write(e + '\n')
 
         return item_counter
 
