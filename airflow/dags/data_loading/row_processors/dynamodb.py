@@ -86,7 +86,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-                        f.write(e + '\n')
+                        f.write(str(e) + '\n')
 
         # update item attributes
         for item in update_items:
@@ -106,7 +106,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while updating item attributes")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-                        f.write(e + '\n')
+                        f.write(str(e) + '\n')
 
         # update item set attributes
         for item in update_set_items:
@@ -126,7 +126,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while updating item set attributes")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-                        f.write(e + '\n')
+                        f.write(str(e) + '\n')
 
         return item_counter
 
@@ -172,7 +172,7 @@ class DynamoDBRowCelexProcessor:
                 print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
-                    f.write(e + '\n')
+                    f.write(str(e) + '\n')
 
         return item_counter
 
@@ -239,6 +239,6 @@ class DynamoDBRowItemidProcessor:
                 print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
                 with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                     f.write(item[self.pk] + '\n')
-                    f.write(e + '\n')
+                    f.write(str(e) + '\n')
 
         return item_counter
