@@ -88,6 +88,8 @@ def rechtspraak_extract(args=None):
     if RS_SETUP:
         logging.info('RS DATABASE SETUP RUN')
         start, end, amount, next_index = get_rs_setup_args()
+        start = eval(Variable.get('RS_START_DATE'))
+        end = eval(Variable.get('RS_END_DATE'))
     else:
         start, end, amount = get_parser_args(args)
 
