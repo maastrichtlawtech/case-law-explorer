@@ -16,7 +16,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup docker-compose
-        uses: docker/setup-compose-action@v2
+        uses: docker/setup-compose-action@v1
         with:
           version: latest
       - name: Verify docker-compose
