@@ -9,7 +9,8 @@ import time
 from datetime import datetime
 from os.path import dirname, abspath
 from rechtspraak_citations_extractor.citations_extractor import get_citations
-import rechtspraak_extractor as rex
+import rechtspraak_extractor.rechtspraak as rex
+from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
 from airflow.models.variable import Variable
 from dotenv import load_dotenv, find_dotenv
 
@@ -125,20 +126,32 @@ def rechtspraak_extract(args=None):
     if start and end:
         logging.info(f'Starting from manually specified dates: {start} - {end}')
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n', ed=end)
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        metadata_df = get_rechtspraak_metadata(save_file='n',
+                                               dataframe=base_extraction,
+                                               _fake_headers=True,
+                                               data_dir='data/processed/')
     elif end:
         logging.info(f'Ending at manually specified date: {end}')
         base_extraction = rex.get_rechtspraak(max_ecli=amount, ed=end, save_file='n')
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        metadata_df = get_rechtspraak_metadata(save_file='n',
+                                               dataframe=base_extraction,
+                                               _fake_headers=True,
+                                               data_dir='data/processed/')
     elif start:
         logging.info(f'Starting from manually specified date: {start} ')
         amount = 100
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n')
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        metadata_df = get_rechtspraak_metadata(save_file='n',
+                                               dataframe=base_extraction,
+                                               _fake_headers=True,
+                                               data_dir='data/processed/')
     else:
         logging.info('Starting from the last update the script can find')
         base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=last_updated, save_file='n', ed=today_date)
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        metadata_df = get_rechtspraak_metadata(save_file='n',
+                                               dataframe=base_extraction,
+                                               _fake_headers=True,
+                                               data_dir='data/processed/')
     logging.info(f"Length of metadata df is {len(metadata_df)}")
     get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
 
