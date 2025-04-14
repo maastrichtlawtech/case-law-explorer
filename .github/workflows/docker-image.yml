@@ -15,10 +15,10 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-      - name: Setup docker-compose
-        uses: docker/setup-compose-action@v1
-        with:
-          version: latest
+      - name: Install docker compose
+        run: |
+          sudo apt-get update
+          sudo apt-get install docker-compose -y
       - name: Verify docker-compose
         run: docker-compose --version     
       - name: Build Docker-compose
