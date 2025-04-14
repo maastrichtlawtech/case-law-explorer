@@ -16,9 +16,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
       - name: Setup docker-compose
-        uses: docker/setup-compose-action@v1
+        uses: docker/setup-compose-action@v2
         with:
-          version: latest     
+          version: latest
+      - name: Verify docker-compose
+        run: docker-compose --version     
       - name: Build Docker-compose
         run: docker-compose up -d
       - name: Extract metadata (tags, labels) for Docker
