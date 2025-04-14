@@ -39,7 +39,7 @@ jobs:
       #  with:
       #   compose-file: './docker-compose.yaml'
       - name: Build and push Docker image
-        uses: docker/build-push-action@v3.2.0
+        uses: docker/build-push-action@v6
         with:
           context: ./airflow
           push: true
