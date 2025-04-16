@@ -19,7 +19,8 @@ with DAG(
         dag_id='rechtspraak',
         default_args=default_args,
         description='fully implemented',
-        start_date=datetime.now(),
+        start_date=datetime(2021, 1, 1),
+        catchup=False,
         schedule_interval='0 0 * * WED'
 
 ) as DAG:
