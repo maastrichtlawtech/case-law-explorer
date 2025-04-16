@@ -6,7 +6,8 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+import pandas as pd
 from os.path import dirname, abspath
 from rechtspraak_citations_extractor.citations_extractor import get_citations
 import rechtspraak_extractor.rechtspraak as rex
@@ -79,6 +80,7 @@ def get_parser_args(args):
 
 
 def rechtspraak_extract(args=None):
+    logging.info('--- RECHTSPRAAK EXTRACTION ---')
     output_path = get_path_raw(CSV_RS_CASES)
     parser = argparse.ArgumentParser()
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
@@ -123,35 +125,102 @@ def rechtspraak_extract(args=None):
     if not amount:
         amount = 12
 
+
     if start and end:
         logging.info(f'Starting from manually specified dates: {start} - {end}')
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n', ed=end)
-        metadata_df = get_rechtspraak_metadata(save_file='n',
-                                               dataframe=base_extraction,
-                                               _fake_headers=True,
-                                               data_dir='data/processed/')
+        current_date = datetime.strptime(start, '%Y-%m-%d')
+        end_date = datetime.strptime(end, '%Y-%m-%d')
+        metadata_df_list = []
+
+        while current_date < end_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            metadata_df_list.append(metadata_df)
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        else:
+            logging.info("No new data to process")
+            
     elif end:
         logging.info(f'Ending at manually specified date: {end}')
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, ed=end, save_file='n')
-        metadata_df = get_rechtspraak_metadata(save_file='n',
-                                               dataframe=base_extraction,
-                                               _fake_headers=True,
-                                               data_dir='data/processed/')
+        current_date = datetime.strptime(last_updated, '%Y-%m-%d')
+        end_date = datetime.strptime(end, '%Y-%m-%d')
+        metadata_df_list = []
+
+        while current_date <= end_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            metadata_df_list.append(metadata_df)
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        
     elif start:
-        logging.info(f'Starting from manually specified date: {start} ')
-        amount = 100
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n')
-        metadata_df = get_rechtspraak_metadata(save_file='n',
-                                               dataframe=base_extraction,
-                                               _fake_headers=True,
-                                               data_dir='data/processed/')
+        logging.info(f'Starting from manually specified date: {start}')
+        current_date = datetime.strptime(start, '%Y-%m-%d')
+        today_date = datetime.today()
+        metadata_df_list = []
+
+        while current_date <= today_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            metadata_df_list.append(metadata_df)
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        else:
+            logging.info("No new data to process")
+
     else:
         logging.info('Starting from the last update the script can find')
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=last_updated, save_file='n', ed=today_date)
-        metadata_df = get_rechtspraak_metadata(save_file='n',
-                                               dataframe=base_extraction,
-                                               _fake_headers=True,
-                                               data_dir='data/processed/')
+        current_date = datetime.strptime(last_updated, '%Y-%m-%d')
+        today_date = datetime.today()
+        metadata_df_list = []
+
+        while current_date <= today_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            if isinstance(metadata_df, pd.DataFrame):
+                metadata_df_list.append(metadata_df)
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        else:
+            logging.info("No new data to process")
+            
     logging.info(f"Length of metadata df is {len(metadata_df)}")
     get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
 
@@ -166,6 +235,19 @@ def rechtspraak_extract(args=None):
     Variable.set(key='RSPRAAK_LAST_DATE', value=today_date)
     if RS_SETUP:
         Variable.set(key='RS_SETUP_INDEX', value=next_index)
+    
+    # Check if there are any _failed_eclis.txt file in data and its subdirectories
+    failed_files = []
+    for root, dirs, files in os.walk('data'):
+        for file in files:
+            if file.endswith('_failed_eclis.txt'):
+                failed_files.append(os.path.join(root, file))
+    if failed_files:
+        logging.info("There are some failed eclis files in the data directory:")
+        for file in failed_files:
+            logging.info(file)
+    else:
+        logging.info("There are no failed eclis files in the data directory.")
 
 
 if __name__ == '__main__':
