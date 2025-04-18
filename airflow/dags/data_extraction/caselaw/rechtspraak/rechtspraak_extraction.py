@@ -47,7 +47,7 @@ def get_rs_setup_args():
                 '2003-01-01', '2004-01-01', '2005-01-01', '2006-01-01', '2007-01-01', '2008-01-01', '2009-01-01',
                 '2010-01-01',
                 '2011-01-01', '2012-01-01', '2013-01-01', '2014-01-01', '2015-01-01', '2016-01-01', '2017-01-01',
-                '2018-01-01',
+                '2018-01-01',~
                 '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']  # 29
     try:
         index = eval(Variable.get('RS_SETUP_INDEX'))  # start index
@@ -69,6 +69,25 @@ def get_rs_setup_args():
         starting = None
 
     return starting, ending, amount, next_index
+
+
+def _store_dataframe_per_date(df, date, _filename, _path='data/processed/'):
+    """
+    Store the dataframe for a specific date in a CSV file.
+    The filename is based on the date.
+    """
+    date_str = date.strftime('%Y-%m-%d')
+    filename = f"rechtspraak_{_filename}_{date_str}.csv"
+    # Store in directory data/processed/date_str
+    filepath = os.path.join(_path, date_str, filename)
+    if not os.path.exists(filepath):
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    # Store the dataframe in the CSV file
+    if df is None:
+        logging.info(f"No data to store for {date_str}")
+        return
+    df.to_csv(filepath, index=False)
+    logging.info(f"Dataframe for {date_str} stored in {filepath}")
 
 
 def get_parser_args(args):
@@ -131,6 +150,7 @@ def rechtspraak_extract(args=None):
         current_date = datetime.strptime(start, '%Y-%m-%d')
         end_date = datetime.strptime(end, '%Y-%m-%d')
         metadata_df_list = []
+        # Check if there are files from previous runs per date
 
         while current_date < end_date:
             next_date = current_date + timedelta(days=1)
@@ -139,11 +159,21 @@ def rechtspraak_extract(args=None):
                                                   sd=str(current_date.date()),
                                                   ed=str(next_date.date()),
                                                   save_file='n')
+            # Store the dataframe for the current date
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
             metadata_df = get_rechtspraak_metadata(save_file='n',
                                                    dataframe=base_extraction,
                                                    _fake_headers=True,
                                                    data_dir='data/processed/')
             metadata_df_list.append(metadata_df)
+            # Store the dataframe for the current date
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
             current_date = next_date
         if metadata_df_list:
             metadata_df = pd.concat(metadata_df_list, ignore_index=True)
@@ -163,10 +193,18 @@ def rechtspraak_extract(args=None):
                                                   sd=str(current_date.date()),
                                                   ed=str(next_date.date()),
                                                   save_file='n')
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
             metadata_df = get_rechtspraak_metadata(save_file='n',
                                                    dataframe=base_extraction,
                                                    _fake_headers=True,
                                                    data_dir='data/processed/')
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
             metadata_df_list.append(metadata_df)
             current_date = next_date
         if metadata_df_list:
@@ -185,10 +223,18 @@ def rechtspraak_extract(args=None):
                                                   sd=str(current_date.date()),
                                                   ed=str(next_date.date()),
                                                   save_file='n')
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
             metadata_df = get_rechtspraak_metadata(save_file='n',
                                                    dataframe=base_extraction,
                                                    _fake_headers=True,
                                                    data_dir='data/processed/')
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
             metadata_df_list.append(metadata_df)
             current_date = next_date
         if metadata_df_list:
@@ -209,10 +255,18 @@ def rechtspraak_extract(args=None):
                                                   sd=str(current_date.date()),
                                                   ed=str(next_date.date()),
                                                   save_file='n')
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
             metadata_df = get_rechtspraak_metadata(save_file='n',
                                                    dataframe=base_extraction,
                                                    _fake_headers=True,
                                                    data_dir='data/processed/')
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
             if isinstance(metadata_df, pd.DataFrame):
                 metadata_df_list.append(metadata_df)
             current_date = next_date
