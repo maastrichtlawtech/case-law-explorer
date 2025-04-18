@@ -35,14 +35,14 @@ signed_limit = 2 ** (bit_size - 1)
 csv.field_size_limit(signed_limit - 1 if signed else 2 * signed_limit - 1)
 
 
-def load_data():
+def load_data(input_paths=None):
     start = time.time()
-
-    input_paths = [
-        get_path_processed(CSV_RS_CASES),
-        get_path_processed(CSV_ECHR_CASES),
-        get_path_processed(CSV_CELLAR_CASES)
-    ]
+    if input_paths is None:
+        input_paths = [
+            get_path_processed(CSV_RS_CASES),
+            get_path_processed(CSV_ECHR_CASES),
+            get_path_processed(CSV_CELLAR_CASES)
+        ]
     full_text_paths = [
         JSON_FULL_TEXT_CELLAR,
         JSON_FULL_TEXT_ECHR
