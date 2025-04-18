@@ -52,23 +52,22 @@ field_maps = {
 }
 
 
-def transform_data():
+def transform_data(caselaw_type=None, input_paths=None):
     """
     Start processing
     """
     start = time.time()
-
-    input_paths = [
-        get_path_raw(CSV_RS_CASES),
-        get_path_raw(CSV_CELLAR_CASES),
-        get_path_raw(CSV_ECHR_CASES)
-    ]
+    if input_paths is None:
+        input_paths = [
+            get_path_raw(CSV_RS_CASES),
+            get_path_raw(CSV_CELLAR_CASES),
+            get_path_raw(CSV_ECHR_CASES)
+        ]
 
     logging.info('INPUT/OUTPUT DATA STORAGE:\t' + 'local')
     logging.info('INPUTS:\t\t\t\t' + ','.join([basename(input_path) for input_path in input_paths]))
     logging.info(
         'OUTPUTS:\t\t\t' + ','.join([basename(get_path_processed(basename(input_path))) for input_path in input_paths]))
-
     # run data transformation for each input file
     for input_path in input_paths:
         storage = Storage()
@@ -84,16 +83,17 @@ def transform_data():
             logging.info(e)
             return
         logging.info(f'--- START {file_name} ---')
-
-        field_map = field_maps.get(input_path)
-        tool_map = tool_maps.get(input_path)
-
+        if caselaw_type == 'RS':
+            field_map = MAP_RS
+            tool_map = tool_map_rs
+        else:
+            field_map = field_maps[input_path]
+            tool_map = tool_maps[input_path]
         with open(output_path, 'a', newline='', encoding='utf-8') as out_file:
             writer = DictWriter(out_file, fieldnames=list(field_map.values()))
             writer.writeheader()
 
             with open(input_path, 'r', newline='', encoding='utf-8') as in_file:
-
                 reader = DictReader(in_file)
                 # process input file by row
                 for row in reader:
@@ -106,7 +106,7 @@ def transform_data():
                                 else:
                                     row_clean[field_map[col]] = value.strip()
                     # write processed row to output file only if ECLI is not empty
-                    if row_clean['ECLI'] != None and row_clean['ECLI'] == row_clean['ECLI'] and row_clean['ECLI'] != "":
+                    if row_clean['ECLI'] is not None and row_clean['ECLI'] == row_clean['ECLI'] and row_clean['ECLI'] != "":
                         row_clean = {k: v for k, v in row_clean.items() if v is not None}
                         writer.writerow(row_clean)
         remove(input_path)
