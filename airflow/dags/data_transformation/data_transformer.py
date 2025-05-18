@@ -109,10 +109,10 @@ def transform_data(caselaw_type=None, input_paths=None):
                     if row_clean['ECLI'] is not None and row_clean['ECLI'] == row_clean['ECLI'] and row_clean['ECLI'] != "":
                         row_clean = {k: v for k, v in row_clean.items() if v is not None}
                         writer.writerow(row_clean)
-        remove(input_path)
+        # remove(input_path)
     end = time.time()
     logging.info("\n--- DONE ---")
-    logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+    logging.info("Time taken: ", str(time.strftime('%H:%M:%S', time.gmtime(end - start))))
 
 
 if __name__ == '__main__':
