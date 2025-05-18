@@ -40,6 +40,7 @@ RS_CITED_BY = 'cited_by'
 RS_CITING = 'citing'
 RS_LEGISLATIONS = 'legislations_cited'
 RS_SUMMARY = 'summary'
+RS_BWB_ID = 'bwb_id' 
 # fields only in LI
 LI_DISPLAY_TITLE = 'display_title'  # title of document entry in LI
 LI_DISPLAY_SUBTITLE = 'display_subtitle'  # subtitle of document entry in LI
