@@ -15,6 +15,7 @@ from dotenv import load_dotenv
 from data_loading.clients.dynamodb import DynamoDBClient
 from data_loading.fulltext_bucket_saving import upload_fulltext, bucket_name
 from data_loading.nodes_and_edges_loader import upload_nodes_and_edges
+from tqdm import tqdm
 from data_loading.row_processors.dynamodb import DynamoDB_RS_Processor, \
     DynamoDBRowCelexProcessor, DynamoDBRowItemidProcessor
 from definitions.storage_handler import CSV_RS_CASES, \
@@ -81,19 +82,17 @@ def load_data(input_paths=None):
         # process csv by row
         with open(input_path, 'r', newline='', encoding="utf8") as in_file:
             reader = DictReader(in_file)
-            for row in reader:
-                # skip empty rows and remove empty attributes
-                # if row != '':
-                #     row = {k: v for k, v in row.items() if v is not ''}
+            for row in tqdm(
+                reader, 
+                desc="Processing rows", 
+                unit="rows"
+            ):
                 ddb_item_counter += ddb_rp.upload_row(row)
-
                 case_counter += 1
-                if case_counter % 1000 == 0:
-                    print(case_counter, 'rows processed.')
 
         print(f'{case_counter} cases ({ddb_item_counter} ddb items and {os_item_counter} os items) added.')
-        if os.path.exists(input_path):
-            os.remove(input_path)
+        # if os.path.exists(input_path):
+        #     os.remove(input_path)
     upload_fulltext(storage='aws', files_location_paths=full_text_paths)
     upload_nodes_and_edges()
     end = time.time()  # celex, item_id
