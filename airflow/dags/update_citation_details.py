@@ -258,7 +258,7 @@ def update_base_metadata(**kwargs):
             try:
                 # perform citation extraction
                 citations_df = get_citations(
-                    merged_df[:10],
+                    merged_df,
                     os.getenv("LIDO_USERNAME"),
                     os.getenv("LIDO_PASSWORD"),
                     threads=1,
