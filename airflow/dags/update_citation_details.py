@@ -28,10 +28,6 @@ dag = DAG(
     schedule_interval=None,
 )
 
-# DynamoDB client
-# Load environment variables
-load_dotenv()
-
 
 def read_metadata_files(raw_data_path="data/raw/"):
     """
@@ -247,23 +243,40 @@ def update_base_metadata(**kwargs):
             merged_df.loc[
                 merged_df["full_text"].isnull(), "link"
             ] = None
+            if not merged_df.empty:
+                logging.info("Dropping the following columns - citations_incoming, citations_outgoing, legislations_cited, bwb_id,opschrift")
+                merged_df = merged_df.drop(
+                    columns=[
+                        "citations_incoming",
+                        "citations_outgoing",
+                        "legislations_cited",
+                        "bwb_id",
+                        "opschrift",
+                    ],
+                    errors="ignore",
+                )
             try:
                 # perform citation extraction
                 citations_df = get_citations(
-                    merged_df,
+                    merged_df[:10],
                     os.getenv("LIDO_USERNAME"),
                     os.getenv("LIDO_PASSWORD"),
-                    threads=6,
+                    threads=1,
                 )
             except Exception as e:
                 logging.info(f"Error in citation extraction: {e}")
                 continue
+            citations_df.to_csv(
+                _path,
+                mode="w",
+                index=False,
+            )
             citations_df["legislations_cited"] = citations_df[
                 "legislations_cited"
             ].apply(
                 lambda x: {
                     i["legal_provision"]
-                    for i in ast.literal_eval(x) if isinstance(x, str) and "legal_provision" in i
+                    for i in x if isinstance(x, str) and "legal_provision" in i
                 } if isinstance(x, str) else {}
             )
             # Keep only target_ecli value from citations_outgoing column with the following structure
@@ -276,24 +289,27 @@ def update_base_metadata(**kwargs):
             ].apply(
                 lambda x: {
                     i["target_ecli"]
-                    for i in eval(x) if isinstance(x, str) and "target_ecli" in i
-                } if x is not None else x
+                    for i in x
+                    if isinstance(x, str) and x.strip() and "target_ecli" in i
+                } if isinstance(x, str) else {}
             )
             citations_df["legislations_cited"] = citations_df[
                 "legislations_cited"
             ].apply(
                 lambda x: {
                     i["legal_provision"]
-                    for i in eval(x) if isinstance(x, str) and "legal_provision" in i
-                } if x is not None else x
+                    for i in x 
+                    if isinstance(x, str) and x.strip() and "legal_provision" in i
+                } if isinstance(x, str) else {}
             )
             citations_df["citations_incoming"] = citations_df[
                 "citations_incoming"
             ].apply(
                 lambda x: {
                     i["target_ecli"]
-                    for i in eval(x) if isinstance(x, str) and "target_ecli" in i
-                } if x is not None else x
+                    for i in x
+                    if isinstance(x, str) and x.strip() and "target_ecli" in i
+                } if isinstance(x, str) else {}
             )
             # Save the citations_df to a CSV file
             citations_df.to_csv(
@@ -328,15 +344,16 @@ def create_tasks():
         "update_citation_details_tasks", tooltip="Update citation details", dag=dag
     ) as task_group:
         for subdir in subdirs:
-            PythonOperator(
-                task_id=f"process_{subdir}",
-                python_callable=update_base_metadata,
-                op_kwargs={
-                    "files_path": f"data/raw/{subdir}/",
-                    "processed_citations_path": f"data/processed/",
-                },
-                dag=dag,
-            )
+            if "2022-01-01" in str(subdir):
+                PythonOperator(
+                    task_id=f"process_{subdir}",
+                    python_callable=update_base_metadata,
+                    op_kwargs={
+                        "files_path": f"data/raw/{subdir}/",
+                        "processed_citations_path": "data/processed/",
+                    },
+                    dag=dag,
+                )
     logging.info("All tasks created successfully.")
     return task_group
 
