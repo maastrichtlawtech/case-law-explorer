@@ -80,13 +80,24 @@ def _scan_and_update():
                                 else:
                                     citations_outgoing.append("")
                         legislations_cited = []
+                        legislations_url = []
+                        legilsation_url_lido = []
                         for item in citations_df["legislations_cited"]:
                             item = ast.literal_eval(item)
                             for _item in item:
-                                if isinstance(_item, dict) and "legal_provision" in _item:
-                                    legislations_cited.append(_item["legal_provision"])
-                                else:
-                                    legislations_cited.append("")                    
+                                if isinstance(_item, dict):
+                                    if "legal_provision" in _item:
+                                        legislations_cited.append(_item["legal_provision"])
+                                    else:
+                                        legislations_cited.append("")
+                                    if "legal_provision_url" in _item:
+                                        legislations_url.append(_item["legal_provision_url"])
+                                    else:
+                                        legislations_url.append("")
+                                    if "legal_provision_url_lido" in _item:
+                                        legilsation_url_lido.append(_item["legal_provision_url_lido"])
+                                    else:
+                                        legilsation_url_lido.append("")
                         # Convert opschrift from list to string set
                         opschrift = []
                         for item in citations_df["opschrift"]:
@@ -101,13 +112,15 @@ def _scan_and_update():
                         )
                         response = table.update_item(
                             Key=key,
-                            UpdateExpression="SET cited_by = :newval, legislations_cited = :legislations, citing = :citing, opschrift = :opschrift, bwb_id = :bwb_id",
+                            UpdateExpression="SET cited_by = :newval, legal_provision = :legislations, citing = :citing, opschrift = :opschrift, bwb_id = :bwb_id, legal_provision_url = :url, legal_provision_url_lido = :legilsation_url_lido",
                             ExpressionAttributeValues={
                                 ":newval": set(citations_incoming),
                                 ":legislations": set(legislations_cited),
                                 ":citing": set(citations_outgoing),
                                 ":opschrift": set(opschrift),
                                 ":bwb_id": bwb_id,
+                                ":url": set(legislations_url),
+                                ":legilsation_url_lido": set(legilsation_url_lido),
                             },
                             ReturnValues="UPDATED_NEW",
                         )
