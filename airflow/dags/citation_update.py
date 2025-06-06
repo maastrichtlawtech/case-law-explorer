@@ -14,7 +14,7 @@ load_dotenv()
 default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=2)}
 
 dag = DAG(
-    dag_id="ppdate_citations",
+    dag_id="update_citations",
     default_args=default_args,
     description="Update citation details in DynamoDB",
     catchup=False,
@@ -122,4 +122,9 @@ def _scan_and_update():
 
 
 with dag:
-    _scan_and_update()
+    task1 = PythonOperator(
+        task_id='update_citations',
+        python_callable=_scan_and_update,
+    )
+
+task1
