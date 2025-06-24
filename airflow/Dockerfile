@@ -3,6 +3,7 @@ USER root
 LABEL org.opencontainers.image.source=https://github.com/maastrichtlawtech/case-law-explorer
 RUN apt-get update && apt-get autoremove -yqq --purge && apt-get clean
 RUN apt-get install -y gosu
+RUN apt-get install -y serdi
 USER airflow 
 RUN mkdir -p /opt/airflow/data/raw
 RUN mkdir -p /opt/airflow/data/processed

@@ -23,13 +23,15 @@ def task_make_laws_nt(dag: DAG) -> BashOperator:
         "<http://linkeddata.overheid.nl/terms/heeftOnderdeelNummer>"
     ]
     
+    FILTER_PREDICATES_CMD = ' '.join(list(map(lambda p: f'-e "{p}"', FILTER_PREDICATES)))
+
     return BashOperator(
         task_id='make_laws_nt',
         bash_command=(
             f'zcat {FILE_LIDO_TTL_GZ} '
             f'| serdi -l -i turtle -o ntriples - '
             f'| grep "^{FILTER_SUBJECT}" '
-            f'| fgrep {' '.join(list(map(lambda p: f'-e "{p}"', FILTER_PREDICATES)))} '
+            f'| fgrep {FILTER_PREDICATES_CMD} '
             f'| sort -k1,1 '
             f'> {FILE_LAWS_NT}'
         ),
@@ -55,6 +57,8 @@ def task_make_cases_nt(dag: DAG) -> BashOperator:
         "<http://linkeddata.overheid.nl/terms/heeftZaaknummer>",
         "<http://linkeddata.overheid.nl/terms/heeftUitspraakdatum>"
     ]
+
+    FILTER_PREDICATES_CMD = ' '.join(list(map(lambda p: f'-e "{p}"', FILTER_PREDICATES)))
     
     return BashOperator(
         task_id='make_cases_nt',
@@ -62,7 +66,7 @@ def task_make_cases_nt(dag: DAG) -> BashOperator:
             f'zcat {FILE_LIDO_TTL_GZ} '
             f'| serdi -l -i turtle -o ntriples - '
             f'| grep "^{FILTER_SUBJECT}" '
-            f'| fgrep {' '.join(list(map(lambda p: f'-e "{p}"', FILTER_PREDICATES)))} '
+            f'| fgrep {FILTER_PREDICATES_CMD} '
             f'| sort -k1,1 '
             f'> {FILE_CASES_NT}'
         ),
