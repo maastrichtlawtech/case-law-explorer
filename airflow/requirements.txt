@@ -76,3 +76,7 @@ cellar-extractor == 1.2.3
 rechtspraak-extractor == 1.5.2
 echr-extractor == 1.0.43
 rechtspraak-citations-extractor==1.1.0
+
+# lido
+pyoxigraph
+psycopg2-binary
