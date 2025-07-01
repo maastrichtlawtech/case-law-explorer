@@ -1,10 +1,10 @@
 import os
 from lido.utils.sqlite import get_conn
+from lido.config import FILE_SQLITE_DB
 
+def task_init_sqlite():
 
-def task_init_sqlite(db_path: str):
-
-    conn = get_conn(db_path)
+    conn = get_conn(FILE_SQLITE_DB)
     cursor = conn.cursor()
     cursor.executescript("""
         CREATE TABLE IF NOT EXISTS legal_case (

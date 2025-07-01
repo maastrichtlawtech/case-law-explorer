@@ -53,9 +53,10 @@ with DAG(
         )
         
         # lido.ttl -> cases.nt, laws.nt
-        make_laws_nt = task_make_laws_nt(dag)
+        # make_laws_nt = task_make_laws_nt(dag)
         make_laws_nt = EmptyOperator(task_id="skip_make_laws_nt")
-        make_cases_nt = task_make_cases_nt(dag)
+        # make_cases_nt = task_make_cases_nt(dag)
+        make_cases_nt = EmptyOperator(task_id="skip_make_cases_nt")
 
         check_laws_nt = BashOperator(
             task_id='check_laws_nt',
@@ -110,14 +111,13 @@ with DAG(
         reset_sqlite_db = BashOperator(
             task_id='reset_sqlite_db',
             # rm files but keep dirs
-            bash_command=f'rm {FILE_SQLITE_DB}'
+            bash_command=f'rm {FILE_SQLITE_DB} || true'
         )
 
         # init sqlite
         init_sqlite_db = PythonOperator(
             task_id="init_sqlite_db",
             python_callable=task_init_sqlite,
-            op_args=[FILE_SQLITE_DB]
         )
         
         check_sqlite_db = BashOperator(
@@ -172,7 +172,10 @@ with DAG(
         )
         
     with TaskGroup('csv_to_postgres') as csv_to_postgres:
-        pass
+        tmp_task = BashOperator(
+            task_id='tmp_task',
+            bash_command='echo "not implemented yet"'
+        )
 
     prepare_bwb >> to_sqlite
     prepare_lido >> to_sqlite
