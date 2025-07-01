@@ -3,7 +3,6 @@ import sys
 from lido.utils.sqlite import get_conn
 from lido.utils.stream import stream_triples
 from lido.config import FILE_SQLITE_DB, MAX_PARSE_ERR_COUNT
-from airflow.decorators import task
 
 TERM_URI_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
 
