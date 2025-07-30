@@ -3,6 +3,13 @@ from airflow.operators.bash import BashOperator
 
 from lido.config import *
 
+CMD_PARSE_SERDI = (
+    f'set -o pipefail; ' # if one pipe exists non-zero, then fail
+    f'zcat {FILE_LIDO_TTL_GZ} ' # zcat input file
+    f'| perl -pe \'s|<([^>]*)>|"<".($1 =~ s/ /%20/gr).">"|ge\' ' # fix inputdata to prevent: invalid IRI character (escape %20)
+    f'| serdi -l -i turtle -o ntriples - ' # use serdi to transform from turtle to ntriples
+)
+
 def task_make_laws_nt(dag: DAG) -> BashOperator:
     """
     Convert turtle to triples and fitler laws and their relevant predicates.
@@ -22,14 +29,13 @@ def task_make_laws_nt(dag: DAG) -> BashOperator:
         "<http://linkeddata.overheid.nl/terms/heeftJuriconnect>",
         "<http://linkeddata.overheid.nl/terms/heeftOnderdeelNummer>"
     ]
-    
+
     FILTER_PREDICATES_CMD = ' '.join(list(map(lambda p: f'-e "{p}"', FILTER_PREDICATES)))
 
     return BashOperator(
         task_id='make_laws_nt',
         bash_command=(
-            f'zcat {FILE_LIDO_TTL_GZ} '
-            f'| serdi -l -i turtle -o ntriples - '
+            f'{CMD_PARSE_SERDI}'
             f'| grep "^{FILTER_SUBJECT}" '
             f'| fgrep {FILTER_PREDICATES_CMD} '
             f'| sort -k1,1 '
@@ -44,7 +50,7 @@ def task_make_cases_nt(dag: DAG) -> BashOperator:
     Then sort on first column to ensure subjects are grouped
     """
 
-    FILTER_SUBJECT = '^<http://linkeddata.overheid.nl/terms/jurisprudentie/id/'
+    FILTER_SUBJECT = '<http://linkeddata.overheid.nl/terms/jurisprudentie/id/'
     FILTER_PREDICATES = [
         "<http://purl.org/dc/terms/identifier>",
         "<http://purl.org/dc/terms/type>",
@@ -59,12 +65,11 @@ def task_make_cases_nt(dag: DAG) -> BashOperator:
     ]
 
     FILTER_PREDICATES_CMD = ' '.join(list(map(lambda p: f'-e "{p}"', FILTER_PREDICATES)))
-    
+
     return BashOperator(
         task_id='make_cases_nt',
         bash_command=(
-            f'zcat {FILE_LIDO_TTL_GZ} '
-            f'| serdi -l -i turtle -o ntriples - '
+            f'{CMD_PARSE_SERDI}'
             f'| grep "^{FILTER_SUBJECT}" '
             f'| fgrep {FILTER_PREDICATES_CMD} '
             f'| sort -k1,1 '

@@ -12,6 +12,7 @@ DIR_DATA_LIDO = join(DIR_DATA, 'lido')
 DIR_DATA_BWB = join(DIR_DATA_LIDO, 'bwb')
 
 FILE_LIDO_TTL_GZ = join(DIR_DATA_LIDO, 'lido-export.ttl.gz')
+URL_LIDO_TTL_GZ = 'https://linkeddata.overheid.nl/export/lido-export.ttl.gz'
 
 FILE_LAWS_NT = join(DIR_DATA_LIDO, 'lido-laws.nt')
 FILE_CASES_NT = join(DIR_DATA_LIDO, 'lido-cases.nt')
@@ -23,12 +24,17 @@ FILE_CASES_CSV = join(DIR_DATA_LIDO, 'export-cases.csv')
 FILE_CASELAW_CSV = join(DIR_DATA_LIDO, 'export-caselaw.csv')
 FILE_LAWALIAS_CSV = join(DIR_DATA_LIDO, 'export-lawalias.csv')
 
-FILE_BWB_STYLESHEET = join(DIR_DATA_BWB, "bwb-regeling-aanduiding.xslt")
-FILE_BWB_IDS_ZIP = join(DIR_DATA_BWB, "BWBIdList.xml.zip")
-FILE_BWB_IDS_XML = join(DIR_DATA_BWB, "BWBIdList.xml")
-FILE_BWB_IDS_JSON = join(DIR_DATA_BWB, "BWBIdList.json")
-FILE_BWB_IDS_TRANSFORMED = join(DIR_DATA_BWB, "BWBIdList.server.xml")
-URL_BWB_IDS_ZIP = "https://zoekservice.overheid.nl/BWBIdService/BWBIdList.xml.zip"
+TBL_LAWS = 'law_element'
+TBL_CASES = 'legal_case'
+TBL_CASELAW = 'case_law'
+TBL_LAWALIAS = 'law_alias'
+
+FILE_BWB_STYLESHEET = join(DIR_DATA_BWB, 'bwb-regeling-aanduiding.xslt')
+FILE_BWB_IDS_ZIP = join(DIR_DATA_BWB, 'BWBIdList.xml.zip')
+FILE_BWB_IDS_XML = join(DIR_DATA_BWB, 'BWBIdList.xml')
+FILE_BWB_IDS_JSON = join(DIR_DATA_BWB, 'BWBIdList.json')
+FILE_BWB_IDS_TRANSFORMED = join(DIR_DATA_BWB, 'BWBIdList.server.xml')
+URL_BWB_IDS_ZIP = 'https://zoekservice.overheid.nl/BWBIdService/BWBIdList.xml.zip'
 
 makedirs(DIR_DATA_LIDO, exist_ok=True)
 makedirs(DIR_DATA_BWB, exist_ok=True)
