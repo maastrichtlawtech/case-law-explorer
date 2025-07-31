@@ -86,7 +86,8 @@ def cellar_etl(**kwargs):
         # Prepare arguments for Cellar extraction
         extraction_args = [
             '--starting-date', start_date.strftime("%Y-%m-%d"),
-            '--amount', str(eval(Variable.get('CELLAR_AMOUNT_TO_EXTRACT', default_var='1000')))
+            '--amount', str(eval(Variable.get('CELLAR_AMOUNT_TO_EXTRACT', default_var='1000'))),
+            '--ending-date', end_date.strftime("%Y-%m-%d")
         ]
         
         # Run Cellar extraction
