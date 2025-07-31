@@ -5,6 +5,8 @@ import sys
 import time
 import pandas as pd
 import json
+import urllib3
+import ssl
 from datetime import datetime, timedelta
 from calendar import monthrange
 
@@ -13,6 +15,11 @@ from airflow.models.variable import Variable
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
 from dotenv import load_dotenv, find_dotenv
+
+# Disable SSL verification globally
+# This is necessary for cellar extraction to work with certain SSL configurations
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+ssl._create_default_https_context = ssl._create_unverified_context
 
 # Import Cellar extraction function
 from data_extraction.caselaw.cellar.cellar_extraction import cellar_extract
@@ -61,6 +68,10 @@ def cellar_etl(**kwargs):
     
     logging.info(f"Starting Cellar ETL for {start_date} to {end_date}")
     start_time = time.time()
+    
+    # Disable SSL verification for this ETL run
+    os.environ['REQUESTS_CA_BUNDLE'] = ''
+    os.environ['CURL_CA_BUNDLE'] = ''
     
     # Setup environment
     env_file = find_dotenv()
