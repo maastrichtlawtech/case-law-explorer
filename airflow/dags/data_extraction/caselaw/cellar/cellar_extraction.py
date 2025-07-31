@@ -26,6 +26,13 @@ sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 WEBSERVICE_USERNAME = getenv('EURLEX_WEBSERVICE_USERNAME')
 WEBSERVICE_PASSWORD = getenv('EURLEX_WEBSERVICE_PASSWORD')
 
+# Add debugging for credentials
+if not WEBSERVICE_USERNAME or not WEBSERVICE_PASSWORD:
+    logging.error("Missing EURLEX credentials. Please set EURLEX_WEBSERVICE_USERNAME and EURLEX_WEBSERVICE_PASSWORD environment variables.")
+    sys.exit(1)
+else:
+    logging.info(f"Credentials found: Username={WEBSERVICE_USERNAME[:3]}***, Password={'*' * len(WEBSERVICE_PASSWORD) if WEBSERVICE_PASSWORD else 'None'}")
+
 
 def cellar_extract(args):
     """
@@ -38,7 +45,7 @@ def cellar_extract(args):
     parser = argparse.ArgumentParser()
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
     parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
-
+    parser.add_argument('--ending-date', help='Last modification date to look forward from', required=False)
     # Airflow gives extra arguments ( 'celery worker').
     # To make sure it doesn't crash the code, the unknown arg catching has to be added
     args, unknown = parser.parse_known_args(args)
@@ -57,7 +64,6 @@ def cellar_extract(args):
         logging.error(e)
         return
 
-    today_date = str(datetime.today().date())
     try:
         # Getting date of last update from airflow database
         last_updated = Variable.get('CELEX_LAST_DATE')
@@ -78,18 +84,31 @@ def cellar_extract(args):
         amount = args.amount
     # Running the extraction, different options based on passed on arguments
     if args.starting_date:
-        logging.info(f'Starting from manually specified date: {args.starting_date}')
-        metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date,
-                                                         ed=today_date, threads=15,
-                                                         username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
-    else:
-        logging.info('Starting from the last update the script can find')
-        metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated, ed=today_date,
-                                                         threads=15,
-                                                         username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
+        logging.info(f"Using provided starting date: {args.starting_date}")
+        logging.info(f"Using provided ending date: {args.ending_date}")
+        try:
+            metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date,
+                                                             ed=args.ending_date, threads=15,
+                                                             username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
+        except Exception as e:
+            logging.error(f"Error during cellar extraction: {e}")
+            raise
+    else:        
+        logging.info(f"Using last updated date: {last_updated}")
+        logging.info(f"Using provided ending date: {args.ending_date}")
+        try:
+            metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated, ed=args.ending_date,
+                                                             threads=15,
+                                                             username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
+        except Exception as e:
+            logging.error(f"Error during cellar extraction: {e}")
+            raise
+
+    logging.info(f"Downloaded {metadata} and {full_text_json} documents")
 
     if isinstance(metadata, bool):
         # package returns False if no data was found
+        logging.warning("Cellar extractor returned boolean value - no data found")
         sys.exit(0)
     logging.info(f"\nUpdating local storage ...")
 
@@ -135,7 +154,7 @@ def cellar_extract(args):
     logging.info("\n--- DONE ---")
     logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
     # Settings the date of current download, as the start date of next download via airflow database
-    Variable.set(key='CELEX_LAST_UPDATE', value=today_date)
+    Variable.set(key='CELEX_LAST_UPDATE', value=args.ending_date)
 
 
 if __name__ == '__main__':
