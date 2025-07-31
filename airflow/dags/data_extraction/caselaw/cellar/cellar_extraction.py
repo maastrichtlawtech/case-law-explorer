@@ -7,6 +7,9 @@ import json
 import logging
 import sys
 import time
+import os
+import urllib3
+import requests
 from datetime import datetime
 from os import getenv
 from os.path import dirname, abspath
@@ -14,6 +17,12 @@ from os.path import dirname, abspath
 import cellar_extractor as cell
 from airflow.models.variable import Variable
 from dotenv import load_dotenv, find_dotenv
+
+# Disable SSL verification warnings and verification
+# This is necessary for cellar extraction to work with certain SSL configurations
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+os.environ['REQUESTS_CA_BUNDLE'] = ''
+os.environ['CURL_CA_BUNDLE'] = ''
 
 from definitions.storage_handler import Storage, get_path_raw, JSON_FULL_TEXT_CELLAR, \
     CSV_CELLAR_CASES, TXT_CELLAR_EDGES, TXT_CELLAR_NODES
@@ -40,6 +49,10 @@ def cellar_extract(args):
     In case of airflow deployment, it will extract from the date of the last airflow cellar extraction time.
     Otherwise it will extract all documents from 1900, except if the user uses a starting-date argument.
     """
+    # Disable SSL verification globally for this extraction
+    import ssl
+    ssl._create_default_https_context = ssl._create_unverified_context
+    
     output_path = get_path_raw(CSV_CELLAR_CASES)
 
     parser = argparse.ArgumentParser()
@@ -77,6 +90,15 @@ def cellar_extract(args):
     start = time.time()
     logging.info(
         f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents")
+
+    # Create a requests session with SSL verification disabled
+    session = requests.Session()
+    session.verify = False
+    session.trust_env = False
+    
+    # Monkey patch the cellar_extractor to use our session
+    if hasattr(cell, 'requests'):
+        cell.requests.Session = lambda: session
 
     if args.amount is None:
         amount = 1000000
