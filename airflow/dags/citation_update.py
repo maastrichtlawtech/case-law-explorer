@@ -23,16 +23,21 @@ dag = DAG(
     schedule_interval=None,
 )
 
-dynamodb = boto3.resource(
-    "dynamodb",
-    aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-    aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-    region_name="eu-central-1",
-)
-table = dynamodb.Table(os.getenv("DDB_TABLE_NAME"))
-
 
 def scan_entire_table():
+    # Initialize DynamoDB connection inside the function
+    ddb_table_name = os.getenv("DDB_TABLE_NAME")
+    if not ddb_table_name:
+        raise ValueError("DDB_TABLE_NAME environment variable is not set")
+    
+    dynamodb = boto3.resource(
+        "dynamodb",
+        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
+        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
+        region_name="eu-central-1",
+    )
+    table = dynamodb.Table(ddb_table_name)
+    
     items = []
     scan_kwargs = {"ProjectionExpression": "ecli, ItemType"}
     response = table.scan(**scan_kwargs)
@@ -42,10 +47,11 @@ def scan_entire_table():
         response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'], **scan_kwargs)
         items.extend(response.get('Items', []))
 
-    return items
+    return items, table
+
 
 def _scan_and_update():
-    items = scan_entire_table()
+    items, table = scan_entire_table()
     logging.info(f"Total items found: {len(items)}")
     # logging.info(f"{items}")
     for item in items:
