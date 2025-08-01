@@ -80,3 +80,4 @@ rechtspraak-citations-extractor==1.1.0
 # lido
 pyoxigraph
 psycopg2-binary
+apache-airflow-providers-postgres

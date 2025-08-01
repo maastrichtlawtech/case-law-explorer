@@ -3,7 +3,7 @@ from os import getenv, makedirs
 
 MAX_PARSE_ERR_COUNT=200
 
-DB_URL_POSTGRES = getenv('DB_URL_POSTGRES')
+CONN_PG_LIDO = "pg_lido"
 
 DIR_ROOT = dirname(dirname(dirname(abspath(__file__))))
 DIR_DATA = join(DIR_ROOT, 'data')

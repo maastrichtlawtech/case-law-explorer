@@ -258,7 +258,15 @@ Quickly importing the exported data from the tables of the local SQLite database
 
 #### Flow
 
-Updating the data in the postgres database with minimal downtime can be achieved by:
-1. Creating new 'staging' tables with the same schema as the current tables, with `_staging` appended to them.
-2. Importing the csv data to those `_staging` tables
-3. In a transaction, (re)moving the original tables and renaming `_staging` to the original names.
+All mentioned functions are defined in `swap_postgres.py`.
+
+1. Create `{table}_staging` for each table without any indexes and constraints,
+2. Load data from `csv` into each `{table}_staging`,
+3. Rename `{table}` to `{table}_prev`
+4. Rename `{table}_staging` to `{table}`
+5. Drop contraints and indexes from `{table}_prev` (to prevent naming collisions)
+6. Add constraints and indexes to the new prod table `{table}`
+
+- Step 1 is done in `task_create_staging_tables()` with `SQL_CREATE_STAGING_TABLES`
+- Step 2 is done in `task_load_csv()`
+- Steps 3-6 are done in `task_swap()` in a transaction with `SQL_SWAP_TABLES_AND_DEPS`
