@@ -26,8 +26,8 @@ FILE_LAWALIAS_CSV = join(DIR_DATA_LIDO, 'export-lawalias.csv')
 
 TBL_LAWS = 'law_element'
 TBL_CASES = 'legal_case'
-TBL_CASELAW = 'case_law'
-TBL_LAWALIAS = 'law_alias'
+TBL_CASE_LAW = 'case_law'
+TBL_LAW_ALIAS = 'law_alias'
 
 FILE_BWB_STYLESHEET = join(DIR_DATA_BWB, 'bwb-regeling-aanduiding.xslt')
 FILE_BWB_IDS_ZIP = join(DIR_DATA_BWB, 'BWBIdList.xml.zip')

@@ -26,9 +26,6 @@ def task_init_sqlite():
             number TEXT,
             title TEXT
         );
-        
-        CREATE INDEX IF NOT EXISTS idx_bwb_id ON law_element(bwb_id, bwb_label_id);
-        CREATE INDEX IF NOT EXISTS idx_law_element_filter ON law_element (bwb_id, lower(number), type);
 
         CREATE INDEX IF NOT EXISTS idx_bwb_id ON {TBL_LAWS} (bwb_id, bwb_label_id);
         CREATE INDEX IF NOT EXISTS idx_law_element_filter ON {TBL_LAWS} (bwb_id, lower(number), type);
