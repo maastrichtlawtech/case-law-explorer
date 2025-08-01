@@ -21,8 +21,8 @@ FILE_SQLITE_DB = join(DIR_DATA_LIDO, 'stage.db')
 
 FILE_LAWS_CSV = join(DIR_DATA_LIDO, 'export-laws.csv')
 FILE_CASES_CSV = join(DIR_DATA_LIDO, 'export-cases.csv')
-FILE_CASELAW_CSV = join(DIR_DATA_LIDO, 'export-caselaw.csv')
-FILE_LAWALIAS_CSV = join(DIR_DATA_LIDO, 'export-lawalias.csv')
+FILE_CASE_LAW_CSV = join(DIR_DATA_LIDO, 'export-caselaw.csv')
+FILE_LAW_ALIAS_CSV = join(DIR_DATA_LIDO, 'export-lawalias.csv')
 
 TBL_LAWS = 'law_element'
 TBL_CASES = 'legal_case'

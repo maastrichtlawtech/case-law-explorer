@@ -6,13 +6,17 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 
+from dags.lido.tasks.swap_postres import task_create_staging_tables, task_load_csv, task_swap_tables
 from lido.tasks.bwbidlist_to_sqlite import task_bwbidlist_to_sqlite
 from lido.tasks.prepare_bwbidlist import task_bwbidlist_xml_to_json, task_unzip_bwbidlist
 from lido.tasks.init_sqlite import task_init_sqlite
 from lido.tasks.turtle_to_triple import task_make_cases_nt, task_make_laws_nt
 from lido.tasks.laws_to_sqlite import process_law_triples
 from lido.tasks.cases_to_sqlite import process_case_triples
-from lido.config import *
+from lido.config import URL_LIDO_TTL_GZ, FILE_LIDO_TTL_GZ, FILE_LAWS_NT, FILE_CASES_NT, \
+    DIR_DATA_BWB, URL_BWB_IDS_ZIP, FILE_BWB_IDS_ZIP, FILE_SQLITE_DB, \
+    TBL_CASES, FILE_CASES_CSV, TBL_LAWS, FILE_LAWS_CSV, TBL_CASE_LAW, FILE_CASE_LAW_CSV, \
+    TBL_LAW_ALIAS, FILE_LAW_ALIAS_CSV
 
 default_args = {
     'owner': 'airflow',
@@ -102,9 +106,6 @@ with DAG(
             >> unzip_bwbidlist \
             >> bwbidlist_xml_to_json
 
-    # sqlite is used as an intermediate step for better performance, since
-    # it is faster for local writes and avoids overhead for individual
-    # insert-into queries
     with TaskGroup('to_sqlite') as to_sqlite:
 
         reset_sqlite_db = BashOperator(
@@ -150,6 +151,12 @@ with DAG(
 
     with TaskGroup('sqlite_to_csv') as sqlite_to_csv:
 
+        reset_csvs = BashOperator(
+            task_id='reset_csvs',
+            # rm files but keep dirs
+            bash_command=f'rm -f {FILE_CASES_CSV} {FILE_LAWS_CSV} {FILE_CASE_LAW_CSV} {FILE_LAW_ALIAS_CSV}'
+        )
+
         legal_case_to_csv = BashOperator(
             task_id='legal_case_to_csv',
             bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASES};" > {FILE_CASES_CSV}'
@@ -162,42 +169,65 @@ with DAG(
 
         case_law_to_csv = BashOperator(
             task_id='case_law_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASE_LAW};" > {FILE_CASELAW_CSV}'
+            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASE_LAW};" > {FILE_CASE_LAW_CSV}'
         )
 
         law_alias_to_csv = BashOperator(
             task_id='law_alias_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAW_ALIAS};" > {FILE_LAWALIAS_CSV}'
+            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAW_ALIAS};" > {FILE_LAW_ALIAS_CSV}'
         )
 
+        reset_csvs \
+            >> legal_case_to_csv \
+            >> law_element_to_csv \
+            >> case_law_to_csv \
+            >> law_alias_to_csv
+
     with TaskGroup('csv_to_postgres') as csv_to_postgres:
-        tmp_task = BashOperator(
-            task_id='tmp_task',
-            bash_command='echo "not implemented yet"'
+
+        create_staging_tables = PythonOperator(
+            task_id="create_staging_tables",
+            python_callable=task_create_staging_tables
         )
+
+        load_cases_csv = PythonOperator(
+            task_id="load_cases_csv",
+            python_callable=task_load_csv,
+            op_args=[FILE_CASES_CSV, TBL_CASES]
+        )
+
+        load_laws_csv = PythonOperator(
+            task_id="load_laws_csv",
+            python_callable=task_load_csv,
+            op_args=[FILE_LAWS_CSV, TBL_LAWS]
+        )
+
+        load_case_law_csv = PythonOperator(
+            task_id="load_case_law_csv",
+            python_callable=task_load_csv,
+            op_args=[FILE_CASE_LAW_CSV, TBL_CASE_LAW]
+        )
+
+        load_law_alias_csv = PythonOperator(
+            task_id="load_law_alias_csv",
+            python_callable=task_load_csv,
+            op_args=[FILE_LAW_ALIAS_CSV, TBL_LAW_ALIAS]
+        )
+
+        swap_tables = PythonOperator(
+            task_id="swap_tables",
+            python_callable=task_swap_tables
+        )
+
+        create_staging_tables \
+            >> load_cases_csv \
+            >> load_laws_csv \
+            >> load_case_law_csv \
+            >> load_law_alias_csv \
+            >> swap_tables
+
 
     prepare_bwb >> to_sqlite
     prepare_lido >> to_sqlite
 
     to_sqlite >> sqlite_to_csv >> csv_to_postgres
-
-    # directly using export_
-
-    # create postgres staging tables
-
-    # reset_data >> \
-    # download_lido_ttl >> check_lido_ttl \
-    # >> make_laws_nt >> check_laws_nt \
-    # >> make_cases_nt >> check_cases_nt \
-    # >> init_sqlite >> check_sqlite_db \
-    # >> laws_to_sqlite >> cases_to_sqlite
-
-    # prepare_bwb >> bwbidlist_to_sqlite
-    # init_sqlite >> bwbidlist_to_sqlite
-
-    """
-    download_lido_ttl >> check_lido_ttl >> [make_laws_nt, make_cases_nt]
-    make_laws_nt >> [check_laws_nt, check_cases_nt]
-    make_cases_nt >> [check_laws_nt, check_cases_nt]
-    [check_laws_nt, check_cases_nt] >> laws_to_sqlite >> cases_to_sqlite >> check_stage_db
-    """
