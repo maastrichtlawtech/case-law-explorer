@@ -3,7 +3,7 @@ from lido.utils.sqlite import get_conn
 from lido.config import *
 
 def task_bwbidlist_to_sqlite():
-    
+
     conn = get_conn(FILE_SQLITE_DB)
     cursor = conn.cursor()
 

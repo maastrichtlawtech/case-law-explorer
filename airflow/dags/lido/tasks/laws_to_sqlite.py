@@ -1,5 +1,4 @@
 import logging
-import sys
 from lido.utils.sqlite import get_conn
 from lido.utils.stream import stream_triples
 from lido.config import FILE_SQLITE_DB, MAX_PARSE_ERR_COUNT
@@ -24,7 +23,7 @@ def insert_law_element(cursor, law_element):
     # if cursor_is_sqlite(cursor):
     cursor.execute("INSERT OR IGNORE INTO law_element (type, bwb_id, bwb_label_id, lido_id, jc_id, number, title) VALUES (?, ?, ?, ?, ?, ?, ?);",
         (
-            law_element['type'], 
+            law_element['type'],
             law_element['bwb_id'],
             law_element.get('bwb_label_id'),
             law_element['lido_id'],
@@ -43,7 +42,7 @@ def insert_law_element(cursor, law_element):
     #         ON CONFLICT DO NOTHING;
     #     """,
     #         (
-    #             law_element['type'], 
+    #             law_element['type'],
     #             law_element['bwb_id'],
     #             law_element.get('bwb_label_id'),
     #             law_element['lido_id'],
@@ -70,7 +69,7 @@ def process_law_element(cursor, type, subject, predicates):
     if stripped_id is None:
         logging.error("Item with subject", subject, "has incorrect format")
         return False
-    
+
     le["lido_id"] = stripped_id
 
     bwb_match = le["lido_id"].split("/")[0]
@@ -89,7 +88,7 @@ def process_law_element(cursor, type, subject, predicates):
         le["title"] = predicates.get('http://www.w3.org/2004/02/skos/core#prefLabel', [None])[0]
     if le["title"] is None:
         le["title"] = predicates.get('http://www.w3.org/2000/01/rdf-schema#label', [None])[0]
-    
+
     le["type"] = type
     le['jc_id'] = None
 
@@ -106,7 +105,7 @@ def process_law_element(cursor, type, subject, predicates):
     insert_law_element(cursor, le)
 
 def process_law_triples(db_path, triples_path):
-    
+
     conn = get_conn(db_path)
 
     cursor = conn.cursor()
@@ -121,7 +120,7 @@ def process_law_triples(db_path, triples_path):
     for subject, props in stream_triples(triples_path):
         try:
             i+=1
-            
+
             if i % 50000 == 0:
                 delta = law_count - last_law_count
                 last_law_count = law_count
@@ -130,7 +129,7 @@ def process_law_triples(db_path, triples_path):
             type = props.get(TERM_URI_TYPE, [None])[0]
             if type is not None and type in REGELING_ONDERDELEN:
                 law_count += 1
-                
+
                 # with tc.timed("process element"):
                 process_law_element(cursor, REGELING_ONDERDELEN[type], subject, props)
 
@@ -141,7 +140,7 @@ def process_law_triples(db_path, triples_path):
             elif type is not None:
                 pass
                 # logging.error(f"Uncaught type {type} for subject {subject}")
-        
+
         except Exception as err:
             logging.error("** Error:", err)
             logging.error("** i, subject, props:", i, subject,"\n")
@@ -150,7 +149,7 @@ def process_law_triples(db_path, triples_path):
                 logging.error("Max error count exceeded. Raising error.")
                 raise err
             continue
-    
+
     conn.commit()
     cursor.close()
     print(f"Finished processing {law_count} law elements (with {err_count} errors)")

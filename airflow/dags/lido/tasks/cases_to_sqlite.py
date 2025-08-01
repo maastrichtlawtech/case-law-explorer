@@ -13,7 +13,7 @@ def get_law_element_by_lido_id(cursor, lido_id):
     result = cursor.fetchone()
     if result:
         return (stripped_id, result[0])
-    
+
     # # print("not found:", lido_id)
     bwb_id, bwb_label_id = stripped_id.split("/")[0:2]
     # https://linkeddata.overheid.nl/terms/bwb/id/BWBR0001826/1711894
@@ -21,13 +21,13 @@ def get_law_element_by_lido_id(cursor, lido_id):
     result = cursor.fetchone()
     if result:
         return ("/".join([bwb_id, bwb_label_id]), result[0])
-    
+
     # https://linkeddata.overheid.nl/terms/bwb/id/BWBR0001826
     cursor.execute("SELECT id FROM law_element INDEXED BY idx_bwb_id WHERE bwb_id = ? LIMIT 1", (bwb_id,))
     result = cursor.fetchone()
     if result:
         return (bwb_id, result[0])
-    
+
     return (None, None)
 
 def insert_case(cursor, case):
@@ -83,7 +83,7 @@ def process_case_block(cursor, subject, props):
         print("No ecli-id found in subject:", subject)
         return
     case["ecli_id"] = ecli_id
-    
+
     # case["title"] = props['title_1'] or props['title_2'] or props['title_3'] or []
     case["title"] = props.get('http://purl.org/dc/terms/title',
                         props.get('http://www.w3.org/2000/01/rdf-schema#label',
@@ -96,7 +96,7 @@ def process_case_block(cursor, subject, props):
     case_id = insert_case(cursor, case)
     if case_id is None:
         raise Exception("NO CASE ID!", subject)
-    
+
     links = props.get('http://linkeddata.overheid.nl/terms/linkt', [])
     for link in links:
         # print("LINK", link)
@@ -131,7 +131,7 @@ def process_case_block(cursor, subject, props):
             insert_caselaw(cursor, caselaw)
 
 def process_case_triples(db_path, triples_path):
-    
+
     conn = get_conn(db_path)
 
     cursor = conn.cursor()
@@ -146,20 +146,20 @@ def process_case_triples(db_path, triples_path):
     for subject, props in stream_triples(triples_path):
         try:
             case_count+=1
-            
+
             # if case_count % 50000 == 0:
             #     delta = case_count - last_case_count
             #     last_case_count = case_count
             #     print("-", case_count, f"(+ {delta})" if delta > 0 else "")
 
             process_case_block(cursor, subject, props)
-            
+
             # with tc.timed("commiting"):
             if case_count % 50000 == 0:
                 delta = case_count - last_case_count
                 print(" ", case_count, "*commit*")
                 conn.commit()
-        
+
         except Exception as err:
             print("** Error:", err, file=sys.stderr)
             print("** i, subject, props:", i, subject,"\n", props, file=sys.stderr)
@@ -168,7 +168,7 @@ def process_case_triples(db_path, triples_path):
                 print("Max error count exceeded. Raising error.")
                 raise err
             continue
-    
+
     conn.commit()
     cursor.close()
     print(f"Finished processing {case_count} cases (with {err_count} errors)")
