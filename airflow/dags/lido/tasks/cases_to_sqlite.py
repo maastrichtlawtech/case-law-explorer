@@ -3,13 +3,14 @@ from lido.utils.helpers import strip_lido_law_id
 # from dags.utils.benchmarking import TimerCollector
 from lido.utils.stream import stream_triples
 from lido.utils.sqlite import get_conn
+from lido.config import TBL_LAWS, TBL_CASES, TBL_CASE_LAW, TBL_LAW_ALIAS
 
 def get_law_element_by_lido_id(cursor, lido_id):
     stripped_id = strip_lido_law_id(lido_id) # -> BWBR0001826/1711894/1821-08-01/1821-08-01
     if stripped_id is None: # could be due to being ref to ecli
         return (None, None)
-    
-    cursor.execute("SELECT id FROM law_element INDEXED BY sqlite_autoindex_law_element_1 WHERE lido_id = ? LIMIT 1", (stripped_id,))
+
+    cursor.execute(f"SELECT id FROM {TBL_LAWS} INDEXED BY sqlite_autoindex_law_element_1 WHERE lido_id = ? LIMIT 1", (stripped_id,))
     result = cursor.fetchone()
     if result:
         return (stripped_id, result[0])
@@ -17,13 +18,13 @@ def get_law_element_by_lido_id(cursor, lido_id):
     # # print("not found:", lido_id)
     bwb_id, bwb_label_id = stripped_id.split("/")[0:2]
     # https://linkeddata.overheid.nl/terms/bwb/id/BWBR0001826/1711894
-    cursor.execute("SELECT id FROM law_element INDEXED BY idx_bwb_id WHERE bwb_id = ? AND bwb_label_id = ? LIMIT 1", (bwb_id, bwb_label_id,))
+    cursor.execute(f"SELECT id FROM {TBL_LAWS} INDEXED BY idx_bwb_id WHERE bwb_id = ? AND bwb_label_id = ? LIMIT 1", (bwb_id, bwb_label_id,))
     result = cursor.fetchone()
     if result:
         return ("/".join([bwb_id, bwb_label_id]), result[0])
 
     # https://linkeddata.overheid.nl/terms/bwb/id/BWBR0001826
-    cursor.execute("SELECT id FROM law_element INDEXED BY idx_bwb_id WHERE bwb_id = ? LIMIT 1", (bwb_id,))
+    cursor.execute(f"SELECT id FROM {TBL_LAWS} INDEXED BY idx_bwb_id WHERE bwb_id = ? LIMIT 1", (bwb_id,))
     result = cursor.fetchone()
     if result:
         return (bwb_id, result[0])
@@ -33,12 +34,12 @@ def get_law_element_by_lido_id(cursor, lido_id):
 def insert_case(cursor, case):
     assert all(key in case and case[key] is not None for key in ['ecli_id'])
 
-    cursor.execute("INSERT OR IGNORE INTO legal_case (ecli_id, title, zaaknummer, uitspraakdatum) VALUES (?, ?, ?, ?)", 
+    cursor.execute(f"INSERT OR IGNORE INTO {TBL_CASES} (ecli_id, title, zaaknummer, uitspraakdatum) VALUES (?, ?, ?, ?)",
                    (case['ecli_id'], case.get('title'), case.get('zaaknummer'), case.get('uitspraakdatum'),))
     if cursor.rowcount > 0:
         return cursor.lastrowid
     else:
-        cursor.execute("SELECT id FROM legal_case WHERE ecli_id = ? LIMIT 1;", (case['ecli_id'],))
+        cursor.execute(f"SELECT id FROM {TBL_CASES} WHERE ecli_id = ? LIMIT 1;", (case['ecli_id'],))
         row = cursor.fetchone()
         if not row:
             print("NOT FOUND ecli:", case['ecli_id'])
@@ -46,8 +47,8 @@ def insert_case(cursor, case):
 
 def insert_caselaw(cursor, caselaw):
     assert all(key in caselaw and caselaw[key] is not None for key in ['case_id', 'law_id', 'source', 'lido_id'])
-    
-    cursor.execute("INSERT OR IGNORE INTO case_law (case_id, law_id, source, jc_id, lido_id, opschrift) VALUES (?, ?, ?, ?, ?, ?)",
+
+    cursor.execute(f"INSERT OR IGNORE INTO {TBL_CASE_LAW} (case_id, law_id, source, jc_id, lido_id, opschrift) VALUES (?, ?, ?, ?, ?, ?)",
         (
             caselaw['case_id'],
             caselaw['law_id'],

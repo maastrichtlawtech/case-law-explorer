@@ -1,7 +1,7 @@
 import logging
 from lido.utils.sqlite import get_conn
 from lido.utils.stream import stream_triples
-from lido.config import FILE_SQLITE_DB, MAX_PARSE_ERR_COUNT
+from lido.config import MAX_PARSE_ERR_COUNT, TBL_LAWS
 
 TERM_URI_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
 
@@ -19,9 +19,9 @@ REGELING_ONDERDELEN = {
 
 def insert_law_element(cursor, law_element):
     assert all(key in law_element and law_element[key] is not None for key in ['type', 'bwb_id', 'lido_id', 'title'])
-    
+
     # if cursor_is_sqlite(cursor):
-    cursor.execute("INSERT OR IGNORE INTO law_element (type, bwb_id, bwb_label_id, lido_id, jc_id, number, title) VALUES (?, ?, ?, ?, ?, ?, ?);",
+    cursor.execute(f"INSERT OR IGNORE INTO {TBL_LAWS} (type, bwb_id, bwb_label_id, lido_id, jc_id, number, title) VALUES (?, ?, ?, ?, ?, ?, ?);",
         (
             law_element['type'],
             law_element['bwb_id'],
@@ -52,7 +52,7 @@ def insert_law_element(cursor, law_element):
     #             # law_element['title'],
     #         )
     #     )
-        
+
 
 def strip_lido_law_id(lido_law_id):
     if lido_law_id[0:43] == "http://linkeddata.overheid.nl/terms/bwb/id/" and len(lido_law_id) > 43:

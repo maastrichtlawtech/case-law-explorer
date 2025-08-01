@@ -1,6 +1,5 @@
 
 from datetime import datetime, timedelta
-import os
 from airflow import DAG
 from airflow.utils.task_group import TaskGroup
 from airflow.operators.bash import BashOperator
@@ -163,12 +162,12 @@ with DAG(
 
         case_law_to_csv = BashOperator(
             task_id='case_law_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASELAW};" > {FILE_CASELAW_CSV}'
+            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASE_LAW};" > {FILE_CASELAW_CSV}'
         )
 
         law_alias_to_csv = BashOperator(
             task_id='law_alias_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAWALIAS};" > {FILE_LAWALIAS_CSV}'
+            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAW_ALIAS};" > {FILE_LAWALIAS_CSV}'
         )
 
     with TaskGroup('csv_to_postgres') as csv_to_postgres:
