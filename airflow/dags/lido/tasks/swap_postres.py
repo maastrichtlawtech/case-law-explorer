@@ -105,15 +105,15 @@ def task_create_staging_tables():
     hook = PostgresHook(postgres_conn_id="my_pg")
     conn = hook.get_conn()
     cursor = conn.cursor()
-
     cursor.execute(SQL_CREATE_STAGING_TABLES)
+    conn.commit()
 
-def task_load_csv(table, path):
+def task_load_csv(table, csv_path):
     hook = PostgresHook(postgres_conn_id="my_pg")
     conn = hook.get_conn()
     cursor = conn.cursor()
 
-    with open(path, "rb") as f:
+    with open(csv_path, "rb") as f:
         cursor.copy_expert(
             sql=f"COPY {table} FROM STDIN WITH CSV HEADER",
             file=f
@@ -121,9 +121,9 @@ def task_load_csv(table, path):
 
     conn.commit()
 
-def task_swap(table):
+def task_swap_tables():
     hook = PostgresHook(postgres_conn_id="my_pg")
     conn = hook.get_conn()
     cursor = conn.cursor()
-
     cursor.execute(SQL_SWAP_TABLES_AND_DEPS)
+    conn.commit()
