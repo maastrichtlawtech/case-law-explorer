@@ -102,6 +102,11 @@ BEGIN;
     CREATE INDEX IF NOT EXISTS idx_{TBL_CASE_LAW}_lc ON {TBL_CASE_LAW} (law_id, case_id);
     CREATE UNIQUE INDEX IF NOT EXISTS idx_{TBL_LAW_ALIAS}_uniq ON {TBL_LAW_ALIAS} (bwb_id, LOWER(alias));
     CREATE INDEX IF NOT EXISTS idx_{TBL_LAW_ALIAS}_index ON {TBL_LAW_ALIAS} (lower(alias));
+
+    DROP TABLE {TBL_LAWS}_prev;
+    DROP TABLE {TBL_CASES}_prev;
+    DROP TABLE {TBL_CASE_LAW}_prev;
+    DROP TABLE {TBL_LAW_ALIAS}_prev;
 COMMIT;
 """
 
