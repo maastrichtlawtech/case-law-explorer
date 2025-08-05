@@ -6,7 +6,7 @@ from airflow.operators.bash import BashOperator
 from airflow.operators.python import PythonOperator
 from airflow.operators.empty import EmptyOperator
 
-from dags.lido.tasks.swap_postres import task_create_staging_tables, task_load_csv, task_swap_tables
+from lido.tasks.swap_postgres import task_create_staging_tables, task_load_csv, task_swap_tables
 from lido.tasks.bwbidlist_to_sqlite import task_bwbidlist_to_sqlite
 from lido.tasks.prepare_bwbidlist import task_bwbidlist_xml_to_json, task_unzip_bwbidlist
 from lido.tasks.init_sqlite import task_init_sqlite
@@ -16,7 +16,8 @@ from lido.tasks.cases_to_sqlite import process_case_triples
 from lido.config import URL_LIDO_TTL_GZ, FILE_LIDO_TTL_GZ, FILE_LAWS_NT, FILE_CASES_NT, \
     DIR_DATA_BWB, URL_BWB_IDS_ZIP, FILE_BWB_IDS_ZIP, FILE_SQLITE_DB, \
     TBL_CASES, FILE_CASES_CSV, TBL_LAWS, FILE_LAWS_CSV, TBL_CASE_LAW, FILE_CASE_LAW_CSV, \
-    TBL_LAW_ALIAS, FILE_LAW_ALIAS_CSV
+    TBL_LAW_ALIAS, FILE_LAW_ALIAS_CSV, \
+    DIR_DATA_LIDO
 
 default_args = {
     'owner': 'airflow',
@@ -28,17 +29,19 @@ with DAG(
     'lido_postgres',
     default_args=default_args,
     description='Update postgresdb with data from lido export on data.overheid.nl',
-    schedule_interval='0 0 8 * *', # every month on the 8th at mindnight
+    # schedule_interval='0 0 8 * *', # every month on the 8th at mindnight
+    schedule_interval=None, # every month on the 8th at mindnight
     start_date=datetime(2025, 6, 1),
     tags=['caselaw', 'lido'],
 ) as dag:
 
     with TaskGroup('prepare_lido') as prepare_lido:
-        # reset_lido_data = BashOperator(
-        #     task_id='reset_lido_data',
-        #     # rm files but keep dirs
-        #     bash_command=(f'rm {DIR_DATA_LIDO}/*')
-        # )
+        reset_lido_data = BashOperator(
+            task_id='reset_lido_data',
+            # rm files but keep dirs
+            # bash_command=(f'rm -f {DIR_DATA_LIDO}/*')
+            bash_command=(f'find {DIR_DATA_LIDO} -type f -delete')
+        )
 
         # process lido.ttl
         download_lido_ttl = BashOperator(
@@ -159,22 +162,22 @@ with DAG(
 
         legal_case_to_csv = BashOperator(
             task_id='legal_case_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASES};" > {FILE_CASES_CSV}'
+            bash_command=f'set -euo pipefail; sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASES};" > {FILE_CASES_CSV}'
         )
 
         law_element_to_csv = BashOperator(
             task_id='law_element_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAWS};" > {FILE_LAWS_CSV}'
+            bash_command=f'set -euo pipefail; sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAWS};" > {FILE_LAWS_CSV}'
         )
 
         case_law_to_csv = BashOperator(
             task_id='case_law_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASE_LAW};" > {FILE_CASE_LAW_CSV}'
+            bash_command=f'set -euo pipefail; sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_CASE_LAW};" > {FILE_CASE_LAW_CSV}'
         )
 
         law_alias_to_csv = BashOperator(
             task_id='law_alias_to_csv',
-            bash_command=f'sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAW_ALIAS};" > {FILE_LAW_ALIAS_CSV}'
+            bash_command=f'set -euo pipefail; sqlite3 {FILE_SQLITE_DB} -header -csv "SELECT * FROM {TBL_LAW_ALIAS};" > {FILE_LAW_ALIAS_CSV}'
         )
 
         reset_csvs \

@@ -67,7 +67,7 @@ def process_law_element(cursor, type, subject, predicates):
     # http://linkeddata.overheid.nl/terms/bwb/id/BWBR0001831/799354/1827-12-13/1827-12-13
     stripped_id = strip_lido_law_id(subject)
     if stripped_id is None:
-        logging.error("Item with subject", subject, "has incorrect format")
+        logging.error(f"Item with subject {subject} has incorrect format", stack_info=False)
         return False
 
     le["lido_id"] = stripped_id
@@ -76,7 +76,7 @@ def process_law_element(cursor, type, subject, predicates):
     if bwb_match:
         le['bwb_id'] = bwb_match
     else:
-        logging.error("No BWB-id for subject:", subject)
+        logging.error(f"No BWB-id for subject: {subject}", stack_info=False)
         return False
 
     bwb_label_id_match = le["lido_id"].split("/")[1]
@@ -128,10 +128,12 @@ def process_law_triples(db_path, triples_path):
 
             type = props.get(TERM_URI_TYPE, [None])[0]
             if type is not None and type in REGELING_ONDERDELEN:
-                law_count += 1
 
                 # with tc.timed("process element"):
-                process_law_element(cursor, REGELING_ONDERDELEN[type], subject, props)
+                result = process_law_element(cursor, REGELING_ONDERDELEN[type], subject, props)
+
+                if result is not False:
+                    law_count += 1
 
                 # with tc.timed("commit to db"):
                 if law_count % 50000 == 0:
@@ -143,7 +145,7 @@ def process_law_triples(db_path, triples_path):
 
         except Exception as err:
             logging.error("** Error:", err)
-            logging.error("** i, subject, props:", i, subject,"\n")
+            logging.error(f"** i, subject, props: {i}, {subject}")
             err_count+=1
             if err_count>=MAX_PARSE_ERR_COUNT:
                 logging.error("Max error count exceeded. Raising error.")

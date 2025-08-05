@@ -1,6 +1,6 @@
 import sys
 from lido.utils.helpers import strip_lido_law_id
-# from dags.utils.benchmarking import TimerCollector
+# from lido.utils.benchmarking import TimerCollector
 from lido.utils.stream import stream_triples
 from lido.utils.sqlite import get_conn
 from lido.config import TBL_LAWS, TBL_CASES, TBL_CASE_LAW, TBL_LAW_ALIAS
