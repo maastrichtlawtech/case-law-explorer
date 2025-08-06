@@ -57,6 +57,10 @@ graph TD
     C[to_sqlite] --> sqlite_to_csv --> csv_to_postgres
 ```
 
+## Connections
+
+This DAG assumes the presence of the postgres connection with the name `pg_lido` as the destionation of the pipeline.
+
 ### `prepare_lido`
 
 #### Purpose
