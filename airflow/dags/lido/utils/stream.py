@@ -30,7 +30,7 @@ def stream_triples(filename, gzip=False):
         reader = open_fast_gzip_lines(filename)
     else:
         reader = open(filename, "r", buffering=1 << 20)
-    
+
     current_subject = None
     buffer = []
 
