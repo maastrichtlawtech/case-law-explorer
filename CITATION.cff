@@ -1,0 +1,22 @@
+# This CITATION.cff file was generated with cffinit.
+# Visit https://bit.ly/cffinit to generate yours today!
+
+cff-version: 1.2.0
+title: 'Case Law Explorer: ETL'
+message: >-
+  If you use this software, please cite it using the
+  metadata from this file.
+type: software
+authors:
+  - name: Maastricht Law and Tech Lab
+    address: Maastricht Univeristy
+    city: Maastricht
+    country: NL
+    website: >-
+      https://www.maastrichtuniversity.nl/about-um/faculties/law/research/law-and-tech-lab
+repository-code: 'https://github.com/maastrichtlawtech/case-law-explorer'
+abstract: >-
+  This software caters to extracting case law information
+  (metadata and full text) from Rechtspraak, ECHR, and CJEU.
+license: MIT
+commit: ac7a9ce
