@@ -6,11 +6,12 @@ import logging
 import os
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+import pandas as pd
 from os.path import dirname, abspath
-
-import rechtspraak_citations_extractor as rex_citations
-import rechtspraak_extractor as rex
+from rechtspraak_citations_extractor.citations_extractor import get_citations
+import rechtspraak_extractor.rechtspraak as rex
+from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
 from airflow.models.variable import Variable
 from dotenv import load_dotenv, find_dotenv
 
@@ -46,7 +47,7 @@ def get_rs_setup_args():
                 '2003-01-01', '2004-01-01', '2005-01-01', '2006-01-01', '2007-01-01', '2008-01-01', '2009-01-01',
                 '2010-01-01',
                 '2011-01-01', '2012-01-01', '2013-01-01', '2014-01-01', '2015-01-01', '2016-01-01', '2017-01-01',
-                '2018-01-01',
+                '2018-01-01',~
                 '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']  # 29
     try:
         index = eval(Variable.get('RS_SETUP_INDEX'))  # start index
@@ -70,6 +71,25 @@ def get_rs_setup_args():
     return starting, ending, amount, next_index
 
 
+def _store_dataframe_per_date(df, date, _filename, _path='data/processed/'):
+    """
+    Store the dataframe for a specific date in a CSV file.
+    The filename is based on the date.
+    """
+    date_str = date.strftime('%Y-%m-%d')
+    filename = f"rechtspraak_{_filename}_{date_str}.csv"
+    # Store in directory data/processed/date_str
+    filepath = os.path.join(_path, date_str, filename)
+    if not os.path.exists(filepath):
+        os.makedirs(os.path.dirname(filepath), exist_ok=True)
+    # Store the dataframe in the CSV file
+    if df is None:
+        logging.info(f"No data to store for {date_str}")
+        return
+    df.to_csv(filepath, index=False)
+    logging.info(f"Dataframe for {date_str} stored in {filepath}")
+
+
 def get_parser_args(args):
     # Gets arguments for extractions from args parser.
     start = args.starting_date
@@ -79,6 +99,7 @@ def get_parser_args(args):
 
 
 def rechtspraak_extract(args=None):
+    logging.info('--- RECHTSPRAAK EXTRACTION ---')
     output_path = get_path_raw(CSV_RS_CASES)
     parser = argparse.ArgumentParser()
     parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
@@ -89,6 +110,8 @@ def rechtspraak_extract(args=None):
     if RS_SETUP:
         logging.info('RS DATABASE SETUP RUN')
         start, end, amount, next_index = get_rs_setup_args()
+        start = eval(Variable.get('RS_START_DATE'))
+        end = eval(Variable.get('RS_END_DATE'))
     else:
         start, end, amount = get_parser_args(args)
 
@@ -119,26 +142,141 @@ def rechtspraak_extract(args=None):
     logging.info(f"Downloading {amount if amount else 'all'} Rechtspraak documents")
 
     if not amount:
-        amount = 1200000
+        amount = 12
+
 
     if start and end:
         logging.info(f'Starting from manually specified dates: {start} - {end}')
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n', ed=end)
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        current_date = datetime.strptime(start, '%Y-%m-%d')
+        end_date = datetime.strptime(end, '%Y-%m-%d')
+        metadata_df_list = []
+        # Check if there are files from previous runs per date
+
+        while current_date < end_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            # Store the dataframe for the current date
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            metadata_df_list.append(metadata_df)
+            # Store the dataframe for the current date
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        else:
+            logging.info("No new data to process")
+            
     elif end:
         logging.info(f'Ending at manually specified date: {end}')
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, ed=end, save_file='n')
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        current_date = datetime.strptime(last_updated, '%Y-%m-%d')
+        end_date = datetime.strptime(end, '%Y-%m-%d')
+        metadata_df_list = []
+
+        while current_date <= end_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
+            metadata_df_list.append(metadata_df)
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        
     elif start:
-        logging.info(f'Starting from manually specified date: {start} ')
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=start, save_file='n')
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        logging.info(f'Starting from manually specified date: {start}')
+        current_date = datetime.strptime(start, '%Y-%m-%d')
+        today_date = datetime.today()
+        metadata_df_list = []
+
+        while current_date <= today_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
+            metadata_df_list.append(metadata_df)
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        else:
+            logging.info("No new data to process")
+
     else:
         logging.info('Starting from the last update the script can find')
-        base_extraction = rex.get_rechtspraak(max_ecli=amount, sd=last_updated, save_file='n', ed=today_date)
-        metadata_df = rex.get_rechtspraak_metadata(save_file='n', dataframe=base_extraction)
+        current_date = datetime.strptime(last_updated, '%Y-%m-%d')
+        today_date = datetime.today()
+        metadata_df_list = []
+
+        while current_date <= today_date:
+            next_date = current_date + timedelta(days=1)
+            logging.info(f'Processing date range: {current_date.date()} - {next_date.date()}')
+            base_extraction = rex.get_rechtspraak(max_ecli=amount,
+                                                  sd=str(current_date.date()),
+                                                  ed=str(next_date.date()),
+                                                  save_file='n')
+            _store_dataframe_per_date(base_extraction,
+                                      current_date,
+                                      _filename='base',
+                                      _path='data/processed/')
+            metadata_df = get_rechtspraak_metadata(save_file='n',
+                                                   dataframe=base_extraction,
+                                                   _fake_headers=True,
+                                                   data_dir='data/processed/')
+            _store_dataframe_per_date(metadata_df,
+                                      current_date,
+                                      _filename='metadata',
+                                      _path='data/processed/')
+            if isinstance(metadata_df, pd.DataFrame):
+                metadata_df_list.append(metadata_df)
+            current_date = next_date
+        if metadata_df_list:
+            metadata_df = pd.concat(metadata_df_list, ignore_index=True)
+        else:
+            logging.info("No new data to process")
+            
     logging.info(f"Length of metadata df is {len(metadata_df)}")
-    rex_citations.get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
+    get_citations(metadata_df, LIDO_USERNAME, LIDO_PASSWORD, 1)
 
     logging.info(f"Updating local storage ...")
     df_filepath = get_path_raw(CSV_RS_CASES)
@@ -147,10 +285,23 @@ def rechtspraak_extract(args=None):
 
     end_time = time.time()
     logging.info("--- DONE ---")
-    logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end_time - start_time)))
+    logging.info("Time taken: " + time.strftime('%H:%M:%S', time.gmtime(end_time - start_time)))
     Variable.set(key='RSPRAAK_LAST_DATE', value=today_date)
     if RS_SETUP:
         Variable.set(key='RS_SETUP_INDEX', value=next_index)
+    
+    # Check if there are any _failed_eclis.txt file in data and its subdirectories
+    failed_files = []
+    for root, dirs, files in os.walk('data'):
+        for file in files:
+            if file.endswith('_failed_eclis.txt'):
+                failed_files.append(os.path.join(root, file))
+    if failed_files:
+        logging.info("There are some failed eclis files in the data directory:")
+        for file in failed_files:
+            logging.info(file)
+    else:
+        logging.info("There are no failed eclis files in the data directory.")
 
 
 if __name__ == '__main__':
