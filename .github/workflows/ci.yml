@@ -1,0 +1,323 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  lint:
+    name: Code Linting
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install linting dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install flake8 black isort pylint
+    
+    - name: Run Black (Code Formatter Check)
+      run: |
+        black --check --diff airflow/dags/
+      continue-on-error: true
+    
+    - name: Run isort (Import Sorting Check)
+      run: |
+        isort --check-only --diff airflow/dags/
+      continue-on-error: true
+    
+    - name: Run Flake8 (Style Guide)
+      run: |
+        # Stop the build if there are Python syntax errors or undefined names
+        flake8 airflow/dags/ --count --select=E9,F63,F7,F82 --show-source --statistics
+        # Exit-zero treats all errors as warnings
+        flake8 airflow/dags/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+      continue-on-error: true
+
+  test:
+    name: Unit Tests
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pytest pytest-cov pytest-mock
+        # Install minimal requirements for testing
+        pip install pandas boto3 python-dotenv
+    
+    - name: Create test directories
+      run: |
+        mkdir -p airflow/data/raw
+        mkdir -p airflow/data/processed
+        mkdir -p airflow/data/full_text
+    
+    - name: Run tests
+      run: |
+        # When tests are created, this will run them
+        # pytest tests/ --cov=airflow/dags --cov-report=xml --cov-report=html
+        echo "No tests implemented yet. Add tests to tests/ directory."
+      continue-on-error: true
+    
+    - name: Upload coverage reports
+      if: always()
+      uses: codecov/codecov-action@v3
+      with:
+        files: ./coverage.xml
+        flags: unittests
+        name: codecov-umbrella
+      continue-on-error: true
+
+  validate-dags:
+    name: Validate Airflow DAGs
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Cache pip packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.cache/pip
+        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
+        restore-keys: |
+          ${{ runner.os }}-pip-
+    
+    - name: Install Airflow and dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install apache-airflow==2.10.5
+        # Install only essential dependencies for DAG validation
+        pip install pandas boto3 python-dotenv
+    
+    - name: Validate DAG syntax
+      run: |
+        export AIRFLOW_HOME=${{ github.workspace }}/airflow
+        mkdir -p $AIRFLOW_HOME/dags
+        
+        # Check if DAGs can be parsed
+        python -c "
+        import sys
+        from pathlib import Path
+        
+        dag_folder = Path('airflow/dags')
+        errors = []
+        
+        for dag_file in dag_folder.rglob('*.py'):
+            if '__pycache__' in str(dag_file):
+                continue
+            print(f'Checking {dag_file}...')
+            try:
+                compile(open(dag_file).read(), dag_file, 'exec')
+                print(f'✓ {dag_file} - syntax OK')
+            except SyntaxError as e:
+                errors.append(f'✗ {dag_file}: {e}')
+                print(f'✗ {dag_file}: {e}')
+        
+        if errors:
+            print('\n=== ERRORS FOUND ===')
+            for error in errors:
+                print(error)
+            sys.exit(1)
+        else:
+            print('\n=== ALL DAGS VALID ===')
+        "
+
+  docker-build:
+    name: Docker Build Test
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v2
+    
+    - name: Cache Docker layers
+      uses: actions/cache@v3
+      with:
+        path: /tmp/.buildx-cache
+        key: ${{ runner.os }}-buildx-${{ github.sha }}
+        restore-keys: |
+          ${{ runner.os }}-buildx-
+    
+    - name: Build Docker image
+      run: |
+        cd airflow
+        docker build -t case-law-explorer:test .
+      continue-on-error: false
+    
+    - name: Test Docker image
+      run: |
+        docker run --rm case-law-explorer:test python --version
+        docker run --rm case-law-explorer:test pip list | grep airflow
+
+  security-scan:
+    name: Security Vulnerability Scan
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+    
+    - name: Install safety
+      run: |
+        python -m pip install --upgrade pip
+        pip install safety
+    
+    - name: Run safety check
+      run: |
+        # Check for known security vulnerabilities in dependencies
+        safety check --file=airflow/requirements.txt --json || true
+      continue-on-error: true
+    
+    - name: Run Bandit (Security Linter)
+      run: |
+        pip install bandit
+        bandit -r airflow/dags/ -f json -o bandit-report.json || true
+      continue-on-error: true
+    
+    - name: Upload security reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: security-reports
+        path: |
+          bandit-report.json
+
+  check-merge-conflicts:
+    name: Check for Merge Conflicts
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check for merge conflict markers
+      run: |
+        if grep -r "^<<<<<<< " . --exclude-dir=.git --exclude-dir=.github; then
+          echo "❌ Merge conflict markers found!"
+          exit 1
+        else
+          echo "✅ No merge conflicts detected"
+        fi
+
+  documentation:
+    name: Documentation Check
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Check for required documentation files
+      run: |
+        required_files=(
+          "README.md"
+          "ARCHITECTURE.md"
+          "GLOSSARY.md"
+          "TROUBLESHOOTING.md"
+          ".env.example"
+        )
+        
+        missing_files=()
+        
+        for file in "${required_files[@]}"; do
+          if [ ! -f "$file" ]; then
+            missing_files+=("$file")
+          fi
+        done
+        
+        if [ ${#missing_files[@]} -gt 0 ]; then
+          echo "❌ Missing required documentation files:"
+          printf '%s\n' "${missing_files[@]}"
+          exit 1
+        else
+          echo "✅ All required documentation files present"
+        fi
+    
+    - name: Check for broken links in markdown files
+      uses: gaurav-nelson/github-action-markdown-link-check@v1
+      with:
+        use-quiet-mode: 'yes'
+        use-verbose-mode: 'yes'
+      continue-on-error: true
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [lint, test, validate-dags, docker-build, security-scan, check-merge-conflicts, documentation]
+    if: always()
+    
+    steps:
+    - name: Check CI results
+      run: |
+        echo "=== CI Pipeline Summary ==="
+        echo "Lint: ${{ needs.lint.result }}"
+        echo "Tests: ${{ needs.test.result }}"
+        echo "DAG Validation: ${{ needs.validate-dags.result }}"
+        echo "Docker Build: ${{ needs.docker-build.result }}"
+        echo "Security Scan: ${{ needs.security-scan.result }}"
+        echo "Merge Conflicts: ${{ needs.check-merge-conflicts.result }}"
+        echo "Documentation: ${{ needs.documentation.result }}"
+        
+        if [ "${{ needs.check-merge-conflicts.result }}" == "failure" ]; then
+          echo ""
+          echo "❌ CRITICAL: Merge conflicts detected!"
+          echo "Please resolve merge conflicts before merging."
+          exit 1
+        fi
+        
+        if [ "${{ needs.validate-dags.result }}" == "failure" ]; then
+          echo ""
+          echo "❌ CRITICAL: DAG validation failed!"
+          echo "Please fix DAG syntax errors before merging."
+          exit 1
+        fi
+        
+        if [ "${{ needs.docker-build.result }}" == "failure" ]; then
+          echo ""
+          echo "❌ CRITICAL: Docker build failed!"
+          echo "Please fix Dockerfile issues before merging."
+          exit 1
+        fi
+
+
