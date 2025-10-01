@@ -1,9 +1,5 @@
-<<<<<<< HEAD
-FROM apache/airflow:2.3.0-python3.8
-=======
 FROM apache/airflow:2.10.5-python3.11
 USER root
->>>>>>> origin/airflow
 LABEL org.opencontainers.image.source=https://github.com/maastrichtlawtech/case-law-explorer
 RUN apt-get update && apt-get autoremove -yqq --purge && apt-get clean
 RUN apt-get install -y gosu
