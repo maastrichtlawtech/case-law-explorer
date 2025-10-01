@@ -5,42 +5,50 @@ Main cellar extraction routine. Used by the cellar_extraction DAG.
 import argparse
 import json
 import logging
+import os
 import sys
 import time
-import os
-import urllib3
-import requests
-from datetime import datetime
 from os import getenv
-from os.path import dirname, abspath
+from os.path import abspath, dirname
 
 import cellar_extractor as cell
+import requests
+import urllib3
 from airflow.models.variable import Variable
-from dotenv import load_dotenv, find_dotenv
+from dotenv import find_dotenv, load_dotenv
+from definitions.storage_handler import (
+    CSV_CELLAR_CASES,
+    JSON_FULL_TEXT_CELLAR,
+    TXT_CELLAR_EDGES,
+    TXT_CELLAR_NODES,
+    Storage,
+    get_path_raw,
+)
+from helpers.csv_manipulator import drop_columns
 
 # Disable SSL verification warnings and verification
 # This is necessary for cellar extraction to work with certain SSL configurations
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-os.environ['REQUESTS_CA_BUNDLE'] = ''
-os.environ['CURL_CA_BUNDLE'] = ''
-
-from definitions.storage_handler import Storage, get_path_raw, JSON_FULL_TEXT_CELLAR, \
-    CSV_CELLAR_CASES, TXT_CELLAR_EDGES, TXT_CELLAR_NODES
-from helpers.csv_manipulator import drop_columns
-
+os.environ["REQUESTS_CA_BUNDLE"] = ""
+os.environ["CURL_CA_BUNDLE"] = ""
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 
-WEBSERVICE_USERNAME = getenv('EURLEX_WEBSERVICE_USERNAME')
-WEBSERVICE_PASSWORD = getenv('EURLEX_WEBSERVICE_PASSWORD')
+WEBSERVICE_USERNAME = getenv("EURLEX_WEBSERVICE_USERNAME")
+WEBSERVICE_PASSWORD = getenv("EURLEX_WEBSERVICE_PASSWORD")
 
 # Add debugging for credentials
 if not WEBSERVICE_USERNAME or not WEBSERVICE_PASSWORD:
-    logging.error("Missing EURLEX credentials. Please set EURLEX_WEBSERVICE_USERNAME and EURLEX_WEBSERVICE_PASSWORD environment variables.")
+    logging.error(
+        "Missing EURLEX credentials. Please set EURLEX_WEBSERVICE_USERNAME and EURLEX_WEBSERVICE_PASSWORD environment variables."
+    )
     sys.exit(1)
 else:
-    logging.info(f"Credentials found: Username={WEBSERVICE_USERNAME[:3]}***, Password={'*' * len(WEBSERVICE_PASSWORD) if WEBSERVICE_PASSWORD else 'None'}")
+    password_display = '*' * len(WEBSERVICE_PASSWORD) if WEBSERVICE_PASSWORD else 'None'
+    logging.info(
+        f"Credentials found: Username={WEBSERVICE_USERNAME[:3]}***, Password={password_display}"
+    )
 
 
 def cellar_extract(args):
@@ -51,20 +59,27 @@ def cellar_extract(args):
     """
     # Disable SSL verification globally for this extraction
     import ssl
+
     ssl._create_default_https_context = ssl._create_unverified_context
-    
+
     output_path = get_path_raw(CSV_CELLAR_CASES)
 
     parser = argparse.ArgumentParser()
-    parser.add_argument('--amount', help='number of documents to retrieve', type=int, required=False)
-    parser.add_argument('--starting-date', help='Last modification date to look forward from', required=False)
-    parser.add_argument('--ending-date', help='Last modification date to look forward from', required=False)
+    parser.add_argument(
+        "--amount", help="number of documents to retrieve", type=int, required=False
+    )
+    parser.add_argument(
+        "--starting-date", help="Last modification date to look forward from", required=False
+    )
+    parser.add_argument(
+        "--ending-date", help="Last modification date to look forward from", required=False
+    )
     # Airflow gives extra arguments ( 'celery worker').
     # To make sure it doesn't crash the code, the unknown arg catching has to be added
     args, unknown = parser.parse_known_args(args)
 
-    logging.info('--- PREPARATION ---')
-    logging.info('OUTPUT:\t\t\t' + output_path)
+    logging.info("--- PREPARATION ---")
+    logging.info("OUTPUT:\t\t\t" + output_path)
     storage = Storage()
 
     try:
@@ -79,25 +94,26 @@ def cellar_extract(args):
 
     try:
         # Getting date of last update from airflow database
-        last_updated = Variable.get('CELEX_LAST_DATE')
+        last_updated = Variable.get("CELEX_LAST_DATE")
         logging.info("database connection works")
-    except:
-        last_updated = getenv('CELLAR_START_DATE')
-        Variable.set(key='CELEX_LAST_DATE', value=last_updated)
+    except Exception:
+        last_updated = getenv("CELLAR_START_DATE")
+        Variable.set(key="CELEX_LAST_DATE", value=last_updated)
 
-    logging.info('START DATE (LAST UPDATE):\t' + last_updated)
-    logging.info('--- START ---')
+    logging.info("START DATE (LAST UPDATE):\t" + last_updated)
+    logging.info("--- START ---")
     start = time.time()
     logging.info(
-        f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents")
+        f"Downloading {args.amount if 'amount' in args and args.amount is not None else 'all'} CELLAR documents"
+    )
 
     # Create a requests session with SSL verification disabled
     session = requests.Session()
     session.verify = False
     session.trust_env = False
-    
+
     # Monkey patch the cellar_extractor to use our session
-    if hasattr(cell, 'requests'):
+    if hasattr(cell, "requests"):
         cell.requests.Session = lambda: session
 
     if args.amount is None:
@@ -109,19 +125,31 @@ def cellar_extract(args):
         logging.info(f"Using provided starting date: {args.starting_date}")
         logging.info(f"Using provided ending date: {args.ending_date}")
         try:
-            metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=args.starting_date,
-                                                             ed=args.ending_date, threads=15,
-                                                             username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
+            metadata, full_text_json = cell.get_cellar_extra(
+                save_file="n",
+                max_ecli=amount,
+                sd=args.starting_date,
+                ed=args.ending_date,
+                threads=15,
+                username=WEBSERVICE_USERNAME,
+                password=WEBSERVICE_PASSWORD,
+            )
         except Exception as e:
             logging.error(f"Error during cellar extraction: {e}")
             raise
-    else:        
+    else:
         logging.info(f"Using last updated date: {last_updated}")
         logging.info(f"Using provided ending date: {args.ending_date}")
         try:
-            metadata, full_text_json = cell.get_cellar_extra(save_file='n', max_ecli=amount, sd=last_updated, ed=args.ending_date,
-                                                             threads=15,
-                                                             username=WEBSERVICE_USERNAME, password=WEBSERVICE_PASSWORD)
+            metadata, full_text_json = cell.get_cellar_extra(
+                save_file="n",
+                max_ecli=amount,
+                sd=last_updated,
+                ed=args.ending_date,
+                threads=15,
+                username=WEBSERVICE_USERNAME,
+                password=WEBSERVICE_PASSWORD,
+            )
         except Exception as e:
             logging.error(f"Error during cellar extraction: {e}")
             raise
@@ -132,7 +160,7 @@ def cellar_extract(args):
         # package returns False if no data was found
         logging.warning("Cellar extractor returned boolean value - no data found")
         sys.exit(0)
-    logging.info(f"\nUpdating local storage ...")
+    logging.info("\nUpdating local storage ...")
 
     # We are only interested in european cases.
     # Cellar extractor extracts everything with an ecli
@@ -148,36 +176,36 @@ def cellar_extract(args):
 
     for jsons in full_text_json:
         # Additional check present below, to make sure we don't keep non-european, irrelevant (for us) cases
-        celex = jsons.get('celex')
+        celex = jsons.get("celex")
         if not celex.startswith("8"):
             final_full_texts.append(jsons)
 
     # Saving json file, containing the full text data
-    with open(json_filepath, 'w') as f:
+    with open(json_filepath, "w") as f:
         json.dump(final_full_texts, f)
 
     # This method will get the lists of nodes and edges, based on citations
     # The lists will allow to create a citation graph
     nodes, edges = cell.get_nodes_and_edges_lists(metadata)
     if nodes is not False:
-        nodes = '\n'.join(nodes)
-        with open(get_path_raw(TXT_CELLAR_NODES), 'w') as f:
+        nodes = "\n".join(nodes)
+        with open(get_path_raw(TXT_CELLAR_NODES), "w") as f:
             f.write(nodes)
     else:
         logging.info("No nodes found")
     if edges is not False:
-        edges = '\n'.join(edges)
-        with open(get_path_raw(TXT_CELLAR_EDGES), 'w') as f:
+        edges = "\n".join(edges)
+        with open(get_path_raw(TXT_CELLAR_EDGES), "w") as f:
             f.write(edges)
     else:
         logging.info("No edges found")
 
     end = time.time()
     logging.info("\n--- DONE ---")
-    logging.info("Time taken: ", time.strftime('%H:%M:%S', time.gmtime(end - start)))
+    logging.info("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(end - start)))
     # Settings the date of current download, as the start date of next download via airflow database
-    Variable.set(key='CELEX_LAST_UPDATE', value=args.ending_date)
+    Variable.set(key="CELEX_LAST_UPDATE", value=args.ending_date)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     cellar_extract(sys.argv[1:])

@@ -1,21 +1,20 @@
-import ast
-import os
-import pandas as pd
-import boto3
 import logging
-
-from airflow import DAG
-from airflow.utils.task_group import TaskGroup
-from airflow.operators.python import PythonOperator
+import os
 from datetime import datetime, timedelta
-from dotenv import load_dotenv, find_dotenv
+
+import boto3
+import pandas as pd
+from airflow.operators.python import PythonOperator
+from airflow.utils.task_group import TaskGroup
+from boto3.dynamodb.conditions import Key
+from data_loading import data_loader
+from data_transformation import data_transformer
+from dotenv import find_dotenv, load_dotenv
 from rechtspraak_citations_extractor.citations_extractor import get_citations
 from rechtspraak_extractor.rechtspraak import get_rechtspraak
 from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
-from data_transformation import data_transformer
-from data_loading import data_loader
-from boto3.dynamodb.conditions import Attr, Key
-from concurrent.futures import ThreadPoolExecutor
+
+from airflow import DAG
 
 default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=2)}
 
@@ -24,7 +23,7 @@ dag = DAG(
     default_args=default_args,
     description="Update citation details in DynamoDB",
     catchup=False,
-    start_date=datetime(2025,1,1),
+    start_date=datetime(2025, 1, 1),
     schedule_interval=None,
 )
 
@@ -42,14 +41,12 @@ def read_metadata_files(raw_data_path="data/raw/"):
     if not metadata_files:
         logging.warning("No metadata files found in the specified directory.")
         return pd.DataFrame()
-    metadata_df = pd.concat(
-        [pd.read_csv(file) for file in metadata_files], ignore_index=True
-    )
+    metadata_df = pd.concat([pd.read_csv(file) for file in metadata_files], ignore_index=True)
 
     return metadata_df
 
 
-def merge_and_extract(eclis, metadata_df,  input_paths=["data/processed/extracted_citations.csv"]):
+def merge_and_extract(eclis, metadata_df, input_paths=["data/processed/extracted_citations.csv"]):
     """
     Merge the metadata dataframe with the ECLIs and extract citations.
     """
@@ -75,8 +72,11 @@ def merge_and_extract(eclis, metadata_df,  input_paths=["data/processed/extracte
     return missing_eclis
 
 
-def extract_missing_eclis(missing_eclis, output_path="data/processed/missing_citations_extraction.csv",
-                          input_paths=["data/processed/missing_citations_extraction.csv"]):
+def extract_missing_eclis(
+    missing_eclis,
+    output_path="data/processed/missing_citations_extraction.csv",
+    input_paths=["data/processed/missing_citations_extraction.csv"],
+):
     """
     Perform extraction for ECLIs that did not have any data.
     """
@@ -90,9 +90,7 @@ def extract_missing_eclis(missing_eclis, output_path="data/processed/missing_cit
             os.getenv("LIDO_PASSWORD"),
             threads=1,
         )
-        citations_df.to_csv(
-            output_path, index=False
-        )
+        citations_df.to_csv(output_path, index=False)
 
         logging.info("Transforming and uploading missing data to DynamoDB.")
         data_transformer.transform_data(
@@ -138,7 +136,11 @@ def query_dynamodb_for_ecli(ecli):
     return item if not item.get("legal_provisions_url") else None
 
 
-def process_eclis(eclis, metadata_files_path="data/raw/", processed_citations_path="data/processed/extracted_citations.csv"):
+def process_eclis(
+    eclis,
+    metadata_files_path="data/raw/",
+    processed_citations_path="data/processed/extracted_citations.csv",
+):
     """
     Process a batch of ECLIs to extract metadata, perform citation extraction, and update DynamoDB.
     """
@@ -178,7 +180,9 @@ def process_eclis(eclis, metadata_files_path="data/raw/", processed_citations_pa
 
         if not merged_df.empty:
             logging.info(f"Performing citation extraction for ECLI: {ecli}.")
-            logging.info("Dropping the following columns - citations_incoming, citations_outgoing, legislations_cited, bwb_id,opschrift")
+            logging.info(
+                "Dropping the following columns - citations_incoming, citations_outgoing, legislations_cited, bwb_id,opschrift"
+            )
             merged_df = merged_df.drop(
                 columns=[
                     "citations_incoming",
@@ -205,9 +209,7 @@ def process_eclis(eclis, metadata_files_path="data/raw/", processed_citations_pa
             logging.warning(f"No metadata found for ECLI: {ecli}.")
             missing_eclis.append(ecli)
     logging.info(f"Transforming and uploading data for ECLI: {ecli}.")
-    data_transformer.transform_data(
-        caselaw_type="RS", input_paths=[processed_citations_path]
-    )
+    data_transformer.transform_data(caselaw_type="RS", input_paths=[processed_citations_path])
     data_loader.load_data()
     return missing_eclis
 
@@ -236,15 +238,13 @@ def update_base_metadata(**kwargs):
             # Check if the columns are already present in the base_extraction_df
             if "summary" in base_extraction_df.columns:
                 base_extraction_df.drop(columns=["summary"], inplace=True)
-            merged_df = pd.merge(
-                base_extraction_df, metadata_df, on="ecli", how="inner"
-            )
+            merged_df = pd.merge(base_extraction_df, metadata_df, on="ecli", how="inner")
             # If full_text column is empty, update link column with None
-            merged_df.loc[
-                merged_df["full_text"].isnull(), "link"
-            ] = None
+            merged_df.loc[merged_df["full_text"].isnull(), "link"] = None
             if not merged_df.empty:
-                logging.info("Dropping the following columns - citations_incoming, citations_outgoing, legislations_cited, bwb_id,opschrift")
+                logging.info(
+                    "Dropping the following columns - citations_incoming, citations_outgoing, legislations_cited, bwb_id,opschrift"
+                )
                 merged_df = merged_df.drop(
                     columns=[
                         "citations_incoming",
@@ -271,45 +271,54 @@ def update_base_metadata(**kwargs):
                 mode="w",
                 index=False,
             )
-            citations_df["legislations_cited"] = citations_df[
-                "legislations_cited"
-            ].apply(
-                lambda x: {
-                    i["legal_provision"]
-                    for i in x if isinstance(x, str) and "legal_provision" in i
-                } if isinstance(x, str) else {}
+            citations_df["legislations_cited"] = citations_df["legislations_cited"].apply(
+                lambda x: (
+                    {
+                        i["legal_provision"]
+                        for i in x
+                        if isinstance(x, str) and "legal_provision" in i
+                    }
+                    if isinstance(x, str)
+                    else {}
+                )
             )
             # Keep only target_ecli value from citations_outgoing column with the following structure
             # [{"target_ecli": "ECLI:NL:HR:2020:1234",
             # "target_ecli_url": "http://linkeddata.overheid.nl/cases/id/ECLI:NL:HR:2020:1234"}]
             # and store the extracted target_ecli in this structure
             # {"ECLI:NL:HR:2020:1234", "ECLI:NL:HR:2020:1234"}
-            citations_df["citations_outgoing"] = citations_df[
-                "citations_outgoing"
-            ].apply(
-                lambda x: {
-                    i["target_ecli"]
-                    for i in x
-                    if isinstance(x, str) and x.strip() and "target_ecli" in i
-                } if isinstance(x, str) else {}
+            citations_df["citations_outgoing"] = citations_df["citations_outgoing"].apply(
+                lambda x: (
+                    {
+                        i["target_ecli"]
+                        for i in x
+                        if isinstance(x, str) and x.strip() and "target_ecli" in i
+                    }
+                    if isinstance(x, str)
+                    else {}
+                )
             )
-            citations_df["legislations_cited"] = citations_df[
-                "legislations_cited"
-            ].apply(
-                lambda x: {
-                    i["legal_provision"]
-                    for i in x 
-                    if isinstance(x, str) and x.strip() and "legal_provision" in i
-                } if isinstance(x, str) else {}
+            citations_df["legislations_cited"] = citations_df["legislations_cited"].apply(
+                lambda x: (
+                    {
+                        i["legal_provision"]
+                        for i in x
+                        if isinstance(x, str) and x.strip() and "legal_provision" in i
+                    }
+                    if isinstance(x, str)
+                    else {}
+                )
             )
-            citations_df["citations_incoming"] = citations_df[
-                "citations_incoming"
-            ].apply(
-                lambda x: {
-                    i["target_ecli"]
-                    for i in x
-                    if isinstance(x, str) and x.strip() and "target_ecli" in i
-                } if isinstance(x, str) else {}
+            citations_df["citations_incoming"] = citations_df["citations_incoming"].apply(
+                lambda x: (
+                    {
+                        i["target_ecli"]
+                        for i in x
+                        if isinstance(x, str) and x.strip() and "target_ecli" in i
+                    }
+                    if isinstance(x, str)
+                    else {}
+                )
             )
             # Save the citations_df to a CSV file
             citations_df.to_csv(
@@ -319,12 +328,11 @@ def update_base_metadata(**kwargs):
             )
             data_transformer.transform_data(
                 caselaw_type="RS",
-                input_paths=[
-                    _path
-                ],
+                input_paths=[_path],
             )
-            data_loader.load_data(input_paths=[
-                processed_citations_path + str(dir_name) + "_extracted_citations_clean.csv"
+            data_loader.load_data(
+                input_paths=[
+                    processed_citations_path + str(dir_name) + "_extracted_citations_clean.csv"
                 ],
             )
 
@@ -334,11 +342,7 @@ def create_tasks():
     load_dotenv(env_file, override=True)
     logging.info("Starting update_citation_details process by creating tasks for each month")
     # Find the number of subdirectories in the data/raw/ directory
-    subdirs = [
-        d
-        for d in os.listdir("data/raw/")
-        if os.path.isdir(os.path.join("data/raw/", d))
-    ]
+    subdirs = [d for d in os.listdir("data/raw/") if os.path.isdir(os.path.join("data/raw/", d))]
     # Create a task for each subdirectory
     with TaskGroup(
         "update_citation_details_tasks", tooltip="Update citation details", dag=dag
@@ -356,6 +360,7 @@ def create_tasks():
                 )
     logging.info("All tasks created successfully.")
     return task_group
+
 
 with dag:
     create_tasks()

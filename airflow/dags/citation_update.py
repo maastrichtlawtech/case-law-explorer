@@ -1,15 +1,15 @@
 import ast
-import boto3
 import logging
 import os
-import pandas as pd
-import sys
-
-from airflow import DAG
-from airflow.operators.python import PythonOperator
 from datetime import datetime, timedelta
+
+import boto3
+import pandas as pd
+from airflow.operators.python import PythonOperator
 from dotenv import load_dotenv
 from rechtspraak_citations_extractor.citations_extractor import get_citations
+
+from airflow import DAG
 
 load_dotenv()
 default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=2)}
@@ -19,7 +19,7 @@ dag = DAG(
     default_args=default_args,
     description="Update citation details in DynamoDB",
     catchup=False,
-    start_date=datetime(2025,1,1),
+    start_date=datetime(2025, 1, 1),
     schedule_interval=None,
 )
 
@@ -29,7 +29,7 @@ def scan_entire_table():
     ddb_table_name = os.getenv("DDB_TABLE_NAME")
     if not ddb_table_name:
         raise ValueError("DDB_TABLE_NAME environment variable is not set")
-    
+
     dynamodb = boto3.resource(
         "dynamodb",
         aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
@@ -37,15 +37,15 @@ def scan_entire_table():
         region_name="eu-central-1",
     )
     table = dynamodb.Table(ddb_table_name)
-    
+
     items = []
     scan_kwargs = {"ProjectionExpression": "ecli, ItemType"}
     response = table.scan(**scan_kwargs)
     items.extend(response.get("Items", []))
 
     while "LastEvaluatedKey" in response:
-        response = table.scan(ExclusiveStartKey=response['LastEvaluatedKey'], **scan_kwargs)
-        items.extend(response.get('Items', []))
+        response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"], **scan_kwargs)
+        items.extend(response.get("Items", []))
 
     return items, table
 
@@ -67,20 +67,20 @@ def _scan_and_update():
                     extract_opschrift=True,
                 )
                 if (
-                    citations_df['legislations_cited'].isnull().any() or 
-                    (citations_df['legislations_cited'] == "<NA>").any() or
-                    citations_df['citations_outgoing'].isnull().any() or 
-                    (citations_df['citations_outgoing'] == "<NA>").any() or
-                    citations_df['citations_incoming'].isnull().any() or 
-                    (citations_df['citations_incoming'] == "<NA>").any()
+                    citations_df["legislations_cited"].isnull().any()
+                    or (citations_df["legislations_cited"] == "<NA>").any()
+                    or citations_df["citations_outgoing"].isnull().any()
+                    or (citations_df["citations_outgoing"] == "<NA>").any()
+                    or citations_df["citations_incoming"].isnull().any()
+                    or (citations_df["citations_incoming"] == "<NA>").any()
                 ):
                     continue
                 else:
                     key = {"ecli": _ecli, "ItemType": "DATA"}
-                    # Extract target_ecli value from citations_df['citations_incoming'] and citations_df['citations_outgoing'] which is stored as a dictionary 
+                    # Extract target_ecli value from citations_df['citations_incoming'] and citations_df['citations_outgoing'] which is stored as a dictionary
                     # and store it as a string set
                     citations_incoming = []
-                    for item in (citations_df["citations_incoming"]):
+                    for item in citations_df["citations_incoming"]:
                         item = ast.literal_eval(item)
                         for _item in item:
                             if isinstance(_item, dict) and "target_ecli" in _item:
@@ -126,7 +126,8 @@ def _scan_and_update():
                             else:
                                 opschrift.append("")
                     bwb_id = set(
-                        item if isinstance(item, str) else "" for item in citations_df["bwb_id"].tolist()
+                        item if isinstance(item, str) else ""
+                        for item in citations_df["bwb_id"].tolist()
                     )
                     response = table.update_item(
                         Key=key,
@@ -149,7 +150,7 @@ def _scan_and_update():
 
 with dag:
     task1 = PythonOperator(
-        task_id='update_citations',
+        task_id="update_citations",
         python_callable=_scan_and_update,
     )
 

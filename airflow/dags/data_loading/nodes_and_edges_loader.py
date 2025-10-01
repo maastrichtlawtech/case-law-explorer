@@ -3,18 +3,23 @@ from os import getenv
 from os.path import basename
 
 import boto3
+from definitions.storage_handler import (
+    TXT_CELLAR_EDGES,
+    TXT_CELLAR_NODES,
+    TXT_ECHR_EDGES,
+    TXT_ECHR_NODES,
+    get_path_raw,
+)
 from dotenv import load_dotenv
-
-from definitions.storage_handler import get_path_raw, TXT_CELLAR_NODES, TXT_CELLAR_EDGES, TXT_ECHR_EDGES, TXT_ECHR_NODES
 
 load_dotenv()
 
-bucket_name = getenv('CELLAR_NODES_BUCKET_NAME')
-region = getenv('AWS_REGION')
-location = {'LocationConstraint': region}
-access_key = getenv('AWS_ACCESS_KEY_ID')
-secret_key = getenv('AWS_SECRET_ACCESS_KEY')
-s3 = boto3.resource('s3')
+bucket_name = getenv("CELLAR_NODES_BUCKET_NAME")
+region = getenv("AWS_REGION")
+location = {"LocationConstraint": region}
+access_key = getenv("AWS_ACCESS_KEY_ID")
+secret_key = getenv("AWS_SECRET_ACCESS_KEY")
+s3 = boto3.resource("s3")
 
 input_files = [TXT_ECHR_EDGES, TXT_ECHR_NODES, TXT_CELLAR_EDGES, TXT_CELLAR_NODES]
 
@@ -24,7 +29,7 @@ def merge_data(old, new):
     old_data_set = set(old.splitlines())
     new_data = new.splitlines()
     old_data_set.update(new_data)
-    return '\n'.join(old_data_set)
+    return "\n".join(old_data_set)
 
 
 def upload_nodes_and_edges():
@@ -40,19 +45,19 @@ def upload_nodes_and_edges():
             continue
         with open(path, encoding="utf8") as f:
             new_data = f.read()
-        print(f'Processing {basename(path)} ...')
+        print(f"Processing {basename(path)} ...")
         try:
             obj = s3.Object(bucket_name=bucket_name, key=basename(path))
             response = obj.get()
-            old_data = response['Body'].read().decode("utf-8")
-            print('File already exists, merging 2 files....')
+            old_data = response["Body"].read().decode("utf-8")
+            print("File already exists, merging 2 files....")
             merged = merge_data(old_data, new_data)
             s3.Object(bucket_name, basename(path)).put(Body=merged)
-        except:  # file does not exist
-            print('File does not yet exist on the bucket. Uploading...')
+        except Exception:  # file does not exist
+            print("File does not yet exist on the bucket. Uploading...")
             s3.Object(bucket_name=bucket_name, key=basename(path)).put(Body=new_data)
         os.remove(path)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     upload_nodes_and_edges()

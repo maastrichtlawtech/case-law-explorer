@@ -1,12 +1,15 @@
-import os
+# import os
+
+from lido.config import FILE_SQLITE_DB, TBL_CASE_LAW, TBL_CASES, TBL_LAW_ALIAS, TBL_LAWS
 from lido.utils.sqlite import get_conn
-from lido.config import FILE_SQLITE_DB, TBL_LAWS, TBL_CASES, TBL_CASE_LAW, TBL_LAW_ALIAS
+
 
 def task_init_sqlite():
 
     conn = get_conn(FILE_SQLITE_DB)
     cursor = conn.cursor()
-    cursor.executescript(f"""
+    cursor.executescript(
+        f"""
         CREATE TABLE IF NOT EXISTS {TBL_CASES} (
             id INTEGER PRIMARY KEY,
             ecli_id TEXT UNIQUE NOT NULL,
@@ -52,7 +55,8 @@ def task_init_sqlite():
             UNIQUE (bwb_id, alias COLLATE NOCASE)
         );
         CREATE INDEX IF NOT EXISTS idx_law_alias ON {TBL_LAW_ALIAS}(alias COLLATE NOCASE);
-    """)
+    """
+    )
     conn.commit()
     cursor.close()
     print("Database initialized.")

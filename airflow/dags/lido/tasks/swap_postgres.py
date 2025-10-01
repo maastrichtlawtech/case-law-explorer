@@ -1,7 +1,5 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
-
-from lido.config import TBL_CASE_LAW, TBL_CASES, TBL_LAW_ALIAS, TBL_LAWS
-from lido.config import CONN_PG_LIDO
+from lido.config import CONN_PG_LIDO, TBL_CASE_LAW, TBL_CASES, TBL_LAW_ALIAS, TBL_LAWS
 
 SQL_CREATE_STAGING_TABLES = f"""
     -- first: drop table to ensure that partial rerun is reproducable
@@ -110,6 +108,7 @@ BEGIN;
 COMMIT;
 """
 
+
 def task_create_staging_tables():
     hook = PostgresHook(postgres_conn_id=CONN_PG_LIDO)
     conn = hook.get_conn()
@@ -117,18 +116,17 @@ def task_create_staging_tables():
     cursor.execute(SQL_CREATE_STAGING_TABLES)
     conn.commit()
 
+
 def task_load_csv(csv_path, table):
     hook = PostgresHook(postgres_conn_id=CONN_PG_LIDO)
     conn = hook.get_conn()
     cursor = conn.cursor()
 
     with open(csv_path, "rb") as f:
-        cursor.copy_expert(
-            sql=f"COPY {table}_staging FROM STDIN WITH CSV HEADER",
-            file=f
-        )
+        cursor.copy_expert(sql=f"COPY {table}_staging FROM STDIN WITH CSV HEADER", file=f)
 
     conn.commit()
+
 
 def task_swap_tables():
     hook = PostgresHook(postgres_conn_id=CONN_PG_LIDO)

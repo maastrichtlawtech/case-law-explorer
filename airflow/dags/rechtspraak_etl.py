@@ -1,31 +1,22 @@
-import argparse
 import logging
 import os
-import sys
-import time
-import pandas as pd
-import rechtspraak_extractor.rechtspraak as rex
-
-from airflow import DAG
+from calendar import monthrange
+from datetime import datetime, timedelta
 from airflow.models.variable import Variable
 from airflow.operators.python import PythonOperator
 
 # from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
-from calendar import monthrange
-from csv import DictReader, DictWriter
-from data_transformation.utils import *
-from data_transformation import data_transformer
+from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import (
+    rechtspraak_extract,
+)
 from data_loading import data_loader
-from datetime import datetime, timedelta
-from definitions.storage_handler import Storage, get_path_raw, CSV_RS_CASES
-from definitions.mappings.attribute_name_maps import MAP_RS
-from os.path import dirname, abspath
-from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
+from data_transformation import data_transformer
+from dotenv import find_dotenv, load_dotenv
 from rechtspraak_citations_extractor.citations_extractor import get_citations
-from dotenv import load_dotenv, find_dotenv
-from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import rechtspraak_extract
+from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
 
+from airflow import DAG
 
 default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=2)}
 
@@ -94,15 +85,11 @@ def rechtspraak_etl(**kwargs):
     end_date = kwargs["end_date"]
     _data_path = kwargs["_data_path"]
     logging.info(f"Starting Rechtspraak ETL for {start_date} to {end_date}")
-    start_time = time.time()
 
     # Setup environment
     env_file = find_dotenv()
     load_dotenv(env_file, override=True)
-    LIDO_USERNAME = os.getenv("LIDO_USERNAME")
-    LIDO_PASSWORD = os.getenv("LIDO_PASSWORD")
 
-    _processed_data_path = os.path.join(_data_path, "processed")
     _raw_data_path = os.path.join(_data_path, "raw")
     month_dir = os.path.join(_raw_data_path, start_date.strftime("%Y-%m-%d"))
 
@@ -117,13 +104,13 @@ def rechtspraak_etl(**kwargs):
         result_paths = rechtspraak_extract(
             starting_date=start_date.strftime("%Y-%m-%d"),
             ending_date=end_date.strftime("%Y-%m-%d"),
-            amount=eval(Variable.get('RS_AMOUNT_TO_EXTRACT')),
+            amount=eval(Variable.get("RS_AMOUNT_TO_EXTRACT")),
             output_dir=month_dir,
-            skip_if_exists=True
+            skip_if_exists=True,
         )
-        citation_file = result_paths['citations']
-        metadata_file = result_paths['metadata']
-        base_file = result_paths['base']
+        citation_file = result_paths["citations"]
+        metadata_file = result_paths["metadata"]
+        base_file = result_paths["base"]
         logging.info(f"Extraction complete for {start_date} to {end_date}")
 
     # Perform data transformation
@@ -152,25 +139,25 @@ def create_tasks():
     """Create monthly task groups for Rechtspraak ETL"""
     start_date = eval(Variable.get("RS_START_DATE"))
     end_date = eval(Variable.get("RS_END_DATE"))
-    
+
     if not start_date or not end_date:
         raise ValueError("RS_START_DATE and RS_END_DATE are required in Airflow variables.")
-    
+
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
     end_date = datetime.strptime(end_date, "%Y-%m-%d")
-    
+
     logging.info("Creating tasks for Rechtspraak ETL")
     logging.info(f"Extracting for period: {start_date} to {end_date}")
-    
+
     with TaskGroup("rechtspraak_etl_tasks", tooltip="Rechtspraak ETL tasks", dag=dag) as task_group:
         current_date = start_date
         while current_date <= end_date:
             month_end = get_month_end(current_date)
             if month_end > end_date:
                 month_end = end_date
-            
+
             logging.info(f"Creating task for {current_date} to {month_end}")
-            
+
             PythonOperator(
                 task_id=f"rechtspraak_etl_{current_date.strftime('%Y-%m')}",
                 python_callable=rechtspraak_etl,
@@ -181,9 +168,9 @@ def create_tasks():
                 },
                 dag=dag,
             )
-            
+
             current_date = month_end + timedelta(days=1)
-    
+
     return task_group
 
 

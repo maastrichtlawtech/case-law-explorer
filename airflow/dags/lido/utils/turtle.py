@@ -1,6 +1,5 @@
+from pyoxigraph import RdfFormat, parse
 from rdflib import Graph, Literal
-from pyoxigraph import RdfFormat, parse, pyoxigraph
-from collections import defaultdict
 
 turtle_head = """
 @prefix rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
@@ -16,9 +15,10 @@ turtle_head = """
 @prefix bds: <http://www.bigdata.com/rdf/search#> .
 """
 
+
 def parse_turtle_chunk_1(buffer):
     g = Graph(store="Oxigraph")
-    g.parse(data=turtle_head+buffer, format="ox-turtle")
+    g.parse(data=turtle_head + buffer, format="ox-turtle")
 
     subject = None
     predicates = {}
@@ -38,9 +38,13 @@ def parse_turtle_chunk_1(buffer):
 
     return subject, predicates
 
+
 def parse_turtle_chunk(buffer):
-    parsed = parse(input=turtle_head+buffer, format=RdfFormat.TURTLE,)
-    
+    parsed = parse(
+        input=turtle_head + buffer,
+        format=RdfFormat.TURTLE,
+    )
+
     subject = None
     predicates = {}
 
@@ -48,7 +52,7 @@ def parse_turtle_chunk(buffer):
         subj = str(s.value)
         if subject is None:
             subject = subj
-        
+
         pred = p.value
         obj = o.value
 
@@ -56,11 +60,15 @@ def parse_turtle_chunk(buffer):
 
     return subject, predicates
 
+
 def parse_turtle_triples(buffer):
-    parsed = parse(input=turtle_head+buffer, format=RdfFormat.TURTLE,)
-    
+    parsed = parse(
+        input=turtle_head + buffer,
+        format=RdfFormat.TURTLE,
+    )
+
     for s, p, o, _ in parsed:
-        subj = str(s.value)        
+        subj = str(s.value)
         pred = p.value
         obj = o.value
 

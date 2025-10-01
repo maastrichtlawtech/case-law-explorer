@@ -1,6 +1,6 @@
 from definitions.storage_handler import *
 from definitions.terminology.attribute_names import *
-from definitions.terminology.attribute_values import ItemType, DocType, DataSource
+from definitions.terminology.attribute_values import DataSource, DocType, ItemType
 
 KEY_SEP = '_'  # used to separate compound key values
 key_sdd = 'SourceDocDate'  # name of secondary sort key
@@ -24,7 +24,7 @@ class DynamoDB_RS_Processor:
     def _get_row_processor(self):
         def row_processor_rs_cases(row):
             """
-            turns csv row (1 RS case) into item(s) for DynamoDB table 
+            turns csv row (1 RS case) into item(s) for DynamoDB table
             according to this schema
             :param row: dict representation of csv row with RS case attributes
             :return: list of dict representation of items in schema format
@@ -41,7 +41,7 @@ class DynamoDB_RS_Processor:
                         key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
                         RS_SUBJECT[:-1]: val
                     })
-            # Why are we separating these here? 
+            # Why are we separating these here?
             for attribute in [RS_RELATION, RS_REFERENCES, RS_SUBJECT]:
                 if attribute in row:
                     update_set_items.append({
@@ -50,14 +50,6 @@ class DynamoDB_RS_Processor:
                         attribute: set(row[attribute].split(SET_SEP))
                     })
                     row.pop(attribute)
-<<<<<<< HEAD
-            put_items.append({
-                self.pk: row[ECLI],
-                self.sk: ItemType.DATA.value,
-                key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
-                **row
-            })
-=======
             if ECLI in row:
                 put_items.append({
                     self.pk: row[ECLI],
@@ -66,8 +58,7 @@ class DynamoDB_RS_Processor:
                     **row
                 })
             else:
-                print(f"NO ECLI FOUND")
->>>>>>> origin/airflow
+                print("NO ECLI FOUND")
             return put_items, [], update_set_items
 
         return row_processor_rs_cases
@@ -98,11 +89,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-<<<<<<< HEAD
-                        f.write(e + '\n')
-=======
                         f.write(str(e) + '\n')
->>>>>>> origin/airflow
 
         # update item attributes
         for item in update_items:
@@ -122,11 +109,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while updating item attributes")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-<<<<<<< HEAD
-                        f.write(e + '\n')
-=======
                         f.write(str(e) + '\n')
->>>>>>> origin/airflow
 
         # update item set attributes
         for item in update_set_items:
@@ -146,11 +129,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while updating item set attributes")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-<<<<<<< HEAD
-                        f.write(e + '\n')
-=======
                         f.write(str(e) + '\n')
->>>>>>> origin/airflow
 
         return item_counter
 

@@ -1,9 +1,16 @@
 import json
+import logging
+from os.path import exists
 
 import echr_extractor as echr
 import pandas as pd
-
-from definitions.storage_handler import *
+from definitions.storage_handler import (
+    CSV_ECHR_CASES,
+    JSON_FULL_TEXT_ECHR,
+    TXT_ECHR_EDGES,
+    TXT_ECHR_NODES,
+    get_path_raw,
+)
 
 
 def get_echr_setup_args(last_index):
@@ -13,13 +20,37 @@ def get_echr_setup_args(last_index):
     Index referenced in code is the index of last visited point in the var_list.
     Proper usage will set up the entire database, with small increments, year by year.
     """
-    var_list = ['1995-01-01', '1996-01-01', '1997-01-01', '1998-01-01', '1999-01-01', '2000-01-01', '2001-01-01',
-                '2002-01-01',
-                '2003-01-01', '2004-01-01', '2005-01-01', '2006-01-01', '2007-01-01', '2008-01-01', '2009-01-01',
-                '2010-01-01',
-                '2011-01-01', '2012-01-01', '2013-01-01', '2014-01-01', '2015-01-01', '2016-01-01', '2017-01-01',
-                '2018-01-01',
-                '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']
+    var_list = [
+        "1995-01-01",
+        "1996-01-01",
+        "1997-01-01",
+        "1998-01-01",
+        "1999-01-01",
+        "2000-01-01",
+        "2001-01-01",
+        "2002-01-01",
+        "2003-01-01",
+        "2004-01-01",
+        "2005-01-01",
+        "2006-01-01",
+        "2007-01-01",
+        "2008-01-01",
+        "2009-01-01",
+        "2010-01-01",
+        "2011-01-01",
+        "2012-01-01",
+        "2013-01-01",
+        "2014-01-01",
+        "2015-01-01",
+        "2016-01-01",
+        "2017-01-01",
+        "2018-01-01",
+        "2019-01-01",
+        "2020-01-01",
+        "2021-01-01",
+        "2022-01-01",
+        "2023-01-01",
+    ]
     next_index = last_index + 1  # end index
     if last_index >= len(var_list):  # if start is out, no extraction out
         starting = None
@@ -42,21 +73,27 @@ def setup_db():
     download = False
     if download:
         json_filepath = JSON_FULL_TEXT_ECHR
-        for i in range(-1,
-                       29):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
+        for i in range(
+            -1, 29
+        ):  # runs the entire db setup in small steps, as current implementation can only do 10k at once
             starting, ending = get_echr_setup_args(i)
             if starting and ending:
-                logging.info(f'Starting from manually specified date: {starting} and ending at end date: {ending}')
-                metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting, end_date=ending,
-                                                          save_file="n")
+                logging.info(
+                    f"Starting from manually specified date: {starting} and ending at end date: {ending}"
+                )
+                metadata, full_text = echr.get_echr_extra(
+                    count=100000, start_date=starting, end_date=ending, save_file="n"
+                )
             elif starting:
-                logging.info(f'Starting from manually specified date: {starting}')
-                metadata, full_text = echr.get_echr_extra(count=100000, start_date=starting,
-                                                          save_file="n")
+                logging.info(f"Starting from manually specified date: {starting}")
+                metadata, full_text = echr.get_echr_extra(
+                    count=100000, start_date=starting, save_file="n"
+                )
             elif ending:
-                logging.info(f'Ending at manually specified end date {ending}')
-                metadata, full_text = echr.get_echr_extra(count=100000, end_date=ending,
-                                                          save_file="n")
+                logging.info(f"Ending at manually specified end date {ending}")
+                metadata, full_text = echr.get_echr_extra(
+                    count=100000, end_date=ending, save_file="n"
+                )
 
             if exists(df_filepath):
                 df = pd.read_csv(df_filepath)
@@ -72,20 +109,20 @@ def setup_db():
                     file.seek(0)
                     json.dump(file_data, file)
             else:
-                with open(json_filepath, 'w') as f:
+                with open(json_filepath, "w") as f:
                     json.dump(full_text, f)
     logging.info("Adding Nodes and Edges lists to storage should happen now")
     big_metadata = pd.read_csv(df_filepath)
     nodes, edges = echr.get_nodes_edges(dataframe=big_metadata, save_file="n")
     # get only the ecli column in nodes
-    nodes = nodes[['ecli']]
+    nodes = nodes[["ecli"]]
 
     nodes_txt = get_path_raw(TXT_ECHR_NODES)
     edges_txt = get_path_raw(TXT_ECHR_EDGES)
 
     # save to text file from dataframe
-    nodes.to_csv(nodes_txt, index=False, header=False, sep='\t')
-    edges.to_csv(edges_txt, index=False, header=False, sep='\t')
+    nodes.to_csv(nodes_txt, index=False, header=False, sep="\t")
+    edges.to_csv(edges_txt, index=False, header=False, sep="\t")
 
 
 if __name__ == "__main__":
