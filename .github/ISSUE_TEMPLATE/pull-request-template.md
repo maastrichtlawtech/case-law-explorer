@@ -1,4 +1,11 @@
-# Pull Request
+---
+name: Pull Request template
+about: Template for PRs
+title: "[PR]"
+labels: ''
+assignees: ''
+
+---
 
 ## Description
 <!-- Provide a brief description of the changes in this PR -->
@@ -136,4 +143,3 @@ Related to #
 - [ ] I have read and followed the [Contributing Guidelines](CONTRIBUTING.md)
 - [ ] This PR is ready for review
 - [ ] All CI checks are passing
-

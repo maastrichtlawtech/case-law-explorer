@@ -1,9 +1,10 @@
 ---
-name: Feature Request
+name: Feature request
 about: Suggest an idea for this project
-title: '[FEATURE] '
+title: "[FEATURE]"
 labels: enhancement
 assignees: ''
+
 ---
 
 ## Feature Description
@@ -81,5 +82,3 @@ As a [type of user], I want to [action] so that [benefit].
 
 - #
 - #
-
-
