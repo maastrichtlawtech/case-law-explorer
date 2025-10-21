@@ -93,10 +93,6 @@ ENV/
 env.bak/
 venv.bak/
 .env
-<<<<<<< HEAD
-
-=======
->>>>>>> origin/airflow
 # Spyder project settings
 .spyderproject
 .spyproject

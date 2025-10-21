@@ -50,14 +50,6 @@ class DynamoDB_RS_Processor:
                         attribute: set(row[attribute].split(SET_SEP))
                     })
                     row.pop(attribute)
-<<<<<<< HEAD
-            put_items.append({
-                self.pk: row[ECLI],
-                self.sk: ItemType.DATA.value,
-                key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
-                **row
-            })
-=======
             if ECLI in row:
                 put_items.append({
                     self.pk: row[ECLI],
@@ -67,7 +59,6 @@ class DynamoDB_RS_Processor:
                 })
             else:
                 print(f"NO ECLI FOUND")
->>>>>>> origin/airflow
             return put_items, [], update_set_items
 
         return row_processor_rs_cases
@@ -98,11 +89,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while retreving lists of items to put and update")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-<<<<<<< HEAD
-                        f.write(e + '\n')
-=======
                         f.write(str(e) + '\n')
->>>>>>> origin/airflow
 
         # update item attributes
         for item in update_items:
@@ -122,11 +109,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while updating item attributes")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-<<<<<<< HEAD
-                        f.write(e + '\n')
-=======
                         f.write(str(e) + '\n')
->>>>>>> origin/airflow
 
         # update item set attributes
         for item in update_set_items:
@@ -146,11 +129,7 @@ class DynamoDB_RS_Processor:
                     print(e, item[self.pk], item[self.sk], ";while updating item set attributes")
                     with open(get_path_processed(CSV_DDB_ECLIS_FAILED), 'a') as f:
                         f.write(item[self.pk] + '\n')
-<<<<<<< HEAD
-                        f.write(e + '\n')
-=======
                         f.write(str(e) + '\n')
->>>>>>> origin/airflow
 
         return item_counter
 
