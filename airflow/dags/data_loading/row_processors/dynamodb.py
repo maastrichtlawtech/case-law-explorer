@@ -24,13 +24,15 @@ class DynamoDB_RS_Processor:
     def _get_row_processor(self):
         def row_processor_rs_cases(row):
             """
-            turns csv row (1 RS case) into item(s) for DynamoDB table according to this schema
+            turns csv row (1 RS case) into item(s) for DynamoDB table 
+            according to this schema
             :param row: dict representation of csv row with RS case attributes
             :return: list of dict representation of items in schema format
             """
             put_items = []
             update_set_items = []
             # split set attributes (domain, case citations, legislation citations)
+            # RS_SUBJECT is "domains"
             if RS_SUBJECT in row:
                 for val in row[RS_SUBJECT].split(SET_SEP):
                     put_items.append({
@@ -39,6 +41,7 @@ class DynamoDB_RS_Processor:
                         key_sdd: DataSource.RS.value + KEY_SEP + DocType.DEC.value + KEY_SEP + row[RS_DATE],
                         RS_SUBJECT[:-1]: val
                     })
+            # Why are we separating these here? 
             for attribute in [RS_RELATION, RS_REFERENCES, RS_SUBJECT]:
                 if attribute in row:
                     update_set_items.append({
