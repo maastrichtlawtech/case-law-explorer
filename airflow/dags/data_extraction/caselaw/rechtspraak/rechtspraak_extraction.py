@@ -23,7 +23,7 @@ LIDO_USERNAME = os.getenv('LIDO_USERNAME')
 LIDO_PASSWORD = os.getenv('LIDO_PASSWORD')
 
 try:
-    RS_SETUP = eval(Variable.get('RS_SETUP'))
+    RS_SETUP = Variable.get('RS_SETUP')
 except:
     RS_SETUP = True
     Variable.set(key='RS_SETUP', value=True)
@@ -47,10 +47,10 @@ def get_rs_setup_args():
                 '2003-01-01', '2004-01-01', '2005-01-01', '2006-01-01', '2007-01-01', '2008-01-01', '2009-01-01',
                 '2010-01-01',
                 '2011-01-01', '2012-01-01', '2013-01-01', '2014-01-01', '2015-01-01', '2016-01-01', '2017-01-01',
-                '2018-01-01',~
+                '2018-01-01',
                 '2019-01-01', '2020-01-01', '2021-01-01', '2022-01-01', '2023-01-01']  # 29
     try:
-        index = eval(Variable.get('RS_SETUP_INDEX'))  # start index
+        index = Variable.get('RS_SETUP_INDEX')  # start index
         next_index = index + 1  # end index
         if index >= len(var_list):  # if start is out, no extraction out
             starting = None
@@ -110,8 +110,8 @@ def rechtspraak_extract(args=None):
     if RS_SETUP:
         logging.info('RS DATABASE SETUP RUN')
         start, end, amount, next_index = get_rs_setup_args()
-        start = eval(Variable.get('RS_START_DATE'))
-        end = eval(Variable.get('RS_END_DATE'))
+        start = Variable.get('RS_START_DATE')
+        end = Variable.get('RS_END_DATE')
     else:
         start, end, amount = get_parser_args(args)
 
