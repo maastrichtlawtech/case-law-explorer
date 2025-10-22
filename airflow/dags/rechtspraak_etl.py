@@ -192,7 +192,7 @@ def rechtspraak_etl(**kwargs):
         logging.info("No previous data found for this date range")
         logging.info("--- EXTRACTION ---")
         base_extraction = rex.get_rechtspraak(
-            max_ecli=eval(Variable.get('RS_AMOUNT_TO_EXTRACT')),
+            max_ecli=Variable.get('RS_AMOUNT_TO_EXTRACT'),
             sd=start_date.strftime("%Y-%m-%d"),
             ed=end_date.strftime("%Y-%m-%d"),
             save_file="n",
@@ -371,8 +371,8 @@ def rechtspraak_etl(**kwargs):
 
 
 def create_tasks():
-    start_date = eval(Variable.get("RS_START_DATE"))
-    end_date = eval(Variable.get("RS_END_DATE"))
+    start_date = Variable.get("RS_START_DATE")
+    end_date = Variable.get("RS_END_DATE")
     if not start_date or not end_date:
         raise ValueError("start_date and end_date are required in the DAG run conf.")
     start_date = datetime.strptime(start_date, "%Y-%m-%d")
