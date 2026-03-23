@@ -20,7 +20,7 @@ RUN mkdir -p /opt/airflow/data/raw /opt/airflow/data/processed
 
 # Install Python dependencies - pip is already recent in the base image
 COPY requirements.txt requirements.txt
-RUN pip install --no-cache-dir --quiet -r requirements.txt \
+RUN pip install --no-cache-dir -r requirements.txt \
     && rm requirements.txt
 
 # Remove conflicting argparse package
