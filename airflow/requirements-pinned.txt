@@ -1,6 +1,6 @@
 apache-airflow==2.10.5
 pandas==2.2.0
-urllib3>=2.6.3
+urllib3
 beautifulsoup4==4.12.2
 requests_aws4auth==1.2.4
 boto3==1.33.1
