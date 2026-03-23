@@ -59,7 +59,12 @@ graph TD
 
 ## Connections
 
-This DAG assumes the presence of the postgres connection with the name `pg_lido` as the destionation of the pipeline.
+This DAG assumes the presence of the postgres connection with the name `pg_lido` as the destination of the pipeline.
+This connection can be defined by setting the following environment variable in the `.env` file of the root of this repository:
+
+```
+AIRFLOW_CONN_PG_LIDO="postgres://[username]:[password]@[host]:5432/[db]"
+```
 
 ### `prepare_lido`
 
