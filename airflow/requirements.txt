@@ -151,7 +151,7 @@ uc-micro-py==2.0.0
 unicodecsv==0.14.1
 urllib3==1.26.20
 webencodings==0.5.1
-Werkzeug==3.1.6
+Werkzeug==2.2.3
 wrapt==2.1.2
 WTForms==3.2.1
 xmltodict==1.0.2
