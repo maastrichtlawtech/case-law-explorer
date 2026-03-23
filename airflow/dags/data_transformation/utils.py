@@ -5,11 +5,10 @@ from ctypes import c_long, sizeof
 
 import dateutil.parser
 import pandas as pd
-from lxml import etree
-
 from definitions.mappings.attribute_value_maps import *
 from definitions.terminology.attribute_names import ECLI
 from definitions.terminology.attribute_values import Domain
+from lxml import etree
 
 signed = c_long(-1).value < c_long(0).value
 bit_size = sizeof(c_long) * 8
@@ -23,13 +22,13 @@ csv.field_size_limit(signed_limit - 1 if signed else 2 * signed_limit - 1)
 # removes xml tags from string and returns text content (only Rechtspraak data extracted from xml)
 def format_rs_xml(text):
     try:
-        root = etree.fromstring('<items> ' + text + ' </items>')
+        root = etree.fromstring("<items> " + text + " </items>")
     except Exception as e:
         print(e)
         return None
     text_list = root.xpath("//text()")
-    clean = ' '.join(txt for txt in text_list)
-    if clean.strip() == '-' or clean.strip() == '':
+    clean = " ".join(txt for txt in text_list)
+    if clean.strip() == "-" or clean.strip() == "":
         return None
     return clean.strip()
 
@@ -37,25 +36,23 @@ def format_rs_xml(text):
 # converts RS list notation: 'item1, item2, item3'
 # to unified list notation: 'item1; item2; item3'
 def format_rs_list(text):
-    return '; '.join(i for i in set(text.split(', ')))
+    return "; ".join(i for i in set(text.split(", ")))
 
 
 # converts LI list notation: "['item1', 'item2', 'item3']"
 # to unified list notation: 'item1; item2; item3'
 def format_li_list(text):
-    repl = {"', '": "; ",
-            "['": "",
-            "']": ""}
+    repl = {"', '": "; ", "['": "", "']": ""}
     for i, j in repl.items():
         text = text.replace(i, j)
     return text
 
 
 def format_cellar_celex(celex):
-    if ';' in celex:
-        separate = celex.split(sep=';')
+    if ";" in celex:
+        separate = celex.split(sep=";")
         for c in separate:
-            if '_' not in c:
+            if "_" not in c:
                 return c
     else:
         return celex
@@ -80,15 +77,15 @@ def format_echr_date(text):
 
 
 def format_domains(text):
-    if len(text.split('; ')) == 1:
-        text += '; ' + text + '-' + Domain.ALGEMEEN_OVERIG_NIED_GELABELD.value
+    if len(text.split("; ")) == 1:
+        text += "; " + text + "-" + Domain.ALGEMEEN_OVERIG_NIED_GELABELD.value
     return text
 
 
 def format_li_domains(text):
     clean = format_li_list(text)
     domains = set()
-    for domain in set(clean.split('; ')):
+    for domain in set(clean.split("; ")):
         domains = domains.union(MAP_LI_DOMAINS[domain])
     domains_str = format_li_list(str(list(domains)))
     return format_domains(domains_str)
@@ -110,7 +107,7 @@ def format_instance(text):
 def format_rs_alt_sources(text):
     clean = format_rs_xml(text)
     if clean:
-        clean = re.sub(' *\n *', '; ', clean)
+        clean = re.sub(" *\n *", "; ", clean)
     return clean
 
 
@@ -125,7 +122,7 @@ def format_jurisdiction(text):
 # make sure all csvs are read in the same way
 def read_csv(file_path):
     try:
-        data = pd.read_csv(file_path, sep=",", encoding='utf-8')
+        data = pd.read_csv(file_path, sep=",", encoding="utf-8")
         return data
     except Exception:
         print("Something went wrong when trying to open the csv file!")
@@ -167,16 +164,16 @@ def compare(a, b, operator, data, number=5):
     :param number: number of examples to print
     :return: examples deviating from condition
     """
-    if operator == '==':
+    if operator == "==":
         comparison = data[a] == data[b]
-    elif operator == '<=':
+    elif operator == "<=":
         comparison = data[a] <= data[b]
-    elif operator == '<':
+    elif operator == "<":
         comparison = data[a] < data[b]
     else:
-        print('Invalid operator!')
-    print(f'CASES WHERE {a} {operator} {b}:')
+        print("Invalid operator!")
+    print(f"CASES WHERE {a} {operator} {b}:")
     print(comparison.value_counts())
-    print(f'\nEXAMPLES OF CASES WHERE {a} NOT {operator} {b}:')
+    print(f"\nEXAMPLES OF CASES WHERE {a} NOT {operator} {b}:")
     differing_cases = data[~comparison]
     return differing_cases[~differing_cases[[a, b]].isnull().any(axis=1)].head(number)

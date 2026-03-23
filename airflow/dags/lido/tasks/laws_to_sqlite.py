@@ -1,37 +1,43 @@
 import logging
+
+from lido.config import MAX_PARSE_ERR_COUNT, TBL_LAWS
 from lido.utils.sqlite import get_conn
 from lido.utils.stream import stream_triples
-from lido.config import MAX_PARSE_ERR_COUNT, TBL_LAWS
 
-TERM_URI_TYPE = 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type'
+TERM_URI_TYPE = "http://www.w3.org/1999/02/22-rdf-syntax-ns#type"
 
 REGELING_ONDERDELEN = {
-    'http://linkeddata.overheid.nl/terms/Wet': 'wet',
-    'http://linkeddata.overheid.nl/terms/Deel': 'deel',
-    'http://linkeddata.overheid.nl/terms/Boek': 'boek',
-    'http://linkeddata.overheid.nl/terms/Titeldeel': 'titeldeel',
-    'http://linkeddata.overheid.nl/terms/Hoofdstuk': 'hoofdstuk',
-    'http://linkeddata.overheid.nl/terms/Artikel': 'artikel',
-    'http://linkeddata.overheid.nl/terms/Paragraaf': 'paragraaf',
-    'http://linkeddata.overheid.nl/terms/SubParagraaf': 'subparagraaf',
-    'http://linkeddata.overheid.nl/terms/Afdeling': 'afdeling',
+    "http://linkeddata.overheid.nl/terms/Wet": "wet",
+    "http://linkeddata.overheid.nl/terms/Deel": "deel",
+    "http://linkeddata.overheid.nl/terms/Boek": "boek",
+    "http://linkeddata.overheid.nl/terms/Titeldeel": "titeldeel",
+    "http://linkeddata.overheid.nl/terms/Hoofdstuk": "hoofdstuk",
+    "http://linkeddata.overheid.nl/terms/Artikel": "artikel",
+    "http://linkeddata.overheid.nl/terms/Paragraaf": "paragraaf",
+    "http://linkeddata.overheid.nl/terms/SubParagraaf": "subparagraaf",
+    "http://linkeddata.overheid.nl/terms/Afdeling": "afdeling",
 }
 
+
 def insert_law_element(cursor, law_element):
-    assert all(key in law_element and law_element[key] is not None for key in ['type', 'bwb_id', 'lido_id', 'title'])
+    assert all(
+        key in law_element and law_element[key] is not None
+        for key in ["type", "bwb_id", "lido_id", "title"]
+    )
 
     # if cursor_is_sqlite(cursor):
-    cursor.execute(f"INSERT OR IGNORE INTO {TBL_LAWS} (type, bwb_id, bwb_label_id, lido_id, jc_id, number, title) VALUES (?, ?, ?, ?, ?, ?, ?);",
+    cursor.execute(
+        f"INSERT OR IGNORE INTO {TBL_LAWS} (type, bwb_id, bwb_label_id, lido_id, jc_id, number, title) VALUES (?, ?, ?, ?, ?, ?, ?);",
         (
-            law_element['type'],
-            law_element['bwb_id'],
-            law_element.get('bwb_label_id'),
-            law_element['lido_id'],
-            law_element.get('jc_id'),
-            law_element.get('number'),
-            law_element.get('title'),
+            law_element["type"],
+            law_element["bwb_id"],
+            law_element.get("bwb_label_id"),
+            law_element["lido_id"],
+            law_element.get("jc_id"),
+            law_element.get("number"),
+            law_element.get("title"),
             # law_element['title'],
-        )
+        ),
     )
     # else:
     #     cursor.execute("""
@@ -59,6 +65,7 @@ def strip_lido_law_id(lido_law_id):
         return lido_law_id[43:]
     return None
 
+
 def process_law_element(cursor, type, subject, predicates):
     le = {}
 
@@ -74,35 +81,36 @@ def process_law_element(cursor, type, subject, predicates):
 
     bwb_match = le["lido_id"].split("/")[0]
     if bwb_match:
-        le['bwb_id'] = bwb_match
+        le["bwb_id"] = bwb_match
     else:
         logging.error(f"No BWB-id for subject: {subject}", stack_info=False)
         return False
 
     bwb_label_id_match = le["lido_id"].split("/")[1]
     if bwb_label_id_match:
-        le['bwb_label_id'] = bwb_label_id_match
+        le["bwb_label_id"] = bwb_label_id_match
 
-    le["title"] = predicates.get('http://purl.org/dc/terms/title', [None])[0]
+    le["title"] = predicates.get("http://purl.org/dc/terms/title", [None])[0]
     if le["title"] is None:
-        le["title"] = predicates.get('http://www.w3.org/2004/02/skos/core#prefLabel', [None])[0]
+        le["title"] = predicates.get("http://www.w3.org/2004/02/skos/core#prefLabel", [None])[0]
     if le["title"] is None:
-        le["title"] = predicates.get('http://www.w3.org/2000/01/rdf-schema#label', [None])[0]
+        le["title"] = predicates.get("http://www.w3.org/2000/01/rdf-schema#label", [None])[0]
 
     le["type"] = type
-    le['jc_id'] = None
+    le["jc_id"] = None
 
-    jcid = predicates.get('http://linkeddata.overheid.nl/terms/heeftJuriconnect')
+    jcid = predicates.get("http://linkeddata.overheid.nl/terms/heeftJuriconnect")
     if jcid is not None:
-        jci13 = next((x for x in jcid if x[0:6]=='jci1.3'), None) # first jc
+        jci13 = next((x for x in jcid if x[0:6] == "jci1.3"), None)  # first jc
         if jci13 is not None:
-            le['jc_id'] = jci13
+            le["jc_id"] = jci13
 
-    onderdeel_nummer = predicates.get('http://linkeddata.overheid.nl/terms/heeftOnderdeelNummer')
+    onderdeel_nummer = predicates.get("http://linkeddata.overheid.nl/terms/heeftOnderdeelNummer")
     if onderdeel_nummer is not None and len(onderdeel_nummer) == 1:
-        le['number'] = onderdeel_nummer[0]
+        le["number"] = onderdeel_nummer[0]
 
     insert_law_element(cursor, le)
+
 
 def process_law_triples(db_path, triples_path):
 
@@ -119,7 +127,7 @@ def process_law_triples(db_path, triples_path):
 
     for subject, props in stream_triples(triples_path):
         try:
-            i+=1
+            i += 1
 
             if i % 50000 == 0:
                 delta = law_count - last_law_count
@@ -146,8 +154,8 @@ def process_law_triples(db_path, triples_path):
         except Exception as err:
             logging.error("** Error:", err)
             logging.error(f"** i, subject, props: {i}, {subject}")
-            err_count+=1
-            if err_count>=MAX_PARSE_ERR_COUNT:
+            err_count += 1
+            if err_count >= MAX_PARSE_ERR_COUNT:
                 logging.error("Max error count exceeded. Raising error.")
                 raise err
             continue

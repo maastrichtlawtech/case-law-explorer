@@ -1,14 +1,16 @@
-from collections import defaultdict
 import gzip
 import io
+from collections import defaultdict
 
 from pyoxigraph import RdfFormat, parse
 
+
 def open_fast_gzip_lines(path):
-    f = gzip.open(path, 'rb')  # binary mode
+    f = gzip.open(path, "rb")  # binary mode
     buffered = io.BufferedReader(f, buffer_size=1024 * 1024)  # 1MB buffer
     # return io.TextIOWrapper(buffered, encoding='utf-8', errors='ignore')
-    return io.TextIOWrapper(buffered, encoding='utf-8')
+    return io.TextIOWrapper(buffered, encoding="utf-8")
+
 
 def parse_subject_block(subject, buffer):
     """
@@ -25,6 +27,7 @@ def parse_subject_block(subject, buffer):
         d[t.predicate.value].append(t.object.value)
     return dict(d)
 
+
 def stream_triples(filename, gzip=False):
     if gzip:
         reader = open_fast_gzip_lines(filename)
@@ -37,12 +40,12 @@ def stream_triples(filename, gzip=False):
     with reader as f:
         for line in f:
             line = line.strip()
-            if not line or line.startswith('#'):
+            if not line or line.startswith("#"):
                 continue
 
             # Extract subject string from line (manually, fast)
-            if line.startswith('<'):
-                subj_end = line.find('>')
+            if line.startswith("<"):
+                subj_end = line.find(">")
                 subject = line[1:subj_end]
             else:
                 continue  # skip malformed line

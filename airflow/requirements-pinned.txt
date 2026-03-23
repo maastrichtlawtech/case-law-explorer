@@ -1,3 +1,16 @@
+aiohappyeyeballs==2.6.1
+aiohttp==3.13.3
+aiosignal==1.4.0
+alembic==1.18.4
+annotated-types==0.7.0
+anyio==4.12.1
+apache-airflow>=2.9.0
+apache-airflow-providers-common-sql
+apache-airflow-providers-ftp
+apache-airflow-providers-http
+apache-airflow-providers-imap
+apache-airflow-providers-postgres
+apache-airflow-providers-sqlite
 apispec==6.10.0
 argcomplete==3.6.3
 asgiref==3.11.1
