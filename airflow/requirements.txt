@@ -32,7 +32,7 @@ clickclick==20.10.2
 colorama==0.4.6
 colorlog
 ConfigUpdater==3.2
-connexion==2.14.2
+connexion
 cron_descriptor==2.0.8
 croniter==6.2.2
 cryptography==46.0.5
