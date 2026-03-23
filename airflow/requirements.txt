@@ -1,6 +1,6 @@
 apache-airflow
 pandas>=2.0.0
-urllib3
+urllib3>=2.6.3
 bs4~=0.0.1
 requests_aws4auth
 #=======
