@@ -118,7 +118,7 @@ pytz==2025.2
 PyYAML==6.0.3
 rdflib==7.6.0
 rechtspraak_citations_extractor==1.2.0
-rechtspraak_extractor==1.5.2
+rechtspraak_extractor==1.5.4
 referencing==0.37.0
 regex==2026.2.28
 requests
