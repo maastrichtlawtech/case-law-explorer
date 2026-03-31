@@ -1,14 +1,13 @@
 <!-- docs/_sidebar.md -->
 
 * [**Getting started**](/)
+* [**Repository Structure**](/docs/REPOSITORY_STRUCTURE.md)
 * [**Caselaw extraction**](/etl/)
     * [Setup ETL](/etl/?id=setup)
     * [Extract](/etl/?id=extract)
         * [Rechtspraak](/etl/?id=rechtspraak-data)
-        * [Legal Intelligence](/etl/?id=legal-intelligence-data)
-        * [LiDO](/etl/?id=lido-data)
         * [ECHR](/etl/?id=echr-data)
-        * [CJEU](/etl/?id=cjeu-data)
+        * [CJEU/Cellar](/etl/?id=cjeu-data)
     * [Transform](/etl/?id=transform)
     * [Load](/etl/?id=load)
 * [**GraphQL API**](/graphql/)
@@ -26,4 +25,3 @@
 * [**References**](/reference/)
     * [Attribute definitions](/reference/attribute)
     * [`Storage` class](/reference/storage)
-    

@@ -4,20 +4,75 @@ Materials for building a network analysis software platform for analyzing Dutch 
 
 ## Quickstart
 
-- Setup and run locally the extraction pipeline with the [Caselaw extraction walkthrough](https://maastrichtlawtech.github.io/case-law-explorer/#/etl/)
-- Setup and run a GraphQL API with AWS in the [GraphQL API walkthrough](https://maastrichtlawtech.github.io/case-law-explorer/#/graphql/)
+- **Get started in 5 minutes**: [QUICK_START.md](QUICK_START.md)
+- **Caselaw extraction pipeline**: [Caselaw extraction walkthrough](https://maastrichtlawtech.github.io/case-law-explorer/#/etl/)
+- **GraphQL API setup**: [GraphQL API walkthrough](https://maastrichtlawtech.github.io/case-law-explorer/#/graphql/)
+- **Repository structure**: [Repository Structure](docs/REPOSITORY_STRUCTURE.md)
+
+## System Overview
+
+The **Case Law Explorer** uses Apache Airflow to orchestrate an ETL (Extract, Transform, Load) pipeline that:
+
+1. **Extracts** data from multiple European legal databases
+2. **Transforms** data into a consistent, unified format
+3. **Loads** data into AWS DynamoDB and S3
+4. **Exposes** data through a GraphQL API
+
+### Data Sources
+
+- **[Rechtspraak](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=rechtspraak-archive)** - Dutch courts metadata and decisions
+- **[Legal Intelligence](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=legal-intelligence-api)** - Enhanced Dutch legal data
+- **[LIDO](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=linked-data-overheid-lido)** - Linked legal citations
+- **[ECHR](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=european-court-of-human-rights-echr)** - European Court of Human Rights decisions
+- **[CJEU/CELLAR](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=court-of-justice-of-the-european-union-cjeu)** - Court of Justice of the European Union decisions
+
+## Repository Structure
+
+```
+airflow/              # Apache Airflow ETL orchestration
+├── dags/            # ETL pipeline DAG definitions
+├── data/            # Data storage (raw, processed, full_text)
+├── logs/            # Execution logs
+└── plugins/         # Custom Airflow plugins
+
+docs/                 # Documentation (this is the docs folder)
+notebooks/            # Jupyter notebooks for analysis
+QUICK_START.md        # 5-minute setup guide
+ARCHITECTURE.md       # System architecture diagram
+TROUBLESHOOTING.md    # Common issues and solutions
+docker-compose.yaml   # Docker services
+```
+
+For detailed repository structure, see [Repository Structure](docs/REPOSITORY_STRUCTURE.md).
+
+## Core Technologies
+
+- **Orchestration**: Apache Airflow
+- **Containerization**: Docker & Docker Compose
+- **Cloud Storage**: AWS DynamoDB, S3, OpenSearch
+- **API**: GraphQL (AWS AppSync)
+- **Data Processing**: Python 3.8+
+- **Analysis**: Jupyter Notebooks
+
+## Documentation
+
+- 📚 **[Full Documentation](https://maastrichtlawtech.github.io/case-law-explorer/)** - Hosted on GitHub Pages
+- 🚀 **[Quick Start Guide](QUICK_START.md)** - Get running in 5 minutes
+- 🏗️ **[System Architecture](ARCHITECTURE.md)** - Technical design
+- 📁 **[Repository Structure](docs/REPOSITORY_STRUCTURE.md)** - Directory organization
+- 🔌 **[ETL Pipeline](docs/etl/)** - Data extraction, transformation, loading
+- 📊 **[Datasets Reference](docs/datasets/)** - Data source information
+- 🔍 **[GraphQL API](docs/graphql/)** - Query interface
+- 🛠️ **[Troubleshooting](TROUBLESHOOTING.md)** - Common problems and solutions
 
 ## Datasets
 
-See [Datasets](/datasets/). Currently, we gather the case law of the Netherlands and that of two European courts, as it follows:
+See [Datasets](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/). Currently, we gather the case law of the Netherlands and that of two European courts:
 
 - **Published and operable**
-    - [Rechtspraak](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=rechtspraak-archive), backed by [Legal Intelligence](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=legal-intelligence-api), and citations provided by [LIDO](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=linked-data-overheid-lido)
-- **Work in progress**
-    - [European Court of Human Rights](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=european-court-of-human-rights-echr) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/echr/ECHR_metadata_harvester.py) 
-    - [Court of Justice of the European Union](https://maastrichtlawtech.github.io/case-law-explorer/#/datasets/?id=court-of-justice-of-the-european-union-cjeu) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/cellar/cellar_extraction.py)
-
-We plan to extend the data to other international courts.
+    - Rechtspraak (Dutch courts)
+    - European Court of Human Rights (ECHR)
+    - Court of Justice of the European Union (CJEU)
 
 ## Contributors
 

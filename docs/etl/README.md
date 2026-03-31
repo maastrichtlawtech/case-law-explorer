@@ -1,36 +1,56 @@
-# Data extraction
+# Data Extraction, Transformation, and Loading (ETL)
 
-This walkthrough will teach you how to locally extract data from the defined sources, 
-transform it to be clean and in unified format, and optionally load it to an AWS DynamoDB database.
-For more information about the data sources and the format of the extracted data see [Datasets](/datasets/).
+This walkthrough will teach you how to extract data from defined sources, transform it to a clean and unified format, and optionally load it to an AWS DynamoDB database using Apache Airflow.
+For more information about the data sources and the format of the extracted data, see [Datasets](/datasets/).
 
-## Setup
+## Setup with Docker & Airflow (Recommended)
+
+The Case Law Explorer uses **Apache Airflow** to orchestrate the ETL pipeline. This ensures reliable, scheduled, and monitored data processing.
 
 > [!WARNING|label:Pre-requirements]
-> - [Python 3.7](https://www.python.org/downloads/release/python-379/) or newer
-> - [pip 21.3](https://pip.pypa.io/en/stable/news/#v21-3) or newer
+> - [Docker & Docker Compose](https://www.docker.com/products/docker-desktop) installed
+> - [Git](https://git-scm.com/) installed
+> - 8GB+ RAM available
+> - 10GB+ free disk space
+
+### Quick Start with Docker
 
 Clone the [maastrichtlawtech/case-law-explorer](https://github.com/maastrichtlawtech/case-law-explorer) project.
 
 ```bash
 $ git clone https://github.com/maastrichtlawtech/case-law-explorer
+$ cd case-law-explorer
 ```
 
-Install the required Python packages.
+Copy and configure the environment file:
 
 ```bash
-$ pip install -r requirements.txt
+$ cp .env.example .env
+$ nano .env  # or use your favorite editor
 ```
 
-### Environment variables
+Start the services:
 
-Create the environmental variables into the `.env` file, as suggested in [`.env.example` file](https://raw.githubusercontent.com/maastrichtlawtech/case-law-explorer/master/.env.example). The following variables are used in the Caselaw extraction (see explanation below):
+```bash
+$ docker-compose up -d
+# Wait 2-3 minutes for services to initialize
+$ docker-compose ps  # Verify all services are running
+```
+
+Access Airflow at **http://localhost:8080** with credentials:
+- **Username**: `airflow`
+- **Password**: `airflow`
+
+### Environment Variables
+
+Create the environmental variables in the `.env` file. The following variables are essential:
 
 ```.env.example
-AIRFLOW_UID=5000
-URL_RS_ARCHIVE=http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip
+# Airflow Configuration
+AIRFLOW_UID=50000
+DATA_PATH=/opt/airflow/data
 
-# The variables below are used to setup the AWS databases
+# AWS Configuration (optional, for cloud deployment)
 AWS_ACCESS_KEY_ID=
 AWS_SECRET_ACCESS_KEY=
 AWS_REGION=
@@ -42,17 +62,17 @@ DDB_NAME_ECHR=caselawexplorer-echr-test
 S3_BUCKET_NAME=caselawexplorer-load-test
 CELLAR_NODES_BUCKET_NAME=cellar-nodes-edges-bucket
 
+# Optional: AWS AppSync for GraphQL
 APPSYNC_ENDPOINT=appsync-endpoint-here
 COGNITO_USER_KEY=my-user-key-here
 COGNITO_CLIENT_ID=client-secret-here
 
+# LIDO API for citations (Rechtspraak only)
 LIDO_ENDPOINT=http://linkeddata.overheid.nl/service/get-links
 LIDO_USERNAME=lido-username-here
 LIDO_PASSWORD=lido-pw-here
 
-# The links below are pointing to eurlex websites containing specific metadata
-# They have a "cIdHere" - it is a place where you put the CELEX ID of a case.
-# If they were to be changed later on, the celex substitute should be put in place of the CELEX ID
+# EUR-Lex links for CJEU cases
 CELEX_SUBSTITUTE=cIdHere
 EURLEX_SUMMARY_LINK_INF=https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere&from=EN
 EURLEX_SUMMARY_LINK=https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere_SUM&from=EN
@@ -60,127 +80,184 @@ EURLEX_SUMJURE_LINK=https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=URI
 EURLEX_ALL_DATA=https://eur-lex.europa.eu/legal-content/EN/ALL/?uri=CELEX:cIdHere
 EURLEX_FULL_TEXT=https://eur-lex.europa.eu/legal-content/EN/TXT/HTML/?uri=CELEX:cIdHere&from=EN
 
-# The following variables are used to extract citations via the cellar-extractor library
+# CJEU/CELLAR Web Service
 EURLEX_WEBSERVICE_USERNAME=
 EURLEX_WEBSERVICE_PASSWORD=
-
-RS_SETUP=True
 ```
-### Storage location
-Read more about the [`Storage` object](/reference/storage). 
 
-In the storage location, the data directory follows the structure of:
-<pre>
- 
-└── data
-    ├── processed <i># processed data as result of the transformation scripts</i>
-    ├── raw <i># extracted data as result of the extractions scripts</i>
-    └── full_text <i># full text data for Cellar and ECHR cases </i>
+### Storage Location Structure
 
-</pre>
+The data directory in `airflow/data/` follows this structure:
 
+```
+airflow/data/
+├── processed/        # Cleaned and transformed data ready for loading
+├── raw/              # Raw extracted data from sources
+├── full_text/        # Full text content (Cellar and ECHR cases)
+└── eclis/            # ECLI identifier lists
+```
+
+For more details, see the [`Storage` object documentation](/reference/storage).
+
+### Setting Airflow Variables
+
+Configure variables in the Airflow UI (Admin → Variables) for runtime configuration:
+
+| Variable | Example | Description |
+|----------|---------|-------------|
+| `RS_START_DATE` | `"2023-01-01"` | Start date for Rechtspraak extraction |
+| `RS_END_DATE` | `"2023-12-31"` | End date for Rechtspraak extraction |
+| `RS_AMOUNT_TO_EXTRACT` | `"100"` | Number of Rechtspraak cases to extract |
+| `ECHR_START_DATE` | `"2023-01-01"` | Start date for ECHR extraction |
+| `ECHR_END_DATE` | `"2023-12-31"` | End date for ECHR extraction |
+| `ECHR_AMOUNT_TO_EXTRACT` | `"100"` | Number of ECHR cases to extract |
+| `CELLAR_START_DATE` | `"2023-01-01"` | Start date for CELLAR extraction |
+| `CELLAR_END_DATE` | `"2023-12-31"` | End date for CELLAR extraction |
+| `CELLAR_AMOUNT_TO_EXTRACT` | `"100"` | Number of CELLAR cases to extract |
+| `DATA_PATH` | `"/opt/airflow/data"` | Base path for data storage |
 
 ## Extract
 
-This walkthrough will extract data from the defined [datasets](/datasets/) into the local storage.
+This section describes the extraction of data from the defined [datasets](/datasets/) using Airflow DAGs.
+
 If you wish to eventually load the processed data into an AWS DynamoDB database, please first follow our guide on [setting up AWS](/graphql/?id=setup-aws).
+
+### Available DAGs
 
 ### Rechtspraak data
 
-The [Rechtspraak extractor script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/rechtspraak/rechtspraak_dump_downloader.py) 
+The [Rechtspraak extractor](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/airflow/dags/rechtspraak/tasks/rechtspraak_extraction.py) 
 downloads the metadata of Dutch Court cases available at 
-[https://data.rechtspraak.nl/Uitspraken](https://data.rechtspraak.nl/Uitspraken) to `data/raw/RS_cases.csv`. 
+[https://data.rechtspraak.nl/Uitspraken](https://data.rechtspraak.nl/Uitspraken) to `airflow/data/raw/RS_cases.csv`.
 
-
+The extraction is orchestrated through the **Airflow DAG** `rechtspraak_etl`, which:
+- Runs monthly task groups for parallel-safe data processing
+- Uses centralized, parameterized extraction logic
+- Passes unique output directories for each month to ensure no conflicts
+- Chains extraction → transformation → loading in sequence
 
 ```bash
-$ python3 airflow/dags/data_extraction/caselaw/rechtspraak/rechtspraak_extraction.py
+# Access the DAG at http://localhost:8080 after starting Docker
+# Or trigger manually:
+$ airflow dags trigger rechtspraak_etl
 ```
 
-**Options:**
-- `amount` (int): number of documents to retrieve
-- `starting_date` (YYYY-MM-DD): Last modification date to look forward from
-- `ending_date` (YYYY-MM-DD): Last modification date to look back from
+**Configuration:**
+Set these Airflow Variables in the Admin → Variables UI:
+- `RS_START_DATE`: Start date for extraction (e.g., "2023-01-01")
+- `RS_END_DATE`: End date for extraction (e.g., "2023-12-31")
+- `RS_AMOUNT_TO_EXTRACT`: Number of cases to extract per run
+- `DATA_PATH`: Base path for data storage (default: `/opt/airflow/data`)
 
 **Output:**
-- `data/raw/RS_cases.csv`
+- `airflow/data/raw/RS_cases.csv` - Raw metadata
+- `airflow/data/processed/rechtspraak_*.csv` - Processed data ready for loading
 ---
 **Functionality:**
-- Uses the rechtspraak-extractor to download the meta-data of cases 
-- A detailed functionality description is available at the library page of [rechtspraak-extractor](https://pypi.org/project/rechtspraak-extractor/).
+- Uses the [rechtspraak-extractor](https://pypi.org/project/rechtspraak-extractor/) library to download metadata
+- Automatically validates and handles citations via the [rechtspraak-citations-extractor](https://pypi.org/project/rechtspraak-citations-extractor/)
+- Transformation normalizes column names and formats data
+- Loading pushes processed data to AWS DynamoDB (if configured)
 
 ### ECHR data
 
-The [ECHR harvester script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/echr/ECHR_metadata_harvester.py) 
-extracts all cases from HUDOC.
+The [ECHR extractor](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/airflow/dags/echr/tasks/echr_extraction.py) 
+extracts all cases from HUDOC (European Court of Human Rights database).
+
+The extraction is orchestrated through the **Airflow DAG** `echr_extraction_monthly`, which:
+- Runs monthly task groups for parallel-safe data processing
+- Uses centralized, parameterized extraction logic via the [echr-extractor](https://pypi.org/project/echr-extractor/) library
+- Chains extraction → transformation → loading in sequence
 
 ```bash
-$ python3 airflow/dags/data_extraction/caselaw/echr/echr_extraction.py
+# Access the DAG at http://localhost:8080 after starting Docker
+# Or trigger manually:
+$ airflow dags trigger echr_extraction_monthly
 ```
-**Options:**
-- `start-id` (int): id of the first case to be downloaded
-- `end-id` (int): id of the last case to be downloaded
-- `count` (int): number of documents to retrieve
-- `start-date` (YYYY-MM-DD): last modification date to look forward from
-- `end-date` (YYYY-MM-DD): last modification date to look back from
-- `skip-missing-dates` (bool): decides whether to skip cases with missing dates
-- `fields` (list): list of fields to be collected by the extractor
-- `fresh` (bool): flag for running a complete download
-- `language` (list): list of languages to be extracted
+
+**Configuration:**
+Set these Airflow Variables in the Admin → Variables UI:
+- `ECHR_START_DATE`: Start date for extraction (e.g., "2023-01-01")
+- `ECHR_END_DATE`: End date for extraction (e.g., "2023-12-31")
+- `ECHR_AMOUNT_TO_EXTRACT`: Number of cases to extract per run
+- `DATA_PATH`: Base path for data storage (default: `/opt/airflow/data`)
 
 **Output:**
-- `data/raw/ECHR_metadata.csv`
+- `airflow/data/raw/ECHR_metadata.csv` - Raw metadata
+- `airflow/data/processed/echr_*.csv` - Processed data ready for loading
 
 **Functionality:**
 - Builds the query URL with the endpoint http://hudoc.echr.coe.int/app/query/, filters such as `contentsitename` or `documentcollectionid2`, and arguments such as `start` and `length`.
 - Fetches the data from the API and stores it in a `DataFrame` for each page returned.
-- Finally, the data is stored using the [`Storage` object](/reference/storage). 
-- A detailed functionality description is available at the library page of [echr-extractor](https://pypi.org/project/echr-extractor/).
+- Extracts full text and stores it separately for efficient retrieval
+- Transformation normalizes column names and formats data
+- Loading pushes processed data to AWS DynamoDB (if configured)
 
-### CJEU data
+### CJEU data (Cellar)
 
-The [cellar extraction script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/cellar/cellar_extraction.py) 
-extracts cases from the CELLAR database.
+The [Cellar extractor](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/airflow/dags/cellar/tasks/cellar_extraction.py) 
+extracts cases from the CELLAR database (Court of Justice of the European Union).
+
+The extraction is orchestrated through the **Airflow DAG** `cellar_extraction_monthly`, which:
+- Runs monthly task groups for parallel-safe data processing
+- Uses centralized, parameterized extraction logic via the [cellar-extractor](https://pypi.org/project/cellar-extractor/) library
+- Chains extraction → transformation → loading in sequence
+- Generates both case metadata and graph data (nodes & edges)
 
 ```bash
-$ python3 airflow/dags/data_extraction/caselaw/cellar/cellar_extraction.py 
+# Access the DAG at http://localhost:8080 after starting Docker
+# Or trigger manually:
+$ airflow dags trigger cellar_extraction_monthly
 ```
-**Options:**
-- `--amount` (int): number of documents to retrieve
-- `--starting-date` (str): last modification date to look forward from
 
+**Configuration:**
+Set these Airflow Variables in the Admin → Variables UI:
+- `CELLAR_START_DATE`: Start date for extraction (e.g., "2023-01-01")
+- `CELLAR_END_DATE`: End date for extraction (e.g., "2023-12-31")
+- `CELLAR_AMOUNT_TO_EXTRACT`: Number of cases to extract per run
+- `DATA_PATH`: Base path for data storage (default: `/opt/airflow/data`)
 
 **Output:**
-- `data/raw/cellar_csv_data.csv`
-- `data/full_text/cellar_full_text.json`
-- `data/processed/cellar_edges.txt`
-- `data/processed/cellar_nodes.txt`
+- `airflow/data/raw/cellar_csv_data.csv` - Raw metadata
+- `airflow/data/full_text/cellar_full_text.json` - Full text data
+- `airflow/data/processed/cellar_nodes.txt` - Graph nodes for network analysis
+- `airflow/data/processed/cellar_edges.txt` - Graph edges for network analysis
+- `airflow/data/processed/cellar_*.csv` - Processed data ready for loading
 
 **Functionality:**
-- It queries SPARQL endpoint https://publications.europa.eu/webapi/rdf/sparql for all the ECLIs available in the CELLAR that are related to the CJEU. 
-- For each ECLI returned, it queries the API for the metadata of each case, and stores it in a `DataFrame`. 
-- A detailed documentation on the functionalities of the cellar extraction can be found on the library page of the [cellar_extractor](https://pypi.org/project/cellar-extractor/).
+- Queries SPARQL endpoint https://publications.europa.eu/webapi/rdf/sparql for all ECLIs in CELLAR related to CJEU
+- For each ECLI, fetches metadata and stores it in structured format
+- Extracts full text and stores separately for efficient retrieval
+- Generates network graph data (nodes and edges) for citation analysis
+- Transformation normalizes column names and formats data
+- Loading pushes processed data to AWS DynamoDB and S3 (if configured)
+- For more details, see the [cellar-extractor](https://pypi.org/project/cellar-extractor/) library
 
 ## Transform
 
-The [data transformation script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_transformation/data_transformer.py) 
-transforms the raw data to a uniform format that matches all the datasets, in order to assure all of them follow the same naming conventions and definitions (see more about the [definitions references](/reference/attribute)).
+The [data transformation module](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/airflow/dags/shared/data_transformation/)
+transforms the raw data from all sources into a uniform format that matches all datasets, ensuring consistent naming conventions and definitions (see more about the [definitions references](/reference/attribute)).
 
-Transform the data available in the `data/raw/` directory. The processed data is stored in the `data/processed/` directory.
+Transform the data available in the `airflow/data/raw/` directory. The processed data is stored in the `airflow/data/processed/` directory.
+
+The transformation is executed within each source's Airflow DAG:
 
 ```bash
-$ python3 airflow/dags/data_transformation/data_transformer.py 
+# Transformations run automatically as part of DAGs:
+$ airflow dags trigger rechtspraak_etl
+$ airflow dags trigger echr_extraction_monthly
+$ airflow dags trigger cellar_extraction_monthly
 ```
 
 **Input:**  
-- `data/raw/cellar_csv_data.csv`
-- `data/raw/ECHR_metadata.csv`
-- `data/raw/RS_cases.csv`
+- `airflow/data/raw/cellar_csv_data.csv`
+- `airflow/data/raw/ECHR_metadata.csv`
+- `airflow/data/raw/RS_cases.csv`
     
 **Output:**  
-- `data/processed/cellar_csv_data_clean.csv`
-- `data/processed/ECHR_metadata_clean.csv`
-- `data/processed/RS_cases_clean.csv`
+- `airflow/data/processed/cellar_csv_data_clean.csv`
+- `airflow/data/processed/ECHR_metadata_clean.csv`
+- `airflow/data/processed/RS_cases_clean.csv`
 
 **Functionality:**
 - For each input file: reads input file by row
@@ -192,35 +269,39 @@ $ python3 airflow/dags/data_transformation/data_transformer.py
 ## Load
 
 If you would like to load the data into AWS services instead, please first follow our guide on [setting up AWS](/graphql/?id=setup-aws).
-The [data loader script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_loading/data_loader.py) 
-loads the data into the DynamoDB table defined in the `.env` file.
 
+The [data loader module](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/airflow/dags/shared/data_loading/)
+loads the transformed data into the DynamoDB table defined in the `.env` file.
+
+The loading is executed automatically as part of each source's Airflow DAG, following transformation:
 
 ```bash
-python3 airflow/dags/data_loading/data_loader.py
+# Loading runs automatically as part of DAGs:
+$ airflow dags trigger rechtspraak_etl
+$ airflow dags trigger echr_extraction_monthly
+$ airflow dags trigger cellar_extraction_monthly
 ```
 
 **Input:**  
-- `data/processed/cellar_csv_data.csv`
-- `data/processed/RS_cases_clean.csv`
-- `data/processed/ECHR_metadata_clean.csv`
-- `data/full_text/cellar_full_text.json`
-- `data/full_text/ECHR_full_text.json`
-- `data/processed/cellar_edges.txt`
-- `data/processed/cellar_nodes.txt`
-- `data/processed/ECHR_edges.txt`
-- `data/processed/ECHR_nodes.txt`
+- `airflow/data/processed/cellar_csv_data_clean.csv`
+- `airflow/data/processed/RS_cases_clean.csv`
+- `airflow/data/processed/ECHR_metadata_clean.csv`
+- `airflow/data/full_text/cellar_full_text.json`
+- `airflow/data/full_text/ECHR_full_text.json`
+- `airflow/data/processed/cellar_edges.txt`
+- `airflow/data/processed/cellar_nodes.txt`
+- `airflow/data/processed/ECHR_edges.txt`
+- `airflow/data/processed/ECHR_nodes.txt`
     
 **Output:**
-- `data/processed/DDB_eclis_failed.csv`
+- `airflow/data/processed/DDB_eclis_failed.csv` - Failed items for debugging
+- Data uploaded to AWS DynamoDB and S3 (if configured)
 
 **Functionality:**
-- For each input file: reads input file by row
-- Analyzes row and creates items to put or update in DynamoDB table according to key schema
-(see [row_processors reference](reference/row-processors))
-- Analyzes row and creates items to index or update in OpenSearch index
-([row_processors reference](/reference/row-processors/?id=opensearch-service))
+- For each input file: reads processed data by row
+- Creates items to put or update in DynamoDB table according to key schema (see [row_processors reference](reference/row-processors))
+- Creates items to index or update in OpenSearch index (if enabled) ([row_processors reference](/reference/row-processors/?id=opensearch-service))
 - Loads items to DynamoDB table and/or OpenSearch index as defined in `.env` file
-- Writes errors and item keys/item IDs of failed loading attempts to `data/processed/DDB_eclis_failed.csv`
-- For each full_text file, uploads separate json files containing full-text information for each ECHR/CELLAR case in the AWS bucket.
-- For the nodes and edges for ECHR/CELLAR, it uploads the files onto the nodes-and-edges-bucket or updates the existing files.
+- Writes errors and item keys/IDs of failed loading attempts to `airflow/data/processed/DDB_eclis_failed.csv`
+- For each full_text file: uploads separate json files containing full-text information for each ECHR/CELLAR case to AWS S3 bucket
+- For graph data (nodes and edges): uploads to graph analysis bucket for network visualization

@@ -15,17 +15,29 @@ More information about the app can be found in our [use case example](/graphql/?
 
 ## Quickstart
 
-- Setup and run the ETL pipeline with the [Caselaw extraction walkthrough](etl/)
+- Get started with Docker and Airflow in the [Caselaw extraction walkthrough](etl/)
 - Setup and run a GraphQL API with AWS in the [GraphQL API walkthrough](graphql/)
+- Understand the repository structure in [Repository Structure](REPOSITORY_STRUCTURE.md)
+
+## System Architecture
+
+The Case Law Explorer uses an **Apache Airflow**-based ETL (Extract, Transform, Load) pipeline to orchestrate data processing:
+
+- **Extract**: Data is pulled from multiple European legal databases (Rechtspraak, ECHR, CJEU/CELLAR)
+- **Transform**: Data is normalized to a consistent format with unified naming conventions
+- **Load**: Processed data is stored in AWS DynamoDB and S3 for querying and analysis
+- **Query**: A GraphQL API provides access to the processed data
+
+For a detailed system architecture diagram, see [ARCHITECTURE.md](/ARCHITECTURE.md).
 
 ## Datasets
 
-See [Datasets](/datasets/). Currently, we gather the case law of the Netherlands and that of two European courts, as it follows:
+See [Datasets](/datasets/). Currently, we gather the case law of the Netherlands and that of two European courts, as follows:
 
 - **Published and operable**
-    - [Rechtspraak](datasets/?id=rechtspraak-archive), backed by [Legal Intelligence](datasets/?id=legal-intelligence-api), and citations provided by [LiDO](datasets/?id=linked-data-overheid-lido)
-    - [European Court of Human Rights](datasets/?id=european-court-of-human-rights-echr) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/echr/ECHR_metadata_harvester.py) 
-    - [Court of Justice of the European Union](datasets/?id=court-of-justice-of-the-european-union-cjeu) with WIP scripts available on [GitHub](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_extraction/caselaw/cellar/cellar_extraction.py)
+    - [Rechtspraak](datasets/?id=rechtspraak-archive) (Dutch courts), backed by [Legal Intelligence](datasets/?id=legal-intelligence-api), with citations provided by [LIDO](datasets/?id=linked-data-overheid-lido)
+    - [European Court of Human Rights](datasets/?id=european-court-of-human-rights-echr)
+    - [Court of Justice of the European Union](datasets/?id=court-of-justice-of-the-european-union-cjeu) (CJEU/CELLAR)
 
 We plan to extend the data to other international courts.
 
