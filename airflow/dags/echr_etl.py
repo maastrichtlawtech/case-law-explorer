@@ -91,7 +91,7 @@ def echr_etl(**kwargs):
             "--end-date",
             end_date.strftime("%Y-%m-%d"),
             "--count",
-            str(eval(Variable.get("ECHR_AMOUNT_TO_EXTRACT", default_var="1000"))),
+            str(int(Variable.get("ECHR_AMOUNT_TO_EXTRACT", default_var=os.getenv("ECHR_AMOUNT_TO_EXTRACT", "1000")))),
         ]
 
         # Run ECHR extraction
@@ -138,8 +138,10 @@ def echr_etl(**kwargs):
 
 def create_tasks():
     """Create monthly task groups for ECHR ETL"""
-    start_date = eval(Variable.get("ECHR_START_DATE"))
-    end_date = eval(Variable.get("ECHR_END_DATE"))
+    start_date = Variable.get("ECHR_START_DATE", default_var=os.getenv("ECHR_START_DATE"))
+    end_date = Variable.get(
+        "ECHR_END_DATE", default_var=os.getenv("ECHR_END_DATE", datetime.now().strftime("%Y-%m-%d"))
+    )
 
     if not start_date or not end_date:
         raise ValueError("ECHR_START_DATE and ECHR_END_DATE are required in Airflow variables.")
@@ -165,7 +167,7 @@ def create_tasks():
                 op_kwargs={
                     "start_date": current_date,
                     "end_date": month_end,
-                    "_data_path": Variable.get("DATA_PATH"),
+                    "_data_path": Variable.get("DATA_PATH", default_var=os.getenv("DATA_PATH", "/opt/airflow/data")),
                 },
                 dag=dag,
             )

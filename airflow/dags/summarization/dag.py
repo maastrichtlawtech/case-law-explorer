@@ -1,4 +1,4 @@
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow.operators.python import PythonOperator
 from segmentation.dag import CASE_SEGMENTS_DATASET
@@ -14,6 +14,7 @@ with DAG(
     dag_id="case_summarization",
     default_args=default_args,
     description="Summarize segmented cases via legal-summarizer-service, write cle_v2.case_summary_version",
+    start_date=datetime(2026, 1, 1),  # required by Airflow even for dataset-scheduled DAGs
     schedule=[CASE_SEGMENTS_DATASET],  # runs whenever case_segmentation produces new segments
     catchup=False,
     tags=["caselaw", "summarization"],

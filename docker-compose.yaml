@@ -51,6 +51,12 @@ x-airflow-common:
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.5}
   build: ./airflow
+  # Loads .env's plain KEY=VALUE pairs (RS_START_DATE, CELLAR_START_DATE,
+  # ECHR_START_DATE, DATA_PATH, etc.) directly into every Airflow container's
+  # process environment, so DAGs' Variable.get(..., default_var=os.getenv(...))
+  # fallbacks resolve without needing a separate `airflow variables set` step.
+  env_file:
+    - .env
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor

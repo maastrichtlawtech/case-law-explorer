@@ -104,7 +104,7 @@ def rechtspraak_etl(**kwargs):
         result_paths = rechtspraak_extract(
             starting_date=start_date.strftime("%Y-%m-%d"),
             ending_date=end_date.strftime("%Y-%m-%d"),
-            amount=eval(Variable.get("RS_AMOUNT_TO_EXTRACT")),
+            amount=int(Variable.get("RS_AMOUNT_TO_EXTRACT", default_var=os.getenv("RS_AMOUNT_TO_EXTRACT", "1000"))),
             output_dir=month_dir,
             skip_if_exists=True,
         )
@@ -137,8 +137,10 @@ def rechtspraak_etl(**kwargs):
 
 def create_tasks():
     """Create monthly task groups for Rechtspraak ETL"""
-    start_date = eval(Variable.get("RS_START_DATE"))
-    end_date = eval(Variable.get("RS_END_DATE"))
+    start_date = Variable.get("RS_START_DATE", default_var=os.getenv("RS_START_DATE"))
+    end_date = Variable.get(
+        "RS_END_DATE", default_var=os.getenv("RS_END_DATE", datetime.now().strftime("%Y-%m-%d"))
+    )
 
     if not start_date or not end_date:
         raise ValueError("RS_START_DATE and RS_END_DATE are required in Airflow variables.")
@@ -164,7 +166,7 @@ def create_tasks():
                 op_kwargs={
                     "start_date": current_date,
                     "end_date": month_end,
-                    "_data_path": Variable.get("DATA_PATH"),
+                    "_data_path": Variable.get("DATA_PATH", default_var=os.getenv("DATA_PATH", "/opt/airflow/data")),
                 },
                 dag=dag,
             )
