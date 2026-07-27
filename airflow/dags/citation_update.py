@@ -3,9 +3,9 @@ import logging
 import os
 from datetime import datetime, timedelta
 
-import boto3
 import pandas as pd
 from airflow.operators.python import PythonOperator
+from data_loading.clients.postgres import PostgresCLEClient
 from dotenv import load_dotenv
 from rechtspraak_citations_extractor.citations_extractor import get_citations
 
@@ -17,135 +17,73 @@ default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=
 dag = DAG(
     dag_id="update_citations",
     default_args=default_args,
-    description="Update citation details in DynamoDB",
+    description="Update citation details in Postgres (cle_v2)",
     catchup=False,
     start_date=datetime(2025, 1, 1),
     schedule_interval=None,
 )
 
 
-def scan_entire_table():
-    # Initialize DynamoDB connection inside the function
-    ddb_table_name = os.getenv("DDB_TABLE_NAME")
-    if not ddb_table_name:
-        raise ValueError("DDB_TABLE_NAME environment variable is not set")
-
-    dynamodb = boto3.resource(
-        "dynamodb",
-        aws_access_key_id=os.getenv("AWS_ACCESS_KEY_ID"),
-        aws_secret_access_key=os.getenv("AWS_SECRET_ACCESS_KEY"),
-        region_name="eu-central-1",
-    )
-    table = dynamodb.Table(ddb_table_name)
-
-    items = []
-    scan_kwargs = {"ProjectionExpression": "ecli, ItemType"}
-    response = table.scan(**scan_kwargs)
-    items.extend(response.get("Items", []))
-
-    while "LastEvaluatedKey" in response:
-        response = table.scan(ExclusiveStartKey=response["LastEvaluatedKey"], **scan_kwargs)
-        items.extend(response.get("Items", []))
-
-    return items, table
-
-
 def _scan_and_update():
-    items, table = scan_entire_table()
-    logging.info(f"Total items found: {len(items)}")
-    # logging.info(f"{items}")
-    for item in items:
-        if item["ecli"] is not None:
-            logging.info(f"Processing item with ECLI: {item}")
-            _ecli = item["ecli"]
-            if item["ItemType"] == "DATA":
-                df = pd.DataFrame([{"ecli": _ecli}])
-                citations_df = get_citations(
-                    df,
-                    username=os.getenv("LIDO_USERNAME"),
-                    password=os.getenv("LIDO_PASSWORD"),
-                    extract_opschrift=True,
-                )
-                if (
-                    citations_df["legislations_cited"].isnull().any()
-                    or (citations_df["legislations_cited"] == "<NA>").any()
-                    or citations_df["citations_outgoing"].isnull().any()
-                    or (citations_df["citations_outgoing"] == "<NA>").any()
-                    or citations_df["citations_incoming"].isnull().any()
-                    or (citations_df["citations_incoming"] == "<NA>").any()
-                ):
+    """Re-run LIDO citation resolution for every known RS ecli and upsert the
+    result into case_citation / case_law_reference (issue #42: replaces the
+    DynamoDB whole-table scan + set-attribute update)."""
+    client = PostgresCLEClient()
+    eclis = client.list_rs_eclis()
+    logging.info(f"Total eclis found: {len(eclis)}")
+
+    for _ecli in eclis:
+        logging.info(f"Processing ECLI: {_ecli}")
+        df = pd.DataFrame([{"ecli": _ecli}])
+        citations_df = get_citations(
+            df,
+            username=os.getenv("LIDO_USERNAME"),
+            password=os.getenv("LIDO_PASSWORD"),
+            extract_opschrift=True,
+        )
+        if (
+            citations_df["legislations_cited"].isnull().any()
+            or (citations_df["legislations_cited"] == "<NA>").any()
+            or citations_df["citations_outgoing"].isnull().any()
+            or (citations_df["citations_outgoing"] == "<NA>").any()
+        ):
+            continue
+
+        source_case_id = client.resolve_case_id(ecli=_ecli)
+        if source_case_id is None:
+            logging.warning(f"ECLI {_ecli} not found in cases table, skipping")
+            continue
+
+        # citations_outgoing: this case cites target_ecli -> case_citation rows.
+        # (citations_incoming is the mirror image of another case's own
+        # outgoing edge and is intentionally not written here, to avoid
+        # double-writing the same edge from both directions.)
+        for item in citations_df["citations_outgoing"]:
+            item = ast.literal_eval(item)
+            for _item in item:
+                if not (isinstance(_item, dict) and "target_ecli" in _item and _item["target_ecli"]):
                     continue
-                else:
-                    key = {"ecli": _ecli, "ItemType": "DATA"}
-                    # Extract target_ecli value from citations_df['citations_incoming'] and citations_df['citations_outgoing'] which is stored as a dictionary
-                    # and store it as a string set
-                    citations_incoming = []
-                    for item in citations_df["citations_incoming"]:
-                        item = ast.literal_eval(item)
-                        for _item in item:
-                            if isinstance(_item, dict) and "target_ecli" in _item:
-                                citations_incoming.append(_item["target_ecli"])
-                            else:
-                                citations_incoming.append("")
-                    # Convert citations_incoming to a string set
-                    # Create a string set from list of dictionaries with key as "target_ecli"
-                    citations_outgoing = []
-                    for item in citations_df["citations_outgoing"]:
-                        item = ast.literal_eval(item)
-                        for _item in item:
-                            if isinstance(_item, dict) and "target_ecli" in _item:
-                                citations_outgoing.append(_item["target_ecli"])
-                            else:
-                                citations_outgoing.append("")
-                    legislations_cited = []
-                    legislations_url = []
-                    legilsation_url_lido = []
-                    for item in citations_df["legislations_cited"]:
-                        item = ast.literal_eval(item)
-                        for _item in item:
-                            if isinstance(_item, dict):
-                                if "legal_provision" in _item:
-                                    legislations_cited.append(_item["legal_provision"])
-                                else:
-                                    legislations_cited.append("")
-                                if "legal_provision_url" in _item:
-                                    legislations_url.append(_item["legal_provision_url"])
-                                else:
-                                    legislations_url.append("")
-                                if "legal_provision_url_lido" in _item:
-                                    legilsation_url_lido.append(_item["legal_provision_url_lido"])
-                                else:
-                                    legilsation_url_lido.append("")
-                    # Convert opschrift from list to string set
-                    opschrift = []
-                    for item in citations_df["opschrift"]:
-                        for _item in item:
-                            print(_item)
-                            if isinstance(_item, str):
-                                opschrift.append(_item)
-                            else:
-                                opschrift.append("")
-                    bwb_id = set(
-                        item if isinstance(item, str) else ""
-                        for item in citations_df["bwb_id"].tolist()
+                target_ecli = _item["target_ecli"]
+                target_case_id = client.resolve_case_id(ecli=target_ecli)
+                client.upsert_citation(
+                    source_case_id=source_case_id,
+                    target_case_id=target_case_id,
+                    target_ecli_raw=target_ecli if target_case_id is None else None,
+                    relation_type="cites",
+                    source_dataset="LIDO",
+                )
+
+        # legislations_cited -> case_law_reference (bwb scheme)
+        for item, bwb_id in zip(citations_df["legislations_cited"], citations_df["bwb_id"]):
+            item = ast.literal_eval(item)
+            for _item in item:
+                if isinstance(_item, dict) and _item.get("legal_provision"):
+                    client.upsert_law_reference(
+                        case_id=source_case_id,
+                        raw_reference=_item["legal_provision"],
+                        raw_resource=bwb_id if isinstance(bwb_id, str) else None,
+                        source_dataset="LIDO",
                     )
-                    response = table.update_item(
-                        Key=key,
-                        UpdateExpression="SET cited_by = :newval, legal_provision = :legislations, citing = :citing, opschrift = :opschrift, bwb_id = :bwb_id, legal_provision_url = :url, legal_provision_url_lido = :legilsation_url_lido",
-                        ExpressionAttributeValues={
-                            ":newval": set(citations_incoming),
-                            ":legislations": set(legislations_cited),
-                            ":citing": set(citations_outgoing),
-                            ":opschrift": set(opschrift),
-                            ":bwb_id": bwb_id,
-                            ":url": set(legislations_url),
-                            ":legilsation_url_lido": set(legilsation_url_lido),
-                        },
-                        ReturnValues="UPDATED_NEW",
-                    )
-                    logging.info(f"Response from update: {response}")
-            else:
-                continue
 
 
 with dag:

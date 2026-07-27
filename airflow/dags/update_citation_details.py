@@ -2,12 +2,11 @@ import logging
 import os
 from datetime import datetime, timedelta
 
-import boto3
 import pandas as pd
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
-from boto3.dynamodb.conditions import Key
 from data_loading import data_loader
+from data_loading.clients.postgres import PostgresCLEClient
 from data_transformation import data_transformer
 from dotenv import find_dotenv, load_dotenv
 from rechtspraak_citations_extractor.citations_extractor import get_citations
@@ -21,7 +20,7 @@ default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=
 dag = DAG(
     dag_id="update_citation_details",
     default_args=default_args,
-    description="Update citation details in DynamoDB",
+    description="Update citation details in Postgres (cle_v2)",
     catchup=False,
     start_date=datetime(2025, 1, 1),
     schedule_interval=None,
@@ -62,7 +61,7 @@ def merge_and_extract(eclis, metadata_df, input_paths=["data/processed/extracted
         citations_df.to_csv("data/processed/citations_extraction.csv", index=False)
         logging.info("Citation extraction completed and saved.")
 
-        logging.info("Transforming and uploading data to DynamoDB.")
+        logging.info("Transforming and uploading data to Postgres.")
         data_transformer.transform_data(
             caselaw_type="RS",
             input_paths=input_paths,
@@ -92,7 +91,7 @@ def extract_missing_eclis(
         )
         citations_df.to_csv(output_path, index=False)
 
-        logging.info("Transforming and uploading missing data to DynamoDB.")
+        logging.info("Transforming and uploading missing data to Postgres.")
         data_transformer.transform_data(
             caselaw_type="RS",
             input_paths=input_paths,
@@ -126,14 +125,15 @@ def extract_year_from_ecli(ecli):
         return None
 
 
-def query_dynamodb_for_ecli(ecli):
+def query_postgres_for_ecli(ecli):
     """
-    Query DynamoDB for a specific ECLI and check if legal_provisions_url is empty.
+    Look up an ECLI in Postgres and return it only if it still needs legal
+    provisions resolved (replaces the old DynamoDB legal_provisions_url check).
     """
-    table = boto3.resource("dynamodb").Table(os.getenv("DDB_TABLE_NAME"))
-    response = table.query(KeyConditionExpression=Key("ecli").eq(str(ecli)))
-    item = response.get("Item", {})
-    return item if not item.get("legal_provisions_url") else None
+    client = PostgresCLEClient()
+    if client.resolve_case_id(ecli=str(ecli)) is None:
+        return None
+    return None if client.has_legal_provisions(str(ecli)) else {"ecli": str(ecli)}
 
 
 def process_eclis(
@@ -142,7 +142,7 @@ def process_eclis(
     processed_citations_path="data/processed/extracted_citations.csv",
 ):
     """
-    Process a batch of ECLIs to extract metadata, perform citation extraction, and update DynamoDB.
+    Process a batch of ECLIs to extract metadata, perform citation extraction, and update Postgres.
     """
     missing_eclis = []
     for ecli in eclis:
@@ -150,9 +150,9 @@ def process_eclis(
         if not year or int(year) < 2020:
             logging.warning(f"ECLI {ecli} is from before 2020, skipping.")
             continue
-        record = query_dynamodb_for_ecli(ecli)
+        record = query_postgres_for_ecli(ecli)
         if record is None:
-            logging.info(f"ECLI {ecli} not found in DynamoDB.")
+            logging.info(f"ECLI {ecli} not found in Postgres or already has legal provisions resolved.")
             # Write to a file for later processing
             with open("data/eclis_not_found.csv", "a") as f:
                 f.write(f"{ecli}\n")

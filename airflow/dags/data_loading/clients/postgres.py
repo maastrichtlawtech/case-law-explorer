@@ -176,6 +176,55 @@ class PostgresCLEClient:
         )
         return row[0] if row else None
 
+    def list_rs_eclis(self) -> list[str]:
+        """All Rechtspraak ECLIs known so far, for the citation-refresh DAGs to iterate over."""
+        rows = self.hook.get_records(
+            f"SELECT ecli FROM {SCHEMA}.cases WHERE ecli IS NOT NULL AND 'Rechtspraak' = ANY(sources)"
+        )
+        return [r[0] for r in rows]
+
+    def has_legal_provisions(self, ecli: str) -> bool:
+        """Whether an RS case already has resolved legal provisions (replaces the DynamoDB legal_provisions_url check)."""
+        row = self.hook.get_first(
+            f"""
+            SELECT 1 FROM {SCHEMA}.rs_document rd
+            JOIN {SCHEMA}.cases c ON c.id = rd.case_id
+            WHERE c.ecli = %(ecli)s
+              AND rd.legal_provisions IS NOT NULL
+              AND array_length(rd.legal_provisions, 1) > 0
+            """,
+            parameters={"ecli": ecli},
+        )
+        return row is not None
+
+    def upsert_law_reference(
+        self,
+        case_id: int,
+        raw_reference: str,
+        raw_resource: str | None = None,
+        role: str = "cited",
+        source_dataset: str = "LIDO",
+    ) -> None:
+        """Upsert into case_law_reference (bwb-scheme citations resolved via LIDO)."""
+        sql = f"""
+            INSERT INTO {SCHEMA}.case_law_reference
+                (case_id, raw_scheme, raw_resource, raw_reference, role, source_dataset)
+            VALUES
+                (%(case_id)s, 'bwb', %(raw_resource)s, %(raw_reference)s, %(role)s, %(source_dataset)s)
+            ON CONFLICT (case_id, raw_scheme, raw_resource, COALESCE(raw_subdivision, ''), role, source_dataset)
+            DO NOTHING;
+        """
+        self._execute(
+            sql,
+            {
+                "case_id": case_id,
+                "raw_resource": raw_resource,
+                "raw_reference": raw_reference,
+                "role": role,
+                "source_dataset": source_dataset,
+            },
+        )
+
     def _execute(self, sql: str, params: dict) -> None:
         conn = self.hook.get_conn()
         try:
