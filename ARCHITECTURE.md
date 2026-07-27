@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Case Law Explorer is an ETL (Extract, Transform, Load) pipeline system that collects, processes, and stores legal case law from multiple European sources. The system uses Apache Airflow for orchestration and AWS services for storage and querying.
+The Case Law Explorer is an ETL (Extract, Transform, Load) pipeline system that collects, processes, and stores legal case law from multiple European sources. The system uses Apache Airflow for orchestration and Postgres for storage and querying.
 
 ## System Architecture Diagram
 
@@ -87,9 +87,8 @@ The Case Law Explorer is an ETL (Extract, Transform, Load) pipeline system that 
 │                                                                             │
 │  ┌──────────────────────────────────────────────────────────────────────┐   │
 │  │                        data_loader.py                                │   │
-│  │  - Batch upload to DynamoDB                                          │   │
-│  │  - Upload full text to S3                                            │   │
-│  │  - Upload graph data (nodes & edges)                                 │   │
+│  │  - Upsert case metadata + full text into Postgres (cle_v2)           │   │
+│  │  - Upsert citation graph edges into Postgres (cle_v2)                │   │
 │  │  - Error tracking and retry logic                                    │   │
 │  └────────────────────────────┬─────────────────────────────────────────┘   │
 │                               │                                             │
@@ -97,27 +96,24 @@ The Case Law Explorer is an ETL (Extract, Transform, Load) pipeline system that 
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         STORAGE LAYER (AWS Services)                        │
+│                         STORAGE LAYER (Postgres)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────────┐           │
-│  │   DynamoDB       │  │   Amazon S3      │  │  PostgreSQL      │           │
-│  │                  │  │                  │  │  (for LIDO)      │           │
-│  │  ┌────────────┐  │  │  ┌────────────┐  │  │                  │           │
-│  │  │ RS Cases   │  │  │  │ Full Text  │  │  │  ┌────────────┐  │           │
-│  │  │ (by ECLI)  │  │  │  │ Documents  │  │  │  │ Legal Case │  │           │
-│  │  └────────────┘  │  │  └────────────┘  │  │  └────────────┘  │           │
-│  │                  │  │                  │  │  ┌────────────┐  │           │
-│  │  ┌────────────┐  │  │  ┌────────────┐  │  │  │Law Element │  │           │
-│  │  │CELLAR Cases│  │  │  │Graph Nodes │  │  │  └────────────┘  │           │
-│  │  │(by CELEX)  │  │  │  │  & Edges   │  │  │  ┌────────────┐  │           │
-│  │  └────────────┘  │  │  └────────────┘  │  │  │ Case Law   │  │           │
-│  │                  │  │                  │  │  └────────────┘  │           │
-│  │  ┌────────────┐  │  │                  │  │  ┌────────────┐  │           │
-│  │  │ ECHR Cases │  │  │                  │  │  │ Law Alias  │  │           │
-│  │  │ (by ItemID)│  │  │                  │  │  └────────────┘  │           │
-│  │  └────────────┘  │  │                  │  │                  │           │
-│  └──────────────────┘  └──────────────────┘  └──────────────────┘           │
+│  Single Postgres instance, two schemas (issue #42 -- see db/README.md):    │
+│                                                                             │
+│  ┌────────────────────────────────────┐  ┌──────────────────┐              │
+│  │  cle_v2 (this ETL's target)        │  │  public (pg_lido)│              │
+│  │  ┌────────────┐  ┌────────────┐    │  │  ┌────────────┐  │              │
+│  │  │ cases      │  │ case_text  │    │  │  │ legal_case │  │              │
+│  │  │ rs_document│  │ (fulltext, │    │  │  └────────────┘  │              │
+│  │  │ cjeu_...   │  │  summary)  │    │  │  ┌────────────┐  │              │
+│  │  │ echr_...   │  └────────────┘    │  │  │law_element │  │              │
+│  │  └────────────┘  ┌────────────┐    │  │  └────────────┘  │              │
+│  │  ┌────────────┐  │case_segment│    │  │  ┌────────────┐  │              │
+│  │  │case_citation│ │case_summary│    │  │  │ case_law   │  │              │
+│  │  └────────────┘  │_version    │    │  │  └────────────┘  │              │
+│  │                  └────────────┘    │  │                  │              │
+│  └────────────────────────────────────┘  └──────────────────┘              │
 │                                                                             │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
@@ -179,12 +175,21 @@ Raw Data → Normalization → Cleaned Data
 
 ### 3. Loading Phase
 ```
-Cleaned Data → AWS Services
+Cleaned Data → Postgres (cle_v2)
 ```
-- Metadata → DynamoDB (3 tables: ECLI-based, CELEX-based, ItemID-based)
-- Full text → S3 buckets (JSON format)
-- Graph data → S3 (nodes and edges for network analysis)
-- Legal provisions → PostgreSQL (for LIDO data)
+- Metadata → `cases` + per-source detail tables (`rs_document`, `cjeu_document`, `echr_document`)
+- Full text → `case_text.fulltext`
+- Graph data → `case_citation` (resolved and unresolved edges)
+- Legal provisions → PostgreSQL (`public` schema, for LIDO data, unchanged)
+
+### 4. Enrichment Phase (new, issue #42)
+```
+case_text.fulltext → case_segmentation DAG → case_segment
+case_segment → case_summarization DAG → case_summary_version + case_text.summary
+```
+- Both DAGs call an external service, `legal-summarizer-service`, over HTTP
+  (`/segment`, `/summarize`) -- see `airflow/dags/segmentation/` and
+  `airflow/dags/summarization/`.
 
 ## Component Details
 
@@ -199,74 +204,28 @@ Each DAG:
 - Creates monthly task groups for parallel processing
 - Extracts data for specific date ranges
 - Transforms data to unified format
-- Loads data to AWS services
+- Loads data to Postgres (`cle_v2`)
 - Includes error handling and retry logic
 
 #### Utility DAGs
 - **`update_citation_details`**: Updates citation information for existing cases
 - **`citation_update`**: Batch updates for citation data
 - **`lido`**: Processes LIDO export for legal provision linking
+- **`case_segmentation`**: Segments case full text via `legal-summarizer-service`, writes `case_segment`
+- **`case_summarization`**: Summarizes segmented cases, writes `case_summary_version` + `case_text.summary` (dataset-triggered off `case_segmentation`)
 
 ### Data Storage Schema
 
-#### DynamoDB Tables
+Full DDL lives in `db/schema.sql` (see `db/README.md` for the schema layout). The `cases` table is the hub, keyed on whichever natural identifier is present:
 
-**Table 1: Rechtspraak Cases (Key: ECLI)**
+**`cases`** (Key: `ecli` / `celex_id` / `item_id`, whichever applies)
 ```
-Primary Key: ecli (String)
-Attributes:
-  - date (String)
-  - court (String)
-  - procedure (List)
-  - domains (List)
-  - citations_incoming (Set)
-  - citations_outgoing (Set)
-  - legal_provisions_url (String)
-  - full_text_url (String)
-  - ...
+id (bigint, generated)
+ecli, celex_id, item_id (each unique, nullable)
+title, date_decision, court_id, sources (text[])
 ```
 
-**Table 2: CELLAR Cases (Key: CELEX)**
-```
-Primary Key: celex (String)
-Attributes:
-  - ecli (String)
-  - year (Number)
-  - case_type (String)
-  - court (String)
-  - full_text_url (String)
-  - ...
-```
-
-**Table 3: ECHR Cases (Key: ItemID)**
-```
-Primary Key: item_id (String)
-Attributes:
-  - ecli (String)
-  - case_name (String)
-  - judgment_date (String)
-  - importance_level (Number)
-  - articles_violated (List)
-  - full_text_url (String)
-  - ...
-```
-
-#### S3 Bucket Structure
-```
-bucket-name/
-├── full-text/
-│   ├── rechtspraak/
-│   │   └── {ecli}.json
-│   ├── echr/
-│   │   └── {item_id}.json
-│   └── cellar/
-│       └── {celex}.json
-└── graphs/
-    ├── cellar_nodes.txt
-    ├── cellar_edges.txt
-    ├── echr_nodes.txt
-    └── echr_edges.txt
-```
+Per-source detail tables (`rs_document`, `cjeu_document` + `cjeu_national_document`, `echr_document` + `echr_document_article` + `echr_document_appno`) hang off `cases.id` via a `case_id` foreign key, one row per case per source. `case_text` (full text + summary + tsvector/embedding columns, one row per case/language/source) and `case_citation` (resolved via `target_case_id` or unresolved via `target_ecli_raw`/`target_celex_raw`) complete the metadata + full-text + graph picture that DynamoDB + S3 used to split across three tables and two buckets.
 
 ## Technology Stack
 
@@ -274,21 +233,21 @@ bucket-name/
 - **Python 3.11**: Main programming language
 - **Apache Airflow 2.10.5**: Workflow orchestration
 - **Docker**: Containerization
-- **PostgreSQL 13**: Metadata database (Airflow & LIDO)
+- **PostgreSQL 13**: Airflow metadata + LIDO (`public` schema)
+- **PostgreSQL 16 + pgvector**: `cle_v2` schema -- case metadata, full text, citations, segments, summaries (issue #42)
 - **Redis 7.2**: Celery message broker
 
 ### Python Libraries
 - **pandas**: Data manipulation
-- **boto3**: AWS SDK
+- **psycopg2 / apache-airflow-providers-postgres**: `cle_v2` + LIDO Postgres access
 - **rechtspraak-extractor**: Dutch case law extraction
 - **echr-extractor**: ECHR case extraction
 - **cellar-extractor**: CJEU case extraction
 - **rechtspraak-citations-extractor**: Citation extraction
 - **pyoxigraph**: RDF/Turtle file processing (LIDO)
 
-### AWS Services
-- **DynamoDB**: NoSQL database for case metadata
-- **S3**: Object storage for full text and graphs
+### External Services
+- **legal-summarizer-service**: `/segment` and `/summarize` HTTP endpoints called by the `case_segmentation` / `case_summarization` DAGs
 - **AppSync** (optional): GraphQL API
 - **Cognito** (optional): Authentication
 
@@ -313,12 +272,12 @@ bucket-name/
 └─────────────────────────────────────────────────────────────┘
          │                                        │
          │                                        │
-    ┌────▼────────┐                         ┌────▼────────┐
-    │ Local Data  │                         │ AWS Services│
-    │  Volumes    │                         │             │
-    │  - dags/    │                         │ - DynamoDB  │
-    │  - logs/    │                         │ - S3        │
-    │  - data/    │                         │ - AppSync   │
+    ┌────▼────────┐                         ┌──────▼──────┐
+    │ Local Data  │                         │ cle-postgres│
+    │  Volumes    │                         │  (pgvector, │
+    │  - dags/    │                         │  local dev  │
+    │  - logs/    │                         │  target for │
+    │  - data/    │                         │  pg_cle)    │
     └─────────────┘                         └─────────────┘
 ```
 
@@ -327,12 +286,12 @@ bucket-name/
 ### Current Implementation
 - Environment variables for sensitive credentials
 - `.env` file excluded from version control
-- AWS IAM for service authentication
+- Airflow connection (`pg_cle`) for Postgres credentials, not raw env vars
 
 ### Recommended Improvements
 1. Implement proper SSL certificate validation
-2. Use AWS Secrets Manager for credential storage
-3. Enable encryption at rest for DynamoDB and S3
+2. Use a managed secrets store for the `pg_cle` connection and `legal-summarizer-service` credentials
+3. Enable encryption at rest for the `cle_v2` Postgres instance
 4. Implement VPC for Airflow deployment
 5. Add API rate limiting and authentication
 
@@ -346,9 +305,8 @@ bucket-name/
 ### Scaling Options
 1. **Horizontal Scaling**: Add more Airflow workers
 2. **Vertical Scaling**: Increase worker resources
-3. **Database Scaling**: Use DynamoDB auto-scaling
-4. **Storage Scaling**: S3 scales automatically
-5. **Processing Optimization**: Increase parallelization level
+3. **Database Scaling**: Standard Postgres scaling (read replicas, connection pooling) for `cle_v2`
+4. **Processing Optimization**: Increase parallelization level
 
 ## Monitoring and Observability
 
@@ -360,7 +318,7 @@ bucket-name/
 ### Recommended Additions
 1. Prometheus for metrics collection
 2. Grafana for visualization
-3. CloudWatch for AWS service monitoring
+3. Postgres query/connection monitoring (`pg_stat_statements`, connection pool metrics)
 4. Structured logging with ELK stack
 5. Alerting for pipeline failures
 

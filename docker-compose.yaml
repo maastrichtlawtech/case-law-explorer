@@ -102,6 +102,28 @@ services:
       start_period: 5s
     restart: always
 
+  # Local target for the pg_cle Airflow connection (issue #42) -- separate
+  # from the `postgres` service above, which is Airflow's own metadata DB.
+  # Not part of airflow-common-depends-on: the DAGs that use it fail their
+  # own tasks if it's unreachable, same as any other external connection.
+  cle-postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: cle
+      POSTGRES_PASSWORD: cle
+      POSTGRES_DB: cle_v2
+    volumes:
+      - cle-postgres-db-volume:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cle"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
@@ -287,3 +309,4 @@ services:
 
 volumes:
   postgres-db-volume:
+  cle-postgres-db-volume:

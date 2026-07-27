@@ -90,9 +90,26 @@ At the end, the `data_transformer.py` script, similarly to the extraction script
 
 # Load
 
-After its transformation and cleaning, your data is ready to be loaded into DynamoDB domains. The `data_loader.py` script will initialize instances for `DynamoDBClient` with the right environmental variables, as described in the [GraphQL API walkthrough](graphql/?id=setup). 
+> [!important] Postgres, not DynamoDB (issue #42)
+> As of issue #42, `data_loader.py` loads into the `cle_v2` Postgres schema instead of DynamoDB + S3. The DynamoDB key-schema tables that used to live in this section are gone -- see `db/schema.sql` (DDL) and `db/README.md` for the current schema.
 
-Add your **processed** file paths to the `input_paths` in the `data_loader.py` script and your **full-text** file paths to the `full_text_paths`:
+After its transformation and cleaning, your data is ready to be loaded. `data_loader.py` initializes a single `PostgresCLEClient` (`data_loading/clients/postgres.py`), which wraps the `pg_cle` Airflow connection.
+
+**One-time setup**, mirroring the existing `pg_lido` connection used by `airflow/dags/lido/`:
+
+```bash
+airflow connections add pg_cle \
+  --conn-type postgres \
+  --conn-host <host> \
+  --conn-schema cle_v2 \
+  --conn-login <user> \
+  --conn-password <password> \
+  --conn-port 5432
+```
+
+For local development, `docker-compose.yaml` includes a `cle-postgres` service (pgvector image, initialized from `db/schema.sql`) -- point `pg_cle` at `cle-postgres:5432` / `localhost:5433` from outside the compose network.
+
+Add your **processed** file paths to the `input_paths` in the `data_loader.py` script and your **full-text** file paths to the `full_text_paths`, same as before:
 
 ```python
 input_paths = [
@@ -106,45 +123,11 @@ input_paths = [
     ]
 ```
 
-The `data_loader.py` script will process each row of each file in the `input_paths` as follows:
+`data_loader.py` processes each row of each file in `input_paths` by:
 
-- Store the data on the row in the DynamoDB table.
+- Upserting into `cases` (keyed on whichever of `ecli` / `celex_id` / `item_id` the row has) to get a `case_id`.
+- Upserting the source-specific detail row (`rs_document` / `cjeu_document` / `echr_document`) keyed on that `case_id`.
+- Upserting full text (where available inline, e.g. Rechtspraak) into `case_text`.
 
-For the DynamoDB table, items are created from the input data to match the respective schema 
-and to determine, whether a new item should be loaded or an existing item should be updated. Define in the respective [row processor](https://github.com/maastrichtlawtech/case-law-explorer/tree/master/data_loading/row_processors) script,
-how each row of the new data source should be turned into items.
-
-The DynamoDB table contains a number of secondary indexes with the following key schema. For new data to be loaded successfully,
-row processors need to be defined that turn each input row to DynamoDB items following the below key schema (see [`data_loading/row_processors` reference](reference/row-processors)):
-
-**Primary table:**
-
-|                   | Name      | Type   | Values                                | Example                                         |
-|:------------------|:----------|:-------|:--------------------------------------|-------------------------------------------------|
-| **Partition key** | ecli      | String |                                       | ECLI&colon;NL&colon;RBLIM&colon;2014&colon;2011 |
-| **Sort key**      | ItemType  | String | {DATA, DOM_*domain*, DOM-LI_*domain*} | DOM_Civiel recht                                |
-
-
-**GSI-ItemType:**
-
-|                   | Name          | Type   | Values                                                                | Example           |
-|:------------------|:--------------|:-------|:----------------------------------------------------------------------|-------------------|
-| **Partition key** | ItemType      | String | {DATA, DOM_*domain*, DOM-LI_*domain*}                                 | DOM_Civiel recht  |
-| **Sort key**      | SourceDocDate | String | Source: {RS, ECHR, EURLEX} <br/>Doc: {DEC, OPI} <br/>Date: yyyy-mm-dd | RS_DEC_2006-10-30 |
-
-**GSI-instance:**
-
-|                   | Name          | Type   | Values                                                                | Example           |
-|:------------------|:--------------|:-------|:----------------------------------------------------------------------|-------------------|
-| **Partition key** | instance      | String |                                                                       | Hoge Raad         |
-| **Sort key**      | SourceDocDate | String | Source: {RS, ECHR, EURLEX} <br/>Doc: {DEC, OPI} <br/>Date: yyyy-mm-dd | RS_DEC_2006-10-30 |
-
-
-**GSI-instance_li:**
-
-|                   | Name          | Type   | Values                                                                | Example           |
-|:------------------|:--------------|:-------|:----------------------------------------------------------------------|-------------------|
-| **Partition key** | instance_li   | String |                                                                       | Hoge Raad         |
-| **Sort key**      | SourceDocDate | String | Source: {RS, ECHR, EURLEX} <br/>Doc: {DEC, OPI} <br/>Date: yyyy-mm-dd | RS_DEC_2006-10-30 |
-
+Define how each new data source's row maps to columns in the respective [row processor](https://github.com/maastrichtlawtech/case-law-explorer/tree/master/airflow/dags/data_loading/row_processors) (`row_processors/postgres.py`) -- one class per source (`PostgresRSProcessor`, `PostgresCelexProcessor`, `PostgresItemIdProcessor`), each calling `PostgresCLEClient.upsert_case()` + `.upsert()` for its detail table. Full text and citation-graph edges arriving as separate files (Cellar/ECHR) are loaded afterwards by `case_text_loader.py` and `citation_graph_loader.py` respectively, resolving `case_id` by `celex`/`item_id`/`ecli` via `PostgresCLEClient.resolve_case_id()`.
 
