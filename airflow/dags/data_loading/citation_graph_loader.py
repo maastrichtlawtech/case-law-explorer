@@ -74,4 +74,5 @@ def load_citation_graph(client) -> None:
 if __name__ == "__main__":
     from clients.postgres import PostgresCLEClient
 
-    load_citation_graph(PostgresCLEClient())
+    with PostgresCLEClient() as client:
+        load_citation_graph(client)
