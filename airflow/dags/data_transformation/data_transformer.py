@@ -7,7 +7,8 @@ import logging
 import sys
 import time
 from csv import DictReader, DictWriter
-from os.path import abspath, basename, dirname, exists
+from os import makedirs
+from os.path import abspath, basename, dirname, exists, join
 
 from data_transformation.utils import (
     format_cellar_celex,
@@ -33,7 +34,8 @@ from definitions.storage_handler import (
 sys.path.append(dirname(dirname(abspath(__file__))))
 
 """
-Define tool_maps
+Per-source column-rename maps (field) and value-cleaning functions (tool),
+keyed by caselaw type.
 """
 tool_map_rs = {
     "language": format_jurisdiction,
@@ -53,22 +55,33 @@ tool_map_cellar = {
     "CELEX IDENTIFIER": format_cellar_celex,
 }
 tool_map_echr = {"judgementdate": format_echr_date}
-tool_maps = {
-    get_path_raw(CSV_RS_CASES): tool_map_rs,
-    get_path_raw(CSV_CELLAR_CASES): tool_map_cellar,
-    get_path_raw(CSV_ECHR_CASES): tool_map_echr,
-}
 
-field_maps = {
-    get_path_raw(CSV_RS_CASES): MAP_RS,
-    get_path_raw(CSV_CELLAR_CASES): MAP_CELLAR,
-    get_path_raw(CSV_ECHR_CASES): MAP_ECHR,
+SOURCE_MAPS = {
+    "RS": (MAP_RS, tool_map_rs),
+    "CELLAR": (MAP_CELLAR, tool_map_cellar),
+    "ECHR": (MAP_ECHR, tool_map_echr),
 }
 
 
-def transform_data(caselaw_type=None, input_paths=None):
+def _infer_caselaw_type(file_name):
+    """Map an input file name to its caselaw type via the known source file names."""
+    if file_name == CSV_CELLAR_CASES:
+        return "CELLAR"
+    if file_name == CSV_ECHR_CASES:
+        return "ECHR"
+    return "RS"
+
+
+def transform_data(caselaw_type=None, input_paths=None, output_dir=None):
     """
-    Start processing
+    Transform raw per-source CSVs into the unified processed format.
+
+    caselaw_type: 'RS' | 'CELLAR' | 'ECHR'; inferred from each file name
+        when omitted.
+    output_dir: directory for the *_clean.csv outputs. Defaults to the
+        global processed dir; monthly ETL tasks pass a month-scoped dir so
+        parallel tasks never share output files.
+    Returns the list of written output paths.
     """
     start = time.time()
     if input_paths is None:
@@ -88,19 +101,19 @@ def transform_data(caselaw_type=None, input_paths=None):
     )
     # run data transformation for each input file
     Storage()  # ensure the data directory tree exists
+    output_paths = []
     for input_path in input_paths:
         if not exists(input_path):
             logging.warning(f"No such file found as {input_path}")
             continue
         file_name = basename(input_path)
-        output_path = get_path_processed(file_name)
-        logging.info(f"--- START {file_name} ---")
-        if caselaw_type == "RS":
-            field_map = MAP_RS
-            tool_map = tool_map_rs
+        if output_dir is not None:
+            makedirs(output_dir, exist_ok=True)
+            output_path = join(output_dir, file_name.split(".csv")[0] + "_clean.csv")
         else:
-            field_map = field_maps[input_path]
-            tool_map = tool_maps[input_path]
+            output_path = get_path_processed(file_name)
+        logging.info(f"--- START {file_name} ---")
+        field_map, tool_map = SOURCE_MAPS[caselaw_type or _infer_caselaw_type(file_name)]
         # overwrite any previous output for this file: keeping a stale
         # processed CSV around means the loader re-ingests old data
         with open(output_path, "w", newline="", encoding="utf-8") as out_file:
@@ -129,11 +142,12 @@ def transform_data(caselaw_type=None, input_paths=None):
                     ):
                         row_clean = {k: v for k, v in row_clean.items() if v is not None}
                         writer.writerow(row_clean)
+        output_paths.append(output_path)
     end = time.time()
     logging.info("--- DONE ---")
     logging.info(f"Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
+    return output_paths
 
 
 if __name__ == "__main__":
-    # giving arguments to the funtion
     transform_data()
