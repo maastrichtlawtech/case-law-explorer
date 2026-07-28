@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from airflow.operators.python import PythonOperator
-from segmentation.dag import CASE_SEGMENTS_DATASET
+from segmentation.config import CASE_SEGMENTS_DATASET
 from summarization.tasks.call_summarization_api import call_summarization_api
 from summarization.tasks.fetch_cases_needing_summary import fetch_cases_needing_summary
 from summarization.tasks.write_summary import write_summary

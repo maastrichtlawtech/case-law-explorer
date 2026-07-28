@@ -1,14 +1,12 @@
 from datetime import datetime, timedelta
 
-from airflow.datasets import Dataset
 from airflow.operators.python import PythonOperator
+from segmentation.config import CASE_SEGMENTS_DATASET
 from segmentation.tasks.call_segmentation_api import call_segmentation_api
 from segmentation.tasks.fetch_unsegmented_cases import fetch_unsegmented_cases
 from segmentation.tasks.write_segments import write_segments
 
 from airflow import DAG
-
-CASE_SEGMENTS_DATASET = Dataset("cle_v2://case_segment")
 
 default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=5)}
 
