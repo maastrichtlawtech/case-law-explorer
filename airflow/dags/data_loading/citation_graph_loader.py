@@ -12,6 +12,7 @@ Edge file format (one per line): "<source_identifier>,<target_identifier>"
 """
 
 import os
+from contextlib import suppress
 
 from definitions.storage_handler import (
     TXT_CELLAR_EDGES,
@@ -61,12 +62,19 @@ def _load_edge_file(client, filename: str, target_key: str, source_dataset: str)
             )
             loaded += 1
 
-    os.remove(path)
+    # another task may have consumed the file concurrently; upserts are
+    # idempotent, so a double-read is harmless and a missing file is fine
+    with suppress(FileNotFoundError):
+        os.remove(path)
     return loaded
 
 
-def load_citation_graph(client) -> None:
+def load_citation_graph(client, sources=None) -> None:
+    """Load edge files into case_citation. sources limits which datasets'
+    edge files are read ('EURLEX', 'ECHR'); None means all."""
     for filename, target_key, source_dataset in CELLAR_EDGE_FILES + ECHR_EDGE_FILES:
+        if sources is not None and source_dataset not in sources:
+            continue
         loaded = _load_edge_file(client, filename, target_key, source_dataset)
         print(f"{loaded} citation edges loaded from {filename}")
 

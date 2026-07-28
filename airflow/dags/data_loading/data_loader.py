@@ -40,7 +40,29 @@ signed_limit = 2 ** (bit_size - 1)
 csv.field_size_limit(signed_limit - 1 if signed else 2 * signed_limit - 1)
 
 
-def load_data(input_paths=None):
+def _processor_for(input_path, client):
+    """Pick the row processor from the file name (works for both the global
+    processed paths and month-scoped ones)."""
+    name = basename(input_path)
+    if name.startswith(CSV_CELLAR_CASES.split(".csv")[0]):
+        return PostgresCelexProcessor(input_path, client)
+    if name.startswith(CSV_ECHR_CASES.split(".csv")[0]):
+        return PostgresItemIdProcessor(input_path, client)
+    return PostgresRSProcessor(input_path, client)
+
+
+def load_data(input_paths=None, full_text_paths=None, citation_sources=None):
+    """
+    Load processed CSVs (and optionally full-text JSONs + citation edge
+    files) into Postgres.
+
+    input_paths: processed *_clean.csv files; defaults to the three global
+        processed paths.
+    full_text_paths: full-text JSON files to load; defaults to both the
+        Cellar and ECHR globals. Pass [] to skip.
+    citation_sources: which edge-file sets to load ('EURLEX', 'ECHR');
+        defaults to both. Pass [] to skip.
+    """
     start = time.time()
     if input_paths is None:
         input_paths = [
@@ -48,7 +70,8 @@ def load_data(input_paths=None):
             get_path_processed(CSV_ECHR_CASES),
             get_path_processed(CSV_CELLAR_CASES),
         ]
-    full_text_paths = [JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR]
+    if full_text_paths is None:
+        full_text_paths = [JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR]
     print("INPUT/OUTPUT DATA STORAGE FOR METADATA + FULL TEXT + CITATIONS: Postgres (cle_v2)")
     print("INPUT:\t\t\t\t", [basename(input_path) for input_path in input_paths])
 
@@ -57,18 +80,11 @@ def load_data(input_paths=None):
             if not os.path.exists(input_path):
                 print(f"FILE {input_path} DOES NOT EXIST")
                 continue
-            print(f"\n--- PREPARATION {basename(input_path)} ---\n")
             print(f"\n--- START {basename(input_path)} ---\n")
-            print(f"Processing {input_path} ...")
 
             case_counter = 0
             row_counter = 0
-            if get_path_processed(CSV_CELLAR_CASES) in input_path:
-                row_processor = PostgresCelexProcessor(input_path, client)
-            elif get_path_processed(CSV_ECHR_CASES) in input_path:
-                row_processor = PostgresItemIdProcessor(input_path, client)
-            else:
-                row_processor = PostgresRSProcessor(input_path, client)
+            row_processor = _processor_for(input_path, client)
 
             with open(input_path, "r", newline="", encoding="utf8") as in_file:
                 reader = DictReader(in_file)
@@ -78,8 +94,10 @@ def load_data(input_paths=None):
 
             print(f"{case_counter} cases processed ({row_counter} rows upserted).")
 
-        load_fulltext(client, full_text_paths)
-        load_citation_graph(client)
+        if full_text_paths:
+            load_fulltext(client, full_text_paths)
+        if citation_sources is None or citation_sources:
+            load_citation_graph(client, sources=citation_sources)
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(end - start)))

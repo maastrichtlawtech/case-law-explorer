@@ -9,6 +9,7 @@ longer needed -- this reads the same JSON files and upserts each entry.
 
 import json
 import os
+from contextlib import suppress
 
 from definitions.storage_handler import JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR
 
@@ -52,7 +53,10 @@ def load_fulltext(client, files_location_paths: list) -> None:
                 loaded += 1
 
         print(f"{loaded}/{len(data)} full-text records loaded from {os.path.basename(file_location_path)}")
-        os.remove(file_location_path)
+        # another task may have consumed the file concurrently; upserts are
+        # idempotent, so a double-read is harmless and a missing file is fine
+        with suppress(FileNotFoundError):
+            os.remove(file_location_path)
 
 
 if __name__ == "__main__":
