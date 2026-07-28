@@ -23,14 +23,6 @@ from definitions.storage_handler import (
 
 from airflow import DAG
 
-# Disable SSL verification globally
-# This is necessary for cellar extraction to work with certain SSL configurations
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
-ssl._create_default_https_context = ssl._create_unverified_context
-
-# Import Cellar extraction function
-
-
 default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=2)}
 
 dag = DAG(
@@ -59,7 +51,11 @@ def cellar_etl(**kwargs):
     logging.info(f"Starting Cellar ETL for {start_date} to {end_date}")
     start_time = time.time()
 
-    # Disable SSL verification for this ETL run
+    # Disable SSL verification for this task only: the CELLAR endpoint's
+    # certificate chain fails validation from some networks. Runs inside the
+    # forked task process, so other DAGs' HTTPS calls keep verification.
+    urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+    ssl._create_default_https_context = ssl._create_unverified_context
     os.environ["REQUESTS_CA_BUNDLE"] = ""
     os.environ["CURL_CA_BUNDLE"] = ""
 
