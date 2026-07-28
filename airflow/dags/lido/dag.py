@@ -49,8 +49,7 @@ with DAG(
     "lido_postgres",
     default_args=default_args,
     description="Update postgresdb with data from lido export on data.overheid.nl",
-    # schedule_interval='0 0 8 * *', # every month on the 8th at mindnight
-    schedule_interval=None,  # every month on the 8th at mindnight
+    schedule=None,  # cron suggestion: '0 0 8 * *' (every month on the 8th at midnight)
     start_date=datetime(2025, 6, 1),
     tags=["caselaw", "lido"],
 ) as dag:

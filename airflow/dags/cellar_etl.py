@@ -16,7 +16,7 @@ dag = DAG(
     description="Cellar ETL with monthly task groups",
     start_date=datetime(2025, 1, 1),
     catchup=False,
-    schedule_interval=None,
+    schedule=None,
 )
 
 

@@ -15,7 +15,7 @@ with DAG(
     default_args=default_args,
     description="Segment case full text via legal-summarizer-service, write cle_v2.case_segment",
     start_date=datetime(2026, 1, 1),
-    schedule_interval=None,  # triggered after the *_etl DAGs, same pattern as echr_db_setup.py
+    schedule=None,  # triggered after the *_etl DAGs, same pattern as echr_db_setup.py
     catchup=False,
     tags=["caselaw", "summarization"],
 ) as dag:

@@ -20,7 +20,7 @@ dag = DAG(
     description="Update citation details in Postgres (cle_v2)",
     catchup=False,
     start_date=datetime(2025, 1, 1),
-    schedule_interval=None,
+    schedule=None,
 )
 
 
