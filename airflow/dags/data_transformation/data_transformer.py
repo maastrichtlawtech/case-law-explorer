@@ -9,8 +9,18 @@ import time
 from csv import DictReader, DictWriter
 from os.path import abspath, basename, dirname, exists
 
-from data_transformation.utils import *
-from definitions.mappings.attribute_name_maps import *
+from data_transformation.utils import (
+    format_cellar_celex,
+    format_cellar_year,
+    format_domains,
+    format_echr_date,
+    format_instance,
+    format_jurisdiction,
+    format_rs_alt_sources,
+    format_rs_list,
+    format_rs_xml,
+)
+from definitions.mappings.attribute_name_maps import MAP_CELLAR, MAP_ECHR, MAP_RS
 from definitions.storage_handler import (
     CSV_CELLAR_CASES,
     CSV_ECHR_CASES,

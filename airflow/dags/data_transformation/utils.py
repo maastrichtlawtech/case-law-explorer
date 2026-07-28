@@ -5,7 +5,7 @@ from ctypes import c_long, sizeof
 
 import dateutil.parser
 import pandas as pd
-from definitions.mappings.attribute_value_maps import *
+from definitions.mappings.attribute_value_maps import MAP_INSTANCE, MAP_JURISDICTION
 from definitions.terminology.attribute_names import ECLI
 from definitions.terminology.attribute_values import Domain
 from lxml import etree
@@ -39,15 +39,6 @@ def format_rs_list(text):
     return "; ".join(i for i in set(text.split(", ")))
 
 
-# converts LI list notation: "['item1', 'item2', 'item3']"
-# to unified list notation: 'item1; item2; item3'
-def format_li_list(text):
-    repl = {"', '": "; ", "['": "", "']": ""}
-    for i, j in repl.items():
-        text = text.replace(i, j)
-    return text
-
-
 def format_cellar_celex(celex):
     if ";" in celex:
         separate = celex.split(sep=";")
@@ -64,12 +55,6 @@ def format_rs_date(text):
     return dateutil.parser.parse(text).date()
 
 
-# converts string representation of a date into datetime
-# from original LI date format YYYYMMDD or YYYYMMDD.0 (if numeric date was accidentally stored as float)
-def format_li_date(text):
-    return dateutil.parser.parse(str(int(float(text)))).date()
-
-
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original ECHR date format DD-MM-YYYY
 def format_echr_date(text):
@@ -80,15 +65,6 @@ def format_domains(text):
     if len(text.split("; ")) == 1:
         text += "; " + text + "-" + Domain.ALGEMEEN_OVERIG_NIED_GELABELD.value
     return text
-
-
-def format_li_domains(text):
-    clean = format_li_list(text)
-    domains = set()
-    for domain in set(clean.split("; ")):
-        domains = domains.union(MAP_LI_DOMAINS[domain])
-    domains_str = format_li_list(str(list(domains)))
-    return format_domains(domains_str)
 
 
 def format_cellar_year(text):
