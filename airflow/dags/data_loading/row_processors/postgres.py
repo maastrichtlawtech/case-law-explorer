@@ -1,3 +1,5 @@
+import logging
+
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
@@ -44,7 +46,7 @@ from definitions.terminology.attribute_names import (
     SOURCE,
 )
 
-SET_SEP = "; "  # used to separate set items in string (matches row_processors/dynamodb.py)
+SET_SEP = "; "  # used to separate set items in string
 
 
 def _split_set(value):
@@ -53,160 +55,215 @@ def _split_set(value):
     return [v for v in value.split(SET_SEP) if v]
 
 
-class PostgresRSProcessor:
+class _BaseRowProcessor:
+    """
+    Shared upsert logic for one processed CSV. Subclasses declare their
+    natural key and cle_v2 detail table, plus the dict shapes for the
+    cases / detail / case_text rows; this class provides both the
+    row-at-a-time path (upload_row) and the batched path (upload_rows,
+    one multi-row statement per table per batch).
+    """
+
+    key_field = None  # processed-CSV column holding the natural key
+    conflict_col = None  # matching cle_v2.cases conflict column
+    detail_table = None
+    detail_conflict_cols = ["case_id"]
+
+    def __init__(self, path, client):
+        self.path = path
+        self.client = client
+
+    def _key(self, row):
+        return row.get(self.key_field)
+
+    def _case_row(self, row):
+        raise NotImplementedError
+
+    def _detail_row(self, row, case_id):
+        raise NotImplementedError
+
+    def _text_row(self, row, case_id):
+        return None
+
+    def _log_failure(self, key, error):
+        logging.error(f"{error} {key} ; while upserting {self.detail_table} row into Postgres")
+        with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
+            f.write(f"{key}\n{error}\n")
+
+    def upload_row(self, row: dict) -> int:
+        key = self._key(row)
+        if not key:
+            logging.warning(f"NO {self.key_field} FOUND, skipping row")
+            return 0
+        try:
+            with self.client.transaction():
+                case_id = self.client.upsert_case(**self._case_row(row))
+                self.client.upsert(
+                    table=self.detail_table,
+                    conflict_cols=self.detail_conflict_cols,
+                    values=self._detail_row(row, case_id),
+                )
+                text_row = self._text_row(row, case_id)
+                if text_row is not None:
+                    self.client.upsert_case_text(**text_row)
+            return 1
+        except Exception as e:
+            self._log_failure(key, e)
+            return 0
+
+    def upload_rows(self, rows: list) -> int:
+        """
+        Batched variant: one bulk statement each for cases, the detail
+        table, and case_text. Rows sharing a natural key are collapsed to
+        the last occurrence (a single multi-row INSERT cannot touch the
+        same row twice). Falls back to row-by-row on failure so one bad
+        row doesn't discard the batch.
+        """
+        by_key = {}
+        for row in rows:
+            key = self._key(row)
+            if not key:
+                logging.warning(f"NO {self.key_field} FOUND, skipping row")
+                continue
+            by_key[key] = row
+        valid = list(by_key.values())
+        if not valid:
+            return 0
+
+        try:
+            with self.client.transaction():
+                case_ids = self.client.bulk_upsert_cases(
+                    self.conflict_col, [self._case_row(row) for row in valid]
+                )
+                self.client.bulk_upsert(
+                    self.detail_table,
+                    self.detail_conflict_cols,
+                    [self._detail_row(row, case_ids[self._key(row)]) for row in valid],
+                )
+                text_rows = [
+                    text_row
+                    for row in valid
+                    if (text_row := self._text_row(row, case_ids[self._key(row)])) is not None
+                ]
+                if text_rows:
+                    self.client.bulk_upsert_case_text(text_rows)
+            return len(valid)
+        except Exception:
+            logging.exception(
+                f"Bulk upsert of {len(valid)} rows into {self.detail_table} failed; "
+                "retrying row by row"
+            )
+            return sum(self.upload_row(row) for row in valid)
+
+
+class PostgresRSProcessor(_BaseRowProcessor):
     """Rechtspraak rows -> cle_v2.cases + cle_v2.rs_document + cle_v2.case_text."""
 
-    def __init__(self, path, client):
-        self.path = path
-        self.client = client
+    key_field = ECLI
+    conflict_col = "ecli"
+    detail_table = "rs_document"
 
-    def upload_row(self, row: dict) -> int:
-        if ECLI not in row or not row[ECLI]:
-            print("NO ECLI FOUND")
-            return 0
+    def _case_row(self, row):
+        return {
+            "ecli": row[ECLI],
+            "title": row.get(RS_TITLE),
+            "date_decision": row.get(RS_DATE) or None,
+            "source": row.get(SOURCE, "Rechtspraak"),
+        }
 
-        try:
-            with self.client.transaction():
-                case_id = self.client.upsert_case(
-                    ecli=row[ECLI],
-                    title=row.get(RS_TITLE),
-                    date_decision=row.get(RS_DATE) or None,
-                    source=row.get(SOURCE, "Rechtspraak"),
-                )
+    def _detail_row(self, row, case_id):
+        return {
+            "case_id": case_id,
+            "date_decision": row.get(RS_DATE) or None,
+            "document_type": row.get(RS_TYPE),
+            "instance": row.get(RS_CREATOR),
+            "domains": _split_set(row.get(RS_SUBJECT)),
+            "source": row.get(SOURCE, "Rechtspraak"),
+            "jurisdiction_country": row.get(JURISDICTION_COUNTRY, "NL"),
+            "procedure_type": row.get(RS_PROCEDURE),
+            "url_publication": row.get(RS_IDENTIFIER2),
+            "legal_provisions": _split_set(row.get(RS_REFERENCES)),
+            "predecessor_successor_cases": row.get(RS_RELATION),
+            "date_published": row.get(RS_ISSUED) or None,
+            "title": row.get(RS_TITLE),
+            "language": row.get(RS_LANGUAGE),
+            "zittingsplaats": row.get(RS_SPATIAL),
+            "zaaknummer": row.get(RS_ZAAKNUMMER),
+        }
 
-                self.client.upsert(
-                    table="rs_document",
-                    conflict_cols=["case_id"],
-                    values={
-                        "case_id": case_id,
-                        "date_decision": row.get(RS_DATE) or None,
-                        "document_type": row.get(RS_TYPE),
-                        "instance": row.get(RS_CREATOR),
-                        "domains": _split_set(row.get(RS_SUBJECT)),
-                        "source": row.get(SOURCE, "Rechtspraak"),
-                        "jurisdiction_country": row.get(JURISDICTION_COUNTRY, "NL"),
-                        "procedure_type": row.get(RS_PROCEDURE),
-                        "url_publication": row.get(RS_IDENTIFIER2),
-                        "legal_provisions": _split_set(row.get(RS_REFERENCES)),
-                        "predecessor_successor_cases": row.get(RS_RELATION),
-                        "date_published": row.get(RS_ISSUED) or None,
-                        "title": row.get(RS_TITLE),
-                        "language": row.get(RS_LANGUAGE),
-                        "zittingsplaats": row.get(RS_SPATIAL),
-                        "zaaknummer": row.get(RS_ZAAKNUMMER),
-                    },
-                )
-
-                self.client.upsert_case_text(
-                    case_id=case_id,
-                    language=row.get(RS_LANGUAGE, "nl"),
-                    source="RECHTSPRAAK",
-                    fulltext=row.get(RS_FULL_TEXT),
-                    summary=row.get(RS_INHOUDSINDICATIE) or row.get(RS_SUMMARY),
-                    summary_source="rechtspraak",
-                )
-            return 1
-        except Exception as e:
-            print(e, row.get(ECLI), "; while upserting RS row into Postgres")
-            with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
-                f.write(str(row.get(ECLI)) + "\n")
-                f.write(str(e) + "\n")
-            return 0
+    def _text_row(self, row, case_id):
+        return {
+            "case_id": case_id,
+            "language": row.get(RS_LANGUAGE, "nl"),
+            "source": "RECHTSPRAAK",
+            "fulltext": row.get(RS_FULL_TEXT),
+            "summary": row.get(RS_INHOUDSINDICATIE) or row.get(RS_SUMMARY),
+            "summary_source": "rechtspraak",
+        }
 
 
-class PostgresCelexProcessor:
+class PostgresCelexProcessor(_BaseRowProcessor):
     """Cellar/CJEU rows -> cle_v2.cases + cle_v2.cjeu_document. Full text loaded separately (case_text_loader.py)."""
 
-    def __init__(self, path, client):
-        self.path = path
-        self.client = client
+    key_field = CELLAR_CELEX
+    conflict_col = "celex_id"
+    detail_table = "cjeu_document"
 
-    def upload_row(self, row: dict) -> int:
-        if CELLAR_CELEX not in row or not row[CELLAR_CELEX]:
-            print("NO CELEX FOUND")
-            return 0
+    def _case_row(self, row):
+        return {
+            "celex_id": row[CELLAR_CELEX],
+            # no dedicated title field extracted for Cellar cases today
+            "date_decision": row.get(CELLAR_DATE_OF_DOCUMENT) or None,
+            "source": "EURLEX",
+        }
 
-        try:
-            with self.client.transaction():
-                case_id = self.client.upsert_case(
-                    celex_id=row[CELLAR_CELEX],
-                    # no dedicated title field extracted for Cellar cases today
-                    date_decision=row.get(CELLAR_DATE_OF_DOCUMENT) or None,
-                    source="EURLEX",
-                )
-
-                self.client.upsert(
-                    table="cjeu_document",
-                    conflict_cols=["case_id"],
-                    values={
-                        "case_id": case_id,
-                        "celex_id": row.get(CELLAR_CELEX),
-                        "sector": row.get(CELLAR_SECTOR),
-                        "proc_type": row.get(CELLAR_TYPE_PROCEDURE),
-                        # best available proxy for date_lodged; CELLAR extraction doesn't
-                        # capture a distinct "lodged" date today
-                        "date_lodged": row.get(CELLAR_CREATION_OF_WORK) or None,
-                        "journal_refs": row.get(CELLAR_JOURNAL_ARTICLES),
-                        "citations_extra_info": row.get(CELLAR_CITATIONS_EXTRA_INFO),
-                    },
-                )
-            return 1
-        except Exception as e:
-            print(e, row.get(CELLAR_CELEX), "; while upserting Cellar row into Postgres")
-            with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
-                f.write(str(row.get(CELLAR_CELEX)) + "\n")
-                f.write(str(e) + "\n")
-            return 0
+    def _detail_row(self, row, case_id):
+        return {
+            "case_id": case_id,
+            "celex_id": row.get(CELLAR_CELEX),
+            "sector": row.get(CELLAR_SECTOR),
+            "proc_type": row.get(CELLAR_TYPE_PROCEDURE),
+            # best available proxy for date_lodged; CELLAR extraction doesn't
+            # capture a distinct "lodged" date today
+            "date_lodged": row.get(CELLAR_CREATION_OF_WORK) or None,
+            "journal_refs": row.get(CELLAR_JOURNAL_ARTICLES),
+            "citations_extra_info": row.get(CELLAR_CITATIONS_EXTRA_INFO),
+        }
 
 
-class PostgresItemIdProcessor:
+class PostgresItemIdProcessor(_BaseRowProcessor):
     """ECHR rows -> cle_v2.cases + cle_v2.echr_document. Full text loaded separately (case_text_loader.py)."""
 
-    def __init__(self, path, client):
-        self.path = path
-        self.client = client
+    key_field = ECHR_DOCUMENT_ID
+    conflict_col = "item_id"
+    detail_table = "echr_document"
+    detail_conflict_cols = ["item_id"]
 
-    def upload_row(self, row: dict) -> int:
-        if ECHR_DOCUMENT_ID not in row or not row[ECHR_DOCUMENT_ID]:
-            print("NO DOCUMENT ID FOUND")
-            return 0
+    def _case_row(self, row):
+        return {
+            "item_id": row[ECHR_DOCUMENT_ID],
+            "title": row.get(ECHR_TITLE),
+            "date_decision": row.get(ECHR_JUDGMENT_DATE) or None,
+            "source": "HUDOC",
+        }
 
-        try:
-            with self.client.transaction():
-                case_id = self.client.upsert_case(
-                    item_id=row[ECHR_DOCUMENT_ID],
-                    title=row.get(ECHR_TITLE),
-                    date_decision=row.get(ECHR_JUDGMENT_DATE) or None,
-                    source="HUDOC",
-                )
-
-                self.client.upsert(
-                    table="echr_document",
-                    conflict_cols=["item_id"],
-                    values={
-                        "item_id": row[ECHR_DOCUMENT_ID],
-                        "case_id": case_id,
-                        "language": row.get(ECHR_LANGUAGE, "en"),
-                        "extractedappno": row.get(ECHR_PARTICIPANTS),
-                        "docname": row.get(ECHR_TITLE),
-                        "doctype": row.get(ECHR_DOCUMENT_TYPE),
-                        "doctype_branch": row.get(ECHR_BRANCH),
-                        "judgement_date": row.get(ECHR_JUDGMENT_DATE) or None,
-                        "conclusion": row.get(ECHR_CONCLUSION),
-                        "violation": row.get(ECHR_VIOLATIONS),
-                        "nonviolation": row.get(ECHR_NON_VIOLATIONS),
-                        "respondent": row.get(ECHR_RESPONDENT),
-                        "represented_by": row.get(ECHR_REPRESENTATION),
-                        "published_by": row.get(ECHR_PUBLISHED_BY),
-                        "applicability": row.get(ECHR_APPLICABILITY),
-                        "separate_opinion": row.get(ECHR_SEPARATE_OPINION),
-                        "importance": row.get(ECHR_IMPORTANCE) or None,
-                    },
-                )
-            return 1
-        except Exception as e:
-            print(e, row.get(ECHR_DOCUMENT_ID), "; while upserting ECHR row into Postgres")
-            with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
-                f.write(str(row.get(ECHR_DOCUMENT_ID)) + "\n")
-                f.write(str(e) + "\n")
-            return 0
+    def _detail_row(self, row, case_id):
+        return {
+            "item_id": row[ECHR_DOCUMENT_ID],
+            "case_id": case_id,
+            "language": row.get(ECHR_LANGUAGE, "en"),
+            "extractedappno": row.get(ECHR_PARTICIPANTS),
+            "docname": row.get(ECHR_TITLE),
+            "doctype": row.get(ECHR_DOCUMENT_TYPE),
+            "doctype_branch": row.get(ECHR_BRANCH),
+            "judgement_date": row.get(ECHR_JUDGMENT_DATE) or None,
+            "conclusion": row.get(ECHR_CONCLUSION),
+            "violation": row.get(ECHR_VIOLATIONS),
+            "nonviolation": row.get(ECHR_NON_VIOLATIONS),
+            "respondent": row.get(ECHR_RESPONDENT),
+            "represented_by": row.get(ECHR_REPRESENTATION),
+            "published_by": row.get(ECHR_PUBLISHED_BY),
+            "applicability": row.get(ECHR_APPLICABILITY),
+            "separate_opinion": row.get(ECHR_SEPARATE_OPINION),
+            "importance": row.get(ECHR_IMPORTANCE) or None,
+        }

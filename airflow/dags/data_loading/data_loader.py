@@ -39,6 +39,9 @@ bit_size = sizeof(c_long) * 8
 signed_limit = 2 ** (bit_size - 1)
 csv.field_size_limit(signed_limit - 1 if signed else 2 * signed_limit - 1)
 
+# rows per multi-row upsert statement; one commit per batch
+BATCH_SIZE = int(os.getenv("LOAD_BATCH_SIZE", "500"))
+
 
 def _processor_for(input_path, client):
     """Pick the row processor from the file name (works for both the global
@@ -90,9 +93,15 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edg
 
             with open(input_path, "r", newline="", encoding="utf8") as in_file:
                 reader = DictReader(in_file)
+                batch = []
                 for row in tqdm(reader, desc="Processing rows", unit="rows"):
-                    row_counter += row_processor.upload_row(row)
+                    batch.append(row)
                     case_counter += 1
+                    if len(batch) >= BATCH_SIZE:
+                        row_counter += row_processor.upload_rows(batch)
+                        batch = []
+                if batch:
+                    row_counter += row_processor.upload_rows(batch)
 
             print(f"{case_counter} cases processed ({row_counter} rows upserted).")
 
