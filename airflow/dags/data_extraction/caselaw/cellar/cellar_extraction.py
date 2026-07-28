@@ -49,12 +49,17 @@ def _output_paths(output_dir):
     }
 
 
-def cellar_extract(args, output_dir=None) -> dict:
+def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     """
     Run the CELLAR extraction. Writes metadata CSV, full-text JSON, and
     node/edge txt files, and returns their paths. With no --starting-date,
     continues from the CELEX_LAST_DATE Airflow Variable.
     """
+    paths = _output_paths(output_dir)
+    if skip_if_exists and os.path.exists(paths["metadata"]):
+        logging.info(f"{paths['metadata']} exists, skipping extraction.")
+        return paths
+
     username = getenv("EURLEX_WEBSERVICE_USERNAME")
     password = getenv("EURLEX_WEBSERVICE_PASSWORD")
     if not username or not password:
@@ -78,7 +83,6 @@ def cellar_extract(args, output_dir=None) -> dict:
     # Airflow gives extra arguments ('celery worker'); ignore unknown args.
     args, unknown = parser.parse_known_args(args)
 
-    paths = _output_paths(output_dir)
     logging.info("--- PREPARATION ---")
     logging.info("OUTPUT:\t\t\t" + paths["metadata"])
     if output_dir:
