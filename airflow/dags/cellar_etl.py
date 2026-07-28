@@ -50,20 +50,6 @@ def get_month_end(_date):
     return datetime.strptime(str(_date_new.replace(day=last_day)), "%Y-%m-%d")
 
 
-def _store_dataframe_per_date(df, date, _filename, _path="data/processed/"):
-    """Store the dataframe for a specific date in a CSV file."""
-    date_str = date.strftime("%Y-%m-%d")
-    filename = f"{_filename}"
-    if df is None:
-        logging.info(f"No data to store for {date_str}")
-        return
-    filepath = os.path.join(_path, date_str, filename)
-    if not os.path.exists(filepath):
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    df.to_csv(filepath, index=False)
-    logging.info(f"Dataframe for {date_str} stored in {filepath}")
-
-
 def cellar_etl(**kwargs):
     """Main Cellar ETL function for a specific month"""
     start_date = kwargs["start_date"]

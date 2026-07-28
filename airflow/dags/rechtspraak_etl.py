@@ -12,8 +12,6 @@ from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import (
 from data_loading import data_loader
 from data_transformation import data_transformer
 from dotenv import find_dotenv, load_dotenv
-from rechtspraak_citations_extractor.citations_extractor import get_citations
-from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
 
 from airflow import DAG
 
@@ -36,47 +34,6 @@ def get_month_end(_date):
     last_day = monthrange(_date_new.year, _date_new.month)[1]
     # Convert to datetime and return
     return datetime.strptime(str(_date_new.replace(day=last_day)), "%Y-%m-%d")
-
-
-def _store_dataframe_per_date(df, date, _filename, _path="data/processed/"):
-    """
-    Store the dataframe for a specific date in a CSV file.
-    The filename is based on the date.
-    """
-    date_str = date.strftime("%Y-%m-%d")
-    filename = f"{_filename}"
-    if df is None:
-        logging.info(f"No data to store for {date_str}")
-        return
-    # Store in directory data/processed/date_str
-    filepath = os.path.join(_path, date_str, filename)
-    if not os.path.exists(filepath):
-        os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    # Store the dataframe in the CSV file
-    df.to_csv(filepath, index=False)
-    logging.info(f"Dataframe for {date_str} stored in {filepath}")
-
-
-def _get_citations(_dataframe, LIDO_USERNAME, LIDO_PASSWORD, _threads, _filepath=None):
-    """
-    Get the citations from the dataframe.
-    """
-    logging.info("Getting citations from metadata_extraction")
-    # Get citations from the metadata_extraction dataframe
-    final_df = get_citations(_dataframe, LIDO_USERNAME, LIDO_PASSWORD, _threads)
-    logging.info(f"Length of final_df: {len(final_df)}")
-    final_df.to_csv(_filepath, index=False)
-    return
-
-
-def _metadata_extraction(base_extraction, _fake_headers=True, data_dir="data/raw/"):
-    metadata_df = get_rechtspraak_metadata(
-        save_file="n",
-        dataframe=base_extraction,
-        _fake_headers=_fake_headers,
-        data_dir=data_dir,
-    )
-    return metadata_df
 
 
 def rechtspraak_etl(**kwargs):
