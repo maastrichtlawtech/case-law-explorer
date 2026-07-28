@@ -4,8 +4,7 @@ from calendar import monthrange
 from datetime import datetime, timedelta
 from airflow.models.variable import Variable
 from airflow.operators.python import PythonOperator
-
-# from airflow.operators.trigger_dagrun import TriggerDagRunOperator
+from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from airflow.utils.task_group import TaskGroup
 from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import (
     rechtspraak_extract,
@@ -177,10 +176,12 @@ def create_tasks():
 
 
 with dag:
-    create_tasks()
-    # initializer = PythonOperator(
-    #     task_id="initializer",
-    #     python_callable=create_tasks,
-    #     provide_context=True,
-    # )
-    # initializer
+    etl_tasks = create_tasks()
+
+    trigger_segmentation = TriggerDagRunOperator(
+        task_id="trigger_case_segmentation",
+        trigger_dag_id="case_segmentation",
+        wait_for_completion=False,
+    )
+
+    etl_tasks >> trigger_segmentation
