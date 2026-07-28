@@ -58,4 +58,5 @@ def load_fulltext(client, files_location_paths: list) -> None:
 if __name__ == "__main__":
     from clients.postgres import PostgresCLEClient
 
-    load_fulltext(PostgresCLEClient(), [JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR])
+    with PostgresCLEClient() as client:
+        load_fulltext(client, [JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR])
