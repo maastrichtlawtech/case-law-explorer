@@ -87,19 +87,13 @@ def transform_data(caselaw_type=None, input_paths=None):
         )
     )
     # run data transformation for each input file
+    Storage()  # ensure the data directory tree exists
     for input_path in input_paths:
-        storage = Storage()
         if not exists(input_path):
-            logging.info(f"No such file found as {input_path}")
+            logging.warning(f"No such file found as {input_path}")
             continue
         file_name = basename(input_path)
         output_path = get_path_processed(file_name)
-        logging.info(f"--- PREPARATION {file_name} ---")
-        try:
-            storage.setup_pipeline(output_paths=[output_path], input_path=input_path)
-        except Exception as e:
-            logging.info(e)
-            return
         logging.info(f"--- START {file_name} ---")
         if caselaw_type == "RS":
             field_map = MAP_RS
@@ -107,7 +101,9 @@ def transform_data(caselaw_type=None, input_paths=None):
         else:
             field_map = field_maps[input_path]
             tool_map = tool_maps[input_path]
-        with open(output_path, "a", newline="", encoding="utf-8") as out_file:
+        # overwrite any previous output for this file: keeping a stale
+        # processed CSV around means the loader re-ingests old data
+        with open(output_path, "w", newline="", encoding="utf-8") as out_file:
             writer = DictWriter(out_file, fieldnames=list(field_map.values()))
             writer.writeheader()
 
@@ -133,10 +129,9 @@ def transform_data(caselaw_type=None, input_paths=None):
                     ):
                         row_clean = {k: v for k, v in row_clean.items() if v is not None}
                         writer.writerow(row_clean)
-        # remove(input_path)
     end = time.time()
-    logging.info("\n--- DONE ---")
-    logging.info("Time taken: ", str(time.strftime("%H:%M:%S", time.gmtime(end - start))))
+    logging.info("--- DONE ---")
+    logging.info(f"Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
 
 
 if __name__ == "__main__":
