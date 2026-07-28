@@ -1,15 +1,16 @@
 """
-Main ECHR extraction routine. Used by the echr_extraction DAG.
+Main ECHR extraction routine. Used by the echr_etl DAG.
 """
 
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 from datetime import datetime
 from os import getenv
-from os.path import abspath, dirname
+from os.path import basename, join
 
 import echr_extractor as echr
 from airflow.models.variable import Variable
@@ -25,13 +26,36 @@ from dotenv import find_dotenv, load_dotenv
 
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
-sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 
 
-def echr_extract(args):
-    # set up the output path
+def _output_paths(output_dir):
+    """Extraction artifact paths: month-scoped under output_dir when given,
+    otherwise the legacy global raw-dir locations."""
+    if output_dir:
+        return {
+            "metadata": join(output_dir, CSV_ECHR_CASES),
+            "full_text": join(output_dir, basename(JSON_FULL_TEXT_ECHR)),
+            "nodes": join(output_dir, TXT_ECHR_NODES),
+            "edges": join(output_dir, TXT_ECHR_EDGES),
+        }
+    return {
+        "metadata": get_path_raw(CSV_ECHR_CASES),
+        "full_text": JSON_FULL_TEXT_ECHR,
+        "nodes": get_path_raw(TXT_ECHR_NODES),
+        "edges": get_path_raw(TXT_ECHR_EDGES),
+    }
 
-    output_path = get_path_raw(CSV_ECHR_CASES)
+
+def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
+    """
+    Run the ECHR extraction. Writes metadata CSV, full-text JSON, and
+    node/edge txt files, and returns their paths. With no --start-date,
+    continues from the ECHR_LAST_DATE Airflow Variable.
+    """
+    paths = _output_paths(output_dir)
+    if skip_if_exists and os.path.exists(paths["metadata"]):
+        logging.info(f"{paths['metadata']} exists, skipping extraction.")
+        return paths
 
     # set up script arguments
     parser = argparse.ArgumentParser()
@@ -90,22 +114,15 @@ def echr_extract(args):
     )
 
     args, unknown = parser.parse_known_args(args)
-    # set up locations
     logging.info("--- PREPARATION ---")
-    logging.info("OUTPUT:\t\t\t" + output_path)
+    logging.info("OUTPUT:\t\t\t" + paths["metadata"])
 
-    # set up storage handler
-    storage = Storage()
-    try:
-        # Now Storage will throw an exception when the output_path is occupied
-        # to make sure airflow doesn't crash it needs to be caught
-        # This way the pipeline goes to the next steps of transformation and extraction, hopefully
-        # eventually dealing with the already-existing output file
-        storage.setup_pipeline(output_paths=[output_path])
-        pass
-    except Exception as e:
-        logging.error(e)
-        return
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        # legacy global-path mode: refuse to clobber an existing extraction
+        Storage().setup_pipeline(output_paths=[paths["metadata"]])
+
     try:
         # Getting date of last update from airflow database
         last_updated = Variable.get("ECHR_LAST_DATE")
@@ -133,7 +150,6 @@ def echr_extract(args):
     )
     if args.fresh:
         metadata, full_text = echr.get_echr_extra(**kwargs, start_date="1990-01-01", save_file="n")
-
     elif args.start_date and args.end_date:
         logging.info(
             f"Starting from manually specified date: {args.start_date} and ending at end date: {args.end_date}"
@@ -156,39 +172,29 @@ def echr_extract(args):
         )
 
     logging.info("--- saving ECHR data")
-    df_filepath = get_path_raw(CSV_ECHR_CASES)
     if metadata is not False:
-        metadata.to_csv(df_filepath, index=False)
-        json_filepath = JSON_FULL_TEXT_ECHR
-        with open(json_filepath, "w") as f:
+        metadata.to_csv(paths["metadata"], index=False)
+        with open(paths["full_text"], "w") as f:
             json.dump(full_text, f)
         logging.info("Adding Nodes and Edges lists to storage")
         # Getting nodes and edges, citation-based. For creating a citation graph
-        nodes, edges = echr.get_nodes_edges(dataframe=metadata, save_file="n")
-        # get only the ecli column in nodes
-        nodes = nodes[["ecli"]]
-
-        # df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
-        # df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
-        nodes_txt = get_path_raw(TXT_ECHR_NODES)
-        edges_txt = get_path_raw(TXT_ECHR_EDGES)
-        # nodes.to_csv(df_nodes_path, index=False)
-        # edges.to_csv(df_edges_path, index=False)
-        # save to text file from dataframe
-        nodes.to_csv(nodes_txt, index=False, header=False, sep="\t")
-        edges.to_csv(edges_txt, index=False, header=False, sep="\t")
-
+        nodes, edges, _missing = echr.get_nodes_edges(df=metadata, save_file="n")
+        nodes[["ecli"]].to_csv(paths["nodes"], index=False, header=False)
+        # one "<source>,<target>" line per citation: the format the citation
+        # graph loader parses. edges rows are (ecli, [target eclis]).
+        with open(paths["edges"], "w") as f:
+            for _, row in edges.iterrows():
+                for target in row["references"]:
+                    f.write(f"{row['ecli']},{target}\n")
     else:
         logging.info("No ECHR data found")
 
-    logging.info("\nUpdating local storage ...")
-
     end = time.time()
-    logging.info("\n--- DONE ---")
-    logging.info("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(end - start)))
-    Variable.set(key="ECHR_LAST_DATE", value=today_date)
+    logging.info("--- DONE ---")
+    logging.info(f"Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
+    Variable.set(key="ECHR_LAST_DATE", value=args.end_date or today_date)
+    return paths
 
 
 if __name__ == "__main__":
-    # giving arguments to the funtion
     echr_extract(sys.argv[1:])
