@@ -24,8 +24,7 @@ CELLAR_EDGE_FILES = [(TXT_CELLAR_EDGES, "celex", "EURLEX")]
 ECHR_EDGE_FILES = [(TXT_ECHR_EDGES, "ecli", "ECHR")]
 
 
-def _load_edge_file(client, filename: str, target_key: str, source_dataset: str) -> int:
-    path = get_path_raw(filename)
+def _load_edge_file(client, path: str, target_key: str, source_dataset: str) -> int:
     if not os.path.exists(path):
         print(f"FILE {path} DOES NOT EXIST")
         return 0
@@ -69,13 +68,15 @@ def _load_edge_file(client, filename: str, target_key: str, source_dataset: str)
     return loaded
 
 
-def load_citation_graph(client, sources=None) -> None:
+def load_citation_graph(client, sources=None, edge_dir=None) -> None:
     """Load edge files into case_citation. sources limits which datasets'
-    edge files are read ('EURLEX', 'ECHR'); None means all."""
+    edge files are read ('EURLEX', 'ECHR'); None means all. edge_dir is
+    where the files live; defaults to the global raw dir."""
     for filename, target_key, source_dataset in CELLAR_EDGE_FILES + ECHR_EDGE_FILES:
         if sources is not None and source_dataset not in sources:
             continue
-        loaded = _load_edge_file(client, filename, target_key, source_dataset)
+        path = os.path.join(edge_dir, filename) if edge_dir else get_path_raw(filename)
+        loaded = _load_edge_file(client, path, target_key, source_dataset)
         print(f"{loaded} citation edges loaded from {filename}")
 
 

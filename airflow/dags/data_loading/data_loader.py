@@ -51,7 +51,7 @@ def _processor_for(input_path, client):
     return PostgresRSProcessor(input_path, client)
 
 
-def load_data(input_paths=None, full_text_paths=None, citation_sources=None):
+def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edge_dir=None):
     """
     Load processed CSVs (and optionally full-text JSONs + citation edge
     files) into Postgres.
@@ -62,6 +62,8 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None):
         Cellar and ECHR globals. Pass [] to skip.
     citation_sources: which edge-file sets to load ('EURLEX', 'ECHR');
         defaults to both. Pass [] to skip.
+    edge_dir: directory holding the edge txt files; defaults to the global
+        raw dir.
     """
     start = time.time()
     if input_paths is None:
@@ -97,7 +99,7 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None):
         if full_text_paths:
             load_fulltext(client, full_text_paths)
         if citation_sources is None or citation_sources:
-            load_citation_graph(client, sources=citation_sources)
+            load_citation_graph(client, sources=citation_sources, edge_dir=edge_dir)
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(end - start)))

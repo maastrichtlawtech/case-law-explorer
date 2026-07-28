@@ -23,9 +23,10 @@ def load_fulltext(client, files_location_paths: list) -> None:
         with open(file_location_path, encoding="utf-8") as json_file:
             data = json.load(json_file)
 
+        file_name = os.path.basename(file_location_path)
         loaded = 0
         for item in data:
-            if file_location_path == JSON_FULL_TEXT_ECHR:
+            if file_name == os.path.basename(JSON_FULL_TEXT_ECHR):
                 item_id = item["item_id"]
                 case_id = client.resolve_case_id_by_item_id(item_id)
                 if case_id is None:
@@ -38,7 +39,7 @@ def load_fulltext(client, files_location_paths: list) -> None:
                     fulltext=item.get("full_text") or item.get("text"),
                 )
                 loaded += 1
-            elif file_location_path == JSON_FULL_TEXT_CELLAR:
+            elif file_name == os.path.basename(JSON_FULL_TEXT_CELLAR):
                 celex = item["celex"]
                 case_id = client.resolve_case_id(celex_id=celex)
                 if case_id is None:
