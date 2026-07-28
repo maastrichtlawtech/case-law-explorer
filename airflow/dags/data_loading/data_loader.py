@@ -52,35 +52,34 @@ def load_data(input_paths=None):
     print("INPUT/OUTPUT DATA STORAGE FOR METADATA + FULL TEXT + CITATIONS: Postgres (cle_v2)")
     print("INPUT:\t\t\t\t", [basename(input_path) for input_path in input_paths])
 
-    client = PostgresCLEClient()
+    with PostgresCLEClient() as client:
+        for input_path in input_paths:
+            if not os.path.exists(input_path):
+                print(f"FILE {input_path} DOES NOT EXIST")
+                continue
+            print(f"\n--- PREPARATION {basename(input_path)} ---\n")
+            print(f"\n--- START {basename(input_path)} ---\n")
+            print(f"Processing {input_path} ...")
 
-    for input_path in input_paths:
-        if not os.path.exists(input_path):
-            print(f"FILE {input_path} DOES NOT EXIST")
-            continue
-        print(f"\n--- PREPARATION {basename(input_path)} ---\n")
-        print(f"\n--- START {basename(input_path)} ---\n")
-        print(f"Processing {input_path} ...")
+            case_counter = 0
+            row_counter = 0
+            if get_path_processed(CSV_CELLAR_CASES) in input_path:
+                row_processor = PostgresCelexProcessor(input_path, client)
+            elif get_path_processed(CSV_ECHR_CASES) in input_path:
+                row_processor = PostgresItemIdProcessor(input_path, client)
+            else:
+                row_processor = PostgresRSProcessor(input_path, client)
 
-        case_counter = 0
-        row_counter = 0
-        if get_path_processed(CSV_CELLAR_CASES) in input_path:
-            row_processor = PostgresCelexProcessor(input_path, client)
-        elif get_path_processed(CSV_ECHR_CASES) in input_path:
-            row_processor = PostgresItemIdProcessor(input_path, client)
-        else:
-            row_processor = PostgresRSProcessor(input_path, client)
+            with open(input_path, "r", newline="", encoding="utf8") as in_file:
+                reader = DictReader(in_file)
+                for row in tqdm(reader, desc="Processing rows", unit="rows"):
+                    row_counter += row_processor.upload_row(row)
+                    case_counter += 1
 
-        with open(input_path, "r", newline="", encoding="utf8") as in_file:
-            reader = DictReader(in_file)
-            for row in tqdm(reader, desc="Processing rows", unit="rows"):
-                row_counter += row_processor.upload_row(row)
-                case_counter += 1
+            print(f"{case_counter} cases processed ({row_counter} rows upserted).")
 
-        print(f"{case_counter} cases processed ({row_counter} rows upserted).")
-
-    load_fulltext(client, full_text_paths)
-    load_citation_graph(client)
+        load_fulltext(client, full_text_paths)
+        load_citation_graph(client)
     end = time.time()
     print("\n--- DONE ---")
     print("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(end - start)))
