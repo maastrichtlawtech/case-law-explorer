@@ -5,12 +5,12 @@ citation graph edges into Postgres (cle_v2 schema, issue #42).
 """
 
 import csv
+import logging
 import os
-import sys
 import time
 from csv import DictReader
 from ctypes import c_long, sizeof
-from os.path import abspath, basename, dirname
+from os.path import basename
 
 from data_loading.case_text_loader import load_fulltext
 from data_loading.citation_graph_loader import load_citation_graph
@@ -29,10 +29,8 @@ from definitions.storage_handler import (
     get_path_processed,
 )
 from dotenv import load_dotenv
-from tqdm import tqdm
 
 load_dotenv()
-sys.path.append(dirname(dirname(abspath(__file__))))
 
 signed = c_long(-1).value < c_long(0).value
 bit_size = sizeof(c_long) * 8
@@ -77,15 +75,14 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edg
         ]
     if full_text_paths is None:
         full_text_paths = [JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR]
-    print("INPUT/OUTPUT DATA STORAGE FOR METADATA + FULL TEXT + CITATIONS: Postgres (cle_v2)")
-    print("INPUT:\t\t\t\t", [basename(input_path) for input_path in input_paths])
+    logging.info("Loading into Postgres (cle_v2): %s", [basename(p) for p in input_paths])
 
     with PostgresCLEClient() as client:
         for input_path in input_paths:
             if not os.path.exists(input_path):
-                print(f"FILE {input_path} DOES NOT EXIST")
+                logging.warning(f"FILE {input_path} DOES NOT EXIST")
                 continue
-            print(f"\n--- START {basename(input_path)} ---\n")
+            logging.info(f"--- START {basename(input_path)} ---")
 
             case_counter = 0
             row_counter = 0
@@ -94,24 +91,25 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edg
             with open(input_path, "r", newline="", encoding="utf8") as in_file:
                 reader = DictReader(in_file)
                 batch = []
-                for row in tqdm(reader, desc="Processing rows", unit="rows"):
+                for row in reader:
                     batch.append(row)
                     case_counter += 1
                     if len(batch) >= BATCH_SIZE:
                         row_counter += row_processor.upload_rows(batch)
                         batch = []
+                        logging.info(f"... {case_counter} rows read")
                 if batch:
                     row_counter += row_processor.upload_rows(batch)
 
-            print(f"{case_counter} cases processed ({row_counter} rows upserted).")
+            logging.info(f"{case_counter} cases processed ({row_counter} rows upserted).")
 
         if full_text_paths:
             load_fulltext(client, full_text_paths)
         if citation_sources is None or citation_sources:
             load_citation_graph(client, sources=citation_sources, edge_dir=edge_dir)
     end = time.time()
-    print("\n--- DONE ---")
-    print("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(end - start)))
+    logging.info("--- DONE ---")
+    logging.info(f"Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
 
 
 if __name__ == "__main__":

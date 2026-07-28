@@ -11,6 +11,7 @@ Edge file format (one per line): "<source_identifier>,<target_identifier>"
 (see cellar_extractor.nodes_and_edges.get_edges_list).
 """
 
+import logging
 import os
 from contextlib import suppress
 
@@ -26,7 +27,7 @@ ECHR_EDGE_FILES = [(TXT_ECHR_EDGES, "ecli", "ECHR")]
 
 def _load_edge_file(client, path: str, target_key: str, source_dataset: str) -> int:
     if not os.path.exists(path):
-        print(f"FILE {path} DOES NOT EXIST")
+        logging.warning(f"FILE {path} DOES NOT EXIST")
         return 0
 
     loaded = 0
@@ -77,7 +78,7 @@ def load_citation_graph(client, sources=None, edge_dir=None) -> None:
             continue
         path = os.path.join(edge_dir, filename) if edge_dir else get_path_raw(filename)
         loaded = _load_edge_file(client, path, target_key, source_dataset)
-        print(f"{loaded} citation edges loaded from {filename}")
+        logging.info(f"{loaded} citation edges loaded from {filename}")
 
 
 if __name__ == "__main__":
