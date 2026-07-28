@@ -1,4 +1,4 @@
-from definitions.storage_handler import CSV_DDB_ECLIS_FAILED, get_path_processed
+from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
     CELLAR_CITATIONS_EXTRA_INFO,
@@ -108,7 +108,7 @@ class PostgresRSProcessor:
             return 1
         except Exception as e:
             print(e, row.get(ECLI), "; while upserting RS row into Postgres")
-            with open(get_path_processed(CSV_DDB_ECLIS_FAILED), "a") as f:
+            with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
                 f.write(str(row.get(ECLI)) + "\n")
                 f.write(str(e) + "\n")
             return 0
@@ -153,7 +153,7 @@ class PostgresCelexProcessor:
             return 1
         except Exception as e:
             print(e, row.get(CELLAR_CELEX), "; while upserting Cellar row into Postgres")
-            with open(get_path_processed(CSV_DDB_ECLIS_FAILED), "a") as f:
+            with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
                 f.write(str(row.get(CELLAR_CELEX)) + "\n")
                 f.write(str(e) + "\n")
             return 0
@@ -206,7 +206,7 @@ class PostgresItemIdProcessor:
             return 1
         except Exception as e:
             print(e, row.get(ECHR_DOCUMENT_ID), "; while upserting ECHR row into Postgres")
-            with open(get_path_processed(CSV_DDB_ECLIS_FAILED), "a") as f:
+            with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
                 f.write(str(row.get(ECHR_DOCUMENT_ID)) + "\n")
                 f.write(str(e) + "\n")
             return 0
