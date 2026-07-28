@@ -1,4 +1,5 @@
 import logging
+from contextlib import contextmanager
 
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 
@@ -11,10 +12,54 @@ class PostgresCLEClient:
     Thin wrapper around the pg_cle Airflow connection. Replaces the
     DynamoDB/S3 loading path (issue #42): case metadata, full text, and
     citations all land in Postgres instead of DynamoDB items / S3 blobs.
+
+    Holds a single connection for the client's lifetime -- callers that
+    process many rows (data_loader.py, citation_update.py, ...) should
+    construct one client and reuse it, then call close() when done.
     """
 
     def __init__(self, postgres_conn_id: str = CONN_PG_CLE):
         self.hook = PostgresHook(postgres_conn_id=postgres_conn_id)
+        self._conn = None
+        self._tx_depth = 0
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        self.close()
+
+    def close(self) -> None:
+        """Close the underlying connection, if one was ever opened."""
+        if self._conn is not None and not self._conn.closed:
+            self._conn.close()
+        self._conn = None
+
+    def _get_conn(self):
+        if self._conn is None or self._conn.closed:
+            self._conn = self.hook.get_conn()
+        return self._conn
+
+    @contextmanager
+    def transaction(self):
+        """
+        Group several upserts into one commit/rollback unit, e.g. a case row
+        plus its source-specific detail row and full text: without this,
+        each upsert_*/upsert() call commits on its own connection, so a
+        failure partway through leaves a `cases` row with no matching detail
+        row. Nested use is supported (only the outermost block commits).
+        """
+        self._get_conn()
+        self._tx_depth += 1
+        try:
+            yield
+            self._tx_depth -= 1
+            if self._tx_depth == 0:
+                self._conn.commit()
+        except Exception:
+            self._tx_depth = 0
+            self._conn.rollback()
+            raise
 
     def upsert_case(
         self,
@@ -157,6 +202,109 @@ class PostgresCLEClient:
         """
         self._execute(sql, values)
 
+    def bulk_upsert_cases(self, conflict_col: str, rows: list[dict]) -> dict:
+        """
+        Bulk upsert case rows that all share the same natural-key conflict
+        column (RS rows -> ecli, Cellar -> celex_id, ECHR -> item_id) as one
+        multi-row INSERT, instead of one round trip per row. Each dict in
+        `rows` needs the same keys as upsert_case's params: ecli, celex_id,
+        item_id, title, date_decision, source.
+
+        Returns a dict mapping each row's conflict_col value to its case_id,
+        matched by that value rather than by row position -- PostgreSQL
+        preserves VALUES-list order in a single INSERT ... RETURNING in
+        practice, but that isn't part of the SQL standard, so this doesn't
+        rely on it.
+        """
+        if not rows:
+            return {}
+
+        value_clauses = []
+        params = {}
+        for i, row in enumerate(rows):
+            value_clauses.append(
+                f"(%(ecli_{i})s, %(celex_id_{i})s, %(item_id_{i})s, "
+                f"%(title_{i})s, %(date_decision_{i})s, ARRAY[%(source_{i})s])"
+            )
+            params[f"ecli_{i}"] = row.get("ecli")
+            params[f"celex_id_{i}"] = row.get("celex_id")
+            params[f"item_id_{i}"] = row.get("item_id")
+            params[f"title_{i}"] = row.get("title")
+            params[f"date_decision_{i}"] = row.get("date_decision")
+            params[f"source_{i}"] = row.get("source", "")
+
+        sql = f"""
+            INSERT INTO {SCHEMA}.cases (ecli, celex_id, item_id, title, date_decision, sources)
+            VALUES {", ".join(value_clauses)}
+            ON CONFLICT ({conflict_col}) DO UPDATE SET
+                title = COALESCE(EXCLUDED.title, {SCHEMA}.cases.title),
+                date_decision = COALESCE(EXCLUDED.date_decision, {SCHEMA}.cases.date_decision),
+                updated_at = now(),
+                sources = array(
+                    SELECT DISTINCT unnest({SCHEMA}.cases.sources || EXCLUDED.sources)
+                )
+            RETURNING id, {conflict_col};
+        """
+        result_rows = self._execute_returning_rows(sql, params)
+        return {key: case_id for case_id, key in result_rows}
+
+    def bulk_upsert(self, table: str, conflict_cols: list[str], rows: list[dict]) -> None:
+        """
+        Bulk variant of upsert(): every dict in `rows` must have the exact
+        same keys (columns) -- callers are internal row processors building
+        one dict shape per source type, not external input.
+        """
+        if not rows:
+            return
+
+        columns = list(rows[0].keys())
+        update_cols = [c for c in columns if c not in conflict_cols]
+        update_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_cols) or "updated_at = now()"
+
+        value_clauses = []
+        params = {}
+        for i, row in enumerate(rows):
+            value_clauses.append("(" + ", ".join(f"%({c}_{i})s" for c in columns) + ")")
+            for c in columns:
+                params[f"{c}_{i}"] = row[c]
+
+        sql = f"""
+            INSERT INTO {SCHEMA}.{table} ({", ".join(columns)})
+            VALUES {", ".join(value_clauses)}
+            ON CONFLICT ({", ".join(conflict_cols)}) DO UPDATE SET {update_clause};
+        """
+        self._execute(sql, params)
+
+    def bulk_upsert_case_text(self, rows: list[dict]) -> None:
+        """Bulk variant of upsert_case_text(). Each dict needs: case_id, language, source, fulltext, summary, summary_source."""
+        if not rows:
+            return
+
+        value_clauses = []
+        params = {}
+        for i, row in enumerate(rows):
+            value_clauses.append(
+                f"(%(case_id_{i})s, %(language_{i})s, %(source_{i})s, "
+                f"%(fulltext_{i})s, %(summary_{i})s, %(summary_source_{i})s)"
+            )
+            params[f"case_id_{i}"] = row["case_id"]
+            params[f"language_{i}"] = row["language"]
+            params[f"source_{i}"] = row["source"]
+            params[f"fulltext_{i}"] = row.get("fulltext")
+            params[f"summary_{i}"] = row.get("summary")
+            params[f"summary_source_{i}"] = row.get("summary_source")
+
+        sql = f"""
+            INSERT INTO {SCHEMA}.case_text (case_id, language, source, fulltext, summary, summary_source)
+            VALUES {", ".join(value_clauses)}
+            ON CONFLICT (case_id, language, source) DO UPDATE SET
+                fulltext = COALESCE(EXCLUDED.fulltext, {SCHEMA}.case_text.fulltext),
+                summary = COALESCE(EXCLUDED.summary, {SCHEMA}.case_text.summary),
+                summary_source = COALESCE(EXCLUDED.summary_source, {SCHEMA}.case_text.summary_source),
+                updated_at = now();
+        """
+        self._execute(sql, params)
+
     def resolve_case_id(self, ecli: str | None = None, celex_id: str | None = None) -> int | None:
         """Look up an existing case_id by ecli or celex_id, for citation-target resolution."""
         if ecli:
@@ -197,6 +345,38 @@ class PostgresCLEClient:
         )
         return row is not None
 
+    def has_lido_resolution(self, ecli: str) -> bool:
+        """
+        Whether an RS case already has at least one LIDO-sourced case_citation
+        or case_law_reference row, i.e. citation_update.py's LIDO scan has
+        already run for it. Used to skip re-querying LIDO for cases already
+        resolved on a previous DAG run.
+
+        Note: a case with genuinely zero outgoing citations and zero legal
+        references never gets a row written either way, so it will keep
+        getting re-scanned -- an accepted gap, not a bug, since there's no
+        cheap way to distinguish "not yet scanned" from "scanned, found
+        nothing" without a dedicated tracking column.
+        """
+        row = self.hook.get_first(
+            f"""
+            SELECT 1 FROM {SCHEMA}.cases c
+            WHERE c.ecli = %(ecli)s
+              AND (
+                EXISTS (
+                    SELECT 1 FROM {SCHEMA}.case_citation cc
+                    WHERE cc.source_case_id = c.id AND cc.source_dataset = 'LIDO'
+                )
+                OR EXISTS (
+                    SELECT 1 FROM {SCHEMA}.case_law_reference clr
+                    WHERE clr.case_id = c.id AND clr.source_dataset = 'LIDO'
+                )
+              )
+            """,
+            parameters={"ecli": ecli},
+        )
+        return row is not None
+
     def upsert_law_reference(
         self,
         case_id: int,
@@ -226,25 +406,48 @@ class PostgresCLEClient:
         )
 
     def _execute(self, sql: str, params: dict) -> None:
-        conn = self.hook.get_conn()
+        conn = self._get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
-            conn.commit()
+            if self._tx_depth == 0:
+                conn.commit()
         except Exception:
-            conn.rollback()
+            # Inside a transaction() block, the outer block owns the rollback;
+            # rolling back here too is a harmless no-op at best in psycopg2,
+            # but let the one call that knows the transaction is over do it.
+            if self._tx_depth == 0:
+                conn.rollback()
             logging.exception("pg_cle write failed for statement: %s", sql[:120])
             raise
 
     def _execute_returning_id(self, sql: str, params: dict) -> int:
-        conn = self.hook.get_conn()
+        conn = self._get_conn()
         try:
             with conn.cursor() as cur:
                 cur.execute(sql, params)
                 (returned_id,) = cur.fetchone()
-            conn.commit()
+            if self._tx_depth == 0:
+                conn.commit()
             return returned_id
         except Exception:
-            conn.rollback()
+            if self._tx_depth == 0:
+                conn.rollback()
             logging.exception("pg_cle upsert failed for statement: %s", sql[:120])
+            raise
+
+    def _execute_returning_rows(self, sql: str, params: dict) -> list[tuple]:
+        """Like _execute_returning_id, but for bulk statements returning one row per input row."""
+        conn = self._get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                rows = cur.fetchall()
+            if self._tx_depth == 0:
+                conn.commit()
+            return rows
+        except Exception:
+            if self._tx_depth == 0:
+                conn.rollback()
+            logging.exception("pg_cle bulk upsert failed for statement: %s", sql[:120])
             raise
