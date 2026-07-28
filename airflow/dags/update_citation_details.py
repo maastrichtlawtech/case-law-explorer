@@ -125,12 +125,11 @@ def extract_year_from_ecli(ecli):
         return None
 
 
-def query_postgres_for_ecli(ecli):
+def query_postgres_for_ecli(client, ecli):
     """
     Look up an ECLI in Postgres and return it only if it still needs legal
     provisions resolved (replaces the old DynamoDB legal_provisions_url check).
     """
-    client = PostgresCLEClient()
     if client.resolve_case_id(ecli=str(ecli)) is None:
         return None
     return None if client.has_legal_provisions(str(ecli)) else {"ecli": str(ecli)}
@@ -145,69 +144,72 @@ def process_eclis(
     Process a batch of ECLIs to extract metadata, perform citation extraction, and update Postgres.
     """
     missing_eclis = []
-    for ecli in eclis:
-        year = extract_year_from_ecli(ecli)
-        if not year or int(year) < 2020:
-            logging.warning(f"ECLI {ecli} is from before 2020, skipping.")
-            continue
-        record = query_postgres_for_ecli(ecli)
-        if record is None:
-            logging.info(f"ECLI {ecli} not found in Postgres or already has legal provisions resolved.")
-            # Write to a file for later processing
-            with open("data/eclis_not_found.csv", "a") as f:
-                f.write(f"{ecli}\n")
-            continue
+    with PostgresCLEClient() as client:
+        for ecli in eclis:
+            year = extract_year_from_ecli(ecli)
+            if not year or int(year) < 2020:
+                logging.warning(f"ECLI {ecli} is from before 2020, skipping.")
+                continue
+            record = query_postgres_for_ecli(client, ecli)
+            if record is None:
+                logging.info(
+                    f"ECLI {ecli} not found in Postgres or already has legal provisions resolved."
+                )
+                # Write to a file for later processing
+                with open("data/eclis_not_found.csv", "a") as f:
+                    f.write(f"{ecli}\n")
+                continue
 
-        # Check only subdirectories corresponding to the year
-        year_metadata_files = []
-        for root, dirs, files in os.walk(metadata_files_path):
-            if year in root:
-                for name in files:
-                    if name == "metadata_extraction_rechtspraak.csv":
-                        logging.info(f"Found metadata file for ECLI: {ecli} in {root}.")
-                        year_metadata_files.append(os.path.join(root, name))
+            # Check only subdirectories corresponding to the year
+            year_metadata_files = []
+            for root, dirs, files in os.walk(metadata_files_path):
+                if year in root:
+                    for name in files:
+                        if name == "metadata_extraction_rechtspraak.csv":
+                            logging.info(f"Found metadata file for ECLI: {ecli} in {root}.")
+                            year_metadata_files.append(os.path.join(root, name))
 
-        if not year_metadata_files:
-            logging.warning(f"No metadata files found for year {year} and ECLI {ecli}.")
-            missing_eclis.append(ecli)
-            continue
+            if not year_metadata_files:
+                logging.warning(f"No metadata files found for year {year} and ECLI {ecli}.")
+                missing_eclis.append(ecli)
+                continue
 
-        metadata_df = pd.concat(
-            [pd.read_csv(file) for file in year_metadata_files], ignore_index=True
-        )
-        ecli_df = pd.DataFrame({"ecli": [ecli]})
-        merged_df = pd.merge(ecli_df, metadata_df, on="ecli", how="inner")
+            metadata_df = pd.concat(
+                [pd.read_csv(file) for file in year_metadata_files], ignore_index=True
+            )
+            ecli_df = pd.DataFrame({"ecli": [ecli]})
+            merged_df = pd.merge(ecli_df, metadata_df, on="ecli", how="inner")
 
-        if not merged_df.empty:
-            logging.info(f"Performing citation extraction for ECLI: {ecli}.")
-            logging.info(
-                "Dropping the following columns - citations_incoming, citations_outgoing, legislations_cited, bwb_id,opschrift"
-            )
-            merged_df = merged_df.drop(
-                columns=[
-                    "citations_incoming",
-                    "citations_outgoing",
-                    "legislations_cited",
-                    "bwb_id",
-                    "opschrift",
-                ],
-                errors="ignore",
-            )
-            citations_df = get_citations(
-                merged_df,
-                os.getenv("LIDO_USERNAME"),
-                os.getenv("LIDO_PASSWORD"),
-                threads=1,
-            )
-            citations_df.to_csv(
-                processed_citations_path,
-                mode="a",
-                # header=not os.path.exists(processed_citations_path),
-                index=False,
-            )
-        else:
-            logging.warning(f"No metadata found for ECLI: {ecli}.")
-            missing_eclis.append(ecli)
+            if not merged_df.empty:
+                logging.info(f"Performing citation extraction for ECLI: {ecli}.")
+                logging.info(
+                    "Dropping the following columns - citations_incoming, citations_outgoing, legislations_cited, bwb_id,opschrift"
+                )
+                merged_df = merged_df.drop(
+                    columns=[
+                        "citations_incoming",
+                        "citations_outgoing",
+                        "legislations_cited",
+                        "bwb_id",
+                        "opschrift",
+                    ],
+                    errors="ignore",
+                )
+                citations_df = get_citations(
+                    merged_df,
+                    os.getenv("LIDO_USERNAME"),
+                    os.getenv("LIDO_PASSWORD"),
+                    threads=1,
+                )
+                citations_df.to_csv(
+                    processed_citations_path,
+                    mode="a",
+                    # header=not os.path.exists(processed_citations_path),
+                    index=False,
+                )
+            else:
+                logging.warning(f"No metadata found for ECLI: {ecli}.")
+                missing_eclis.append(ecli)
     logging.info(f"Transforming and uploading data for ECLI: {ecli}.")
     data_transformer.transform_data(caselaw_type="RS", input_paths=[processed_citations_path])
     data_loader.load_data()
