@@ -35,7 +35,7 @@ def load_fulltext(client, files_location_paths: list) -> None:
                     continue
                 client.upsert_case_text(
                     case_id=case_id,
-                    language=item.get("language", "en"),
+                    language=(item.get("language") or "en").lower(),
                     source="HUDOC",
                     fulltext=item.get("full_text") or item.get("text"),
                 )
@@ -48,7 +48,7 @@ def load_fulltext(client, files_location_paths: list) -> None:
                     continue
                 client.upsert_case_text(
                     case_id=case_id,
-                    language=item.get("language", "en"),
+                    language=(item.get("language") or "en").lower(),
                     source="CELLAR_ITEM",
                     fulltext=item.get("full_text") or item.get("text"),
                 )

@@ -194,7 +194,12 @@ class PostgresRSProcessor(_BaseRowProcessor):
     def _text_row(self, row, case_id):
         return {
             "case_id": case_id,
-            "language": row.get(RS_LANGUAGE, "nl"),
+            # "or", not a get() default: the transformer writes every mapped
+            # column as a header, so language is present-and-empty rather than
+            # absent and the default never fired. Lowercased because
+            # case_text.language is a foreign key onto language.iso_code, and
+            # the RS value arrives as the jurisdiction "NL".
+            "language": (row.get(RS_LANGUAGE) or "nl").lower(),
             "source": "RECHTSPRAAK",
             "fulltext": row.get(RS_FULL_TEXT),
             "summary": row.get(RS_INHOUDSINDICATIE) or row.get(RS_SUMMARY),
