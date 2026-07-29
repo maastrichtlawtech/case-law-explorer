@@ -74,7 +74,20 @@ def rechtspraak_extract(
         base_df = pd.concat([pd.read_csv(f) for f in base_files], ignore_index=True)
         base_df.to_csv(base_file, index=False)
     else:
-        pd.DataFrame().to_csv(base_file, index=False)
+        base_df = pd.DataFrame()
+        base_df.to_csv(base_file, index=False)
+
+    # Carry the title across from the base extraction.
+    #
+    # Only the base feed has one; the metadata API does not return a title at
+    # all, and the loader reads the metadata frame, so cases.title was null for
+    # every Rechtspraak row while the title sat in a file the run deleted on its
+    # way out. The base feed's "id" is the ECLI, so this joins on identity.
+    if not metadata_df.empty and not base_df.empty and "title" in base_df.columns:
+        titles = base_df[["id", "title"]].dropna(subset=["id"]).drop_duplicates("id")
+        metadata_df = metadata_df.merge(
+            titles.rename(columns={"id": "ecli"}), on="ecli", how="left"
+        )
     # No LIDO call. Citations and law references come from the pg_lido database
     # that the lido_postgres DAG builds from the monthly LIDO export, so
     # resolving them a second time over the LIDO web service would be asking a
