@@ -50,9 +50,11 @@ tool_map_rs = {
     "full_text": format_rs_xml,
 }
 
+# Keyed on the extractor's column names, like the maps above, so these follow
+# cellar-extractor 2.x out of the raw CDM predicate labels it used to emit.
 tool_map_cellar = {
-    "YEAR OF THE LEGAL RESOURCE": format_cellar_year,
-    "CELEX IDENTIFIER": format_cellar_celex,
+    "year_of_resource": format_cellar_year,
+    "celex": format_cellar_celex,
 }
 tool_map_echr = {"judgementdate": format_echr_date}
 

@@ -35,41 +35,53 @@ MAP_RS = {
     "bwb_id": RS_BWB_ID,
 }
 MAP_CELLAR = {
-    "CASE LAW COMMENTED BY AGENT": CELLAR_COMMENTED_AGENT,  # which Member States submitted information
-    "celex_directory_codes": CELLAR_DIRECTORY_CODES,  # directory classification codes for case
-    "celex_eurovoc": CELLAR_EUROVOC,  # eurovoc classification codes for case
-    "celex_keywords": CELLAR_KEYWORDS,  # keywords of case
-    "celex_summary": CELLAR_SUMMARY,  # summary of case
-    "WORK CITES WORK. CI / CJ": CELLAR_CITATIONS,  # works cites by this work, works this work cites
+    # cellar-extractor 2.x emits its canonical schema directly, so this is a
+    # selection rather than a rename: the keys are the columns the extractor
+    # produces and the values are what the rest of this pipeline calls them.
+    #
+    # Until 2.0 the keys were the raw CDM predicate labels the SPARQL query
+    # returned ("CELEX IDENTIFIER", "WORK HAS RESOURCE TYPE", and so on). The
+    # transformer only copies a column when its name is a key here, so against
+    # 2.x not one of them matched and every output row came out with the right
+    # headers and no values. It failed as an empty load rather than as an error,
+    # which is the reason to be exact about this map rather than approximately
+    # right.
+    "commented_by_agent": CELLAR_COMMENTED_AGENT,  # which Member States submitted information
+    "directory_codes": CELLAR_DIRECTORY_CODES,  # directory classification codes for case
+    "eurovoc": CELLAR_EUROVOC,  # eurovoc classification codes for case
+    "keywords": CELLAR_KEYWORDS,  # keywords of case
+    "summary": CELLAR_SUMMARY,  # summary of case
+    # 2.x reports the two directions separately; there is no combined column.
     "citing": CELLAR_CITING,  # works this work cites
-    "cited_by": CELLAR_CITED_BY,  # works cites by this work,
-    "CASE LAW DELIVERED BY COURT FORMATION": CELLAR_DELIVERED_COURT,  # court (chamber) that delivered the judgment
-    "CASE LAW HAS A JUDICIAL PROCEDURE TYPE": CELLAR_JUDICIAL_TYPE,  # type of procedure
-    "CASE LAW HAS A TYPE OF PROCEDURE": CELLAR_TYPE_PROCEDURE,  # type of procedure with more info
-    "CASE LAW HAS CONCLUSIONS": CELLAR_CONCLUSIONS,  # opinion of the Advocate-General
-    "CASE LAW INTERPRETS LEGAL RESOURCE": CELLAR_LEGAL_RESOURCE,  # the source that the case interprets
-    "CASE LAW ORIGINATES IN COUNTRY": CELLAR_COUNTRY,  # country of judgment
-    "CASE LAW ORIGINATES IN COUNTRY OR USES A ROLE QUALIFIER": CELLAR_COUNTRY_OR_ROLE,
-    # country of origin with more information
-    "CELEX IDENTIFIER": CELLAR_CELEX,  # celex identifier
-    "DATE OF DOCUMENT": CELLAR_DATE_OF_DOCUMENT,  # date of document
-    "DATE OF REQUEST FOR AN OPINION": CELLAR_REQUEST_DATE,  # date of request for on opinion of the Advocate-General
-    "ECLI": ECLI,  # European Case Law Identifier
-    "LEGACY DATE OF CREATION OF WORK": CELLAR_CREATION_OF_WORK,  # date of latest modification in dataset
-    "LEGAL RESOURCE BASED ON TREATY CONCEPT": CELLAR_BASED_ON_TREATY,  # treaty on which judgment is based
-    "LEGAL RESOURCE IS ABOUT SUBJECT MATTER": CELLAR_SUBJECT_MATTER,  # subject matter
-    "NATIONAL JUDGEMENT": CELLAR_NATIONAL_JUDGMENT,  # source of national case
-    "RELATED JOURNAL ARTICLE": CELLAR_JOURNAL_ARTICLES,  # references to journal articles
-    "SECTOR IDENTIFIER": CELLAR_SECTOR,  # indicates type of source
-    "WORK HAS RESOURCE TYPE": CELLAR_RESOURCE_TYPE,  # document type
-    "YEAR OF THE LEGAL RESOURCE": CELLAR_YEAR_OF_RESOURCE,  # judgment year
-    "CASE LAW USES LANGUAGE OF PROCEDURE": CELLAR_LANGUAGE,  # language of procedure
+    "cited_by": CELLAR_CITED_BY,  # works citing this work
+    "delivered_by_court_formation": CELLAR_DELIVERED_COURT,  # court (chamber) that delivered the judgment
+    "judicial_procedure_type": CELLAR_JUDICIAL_TYPE,  # type of procedure
+    "type_procedure": CELLAR_TYPE_PROCEDURE,  # type of procedure with more info
+    "conclusions": CELLAR_CONCLUSIONS,  # opinion of the Advocate-General
+    "legal_resource": CELLAR_LEGAL_RESOURCE,  # the source that the case interprets
+    "origin_country": CELLAR_COUNTRY,  # country of judgment
+    "origin_country_or_role_qualifier": CELLAR_COUNTRY_OR_ROLE,  # country of origin with more information
+    "celex": CELLAR_CELEX,  # celex identifier
+    "date_publication": CELLAR_DATE_OF_DOCUMENT,  # date of document
+    "date_of_request": CELLAR_REQUEST_DATE,  # date of request for an opinion of the Advocate-General
+    "ecli": ECLI,  # European Case Law Identifier
+    "date_of_creation": CELLAR_CREATION_OF_WORK,  # date of latest modification in dataset
+    "based_on_treaty": CELLAR_BASED_ON_TREATY,  # treaty on which judgment is based
+    "subject_matter": CELLAR_SUBJECT_MATTER,  # subject matter
+    "national_judgement": CELLAR_NATIONAL_JUDGMENT,  # source of national case
+    "references_journals": CELLAR_JOURNAL_ARTICLES,  # references to journal articles
+    "sector": CELLAR_SECTOR,  # indicates type of source
+    "resource_type": CELLAR_RESOURCE_TYPE,  # document type
+    "year_of_resource": CELLAR_YEAR_OF_RESOURCE,  # judgment year
+    "language_procedure": CELLAR_LANGUAGE,  # language of procedure
     "advocate_general": CELLAR_ADV_GENERAL,  # Advocate General of the case
     "judge_rapporteur": CELLAR_JUDGE_RAPPORTEUR,  # Judge Rapporteur of the case
-    "affecting_ids": CELLAR_AFFECTING_ID,  # cellar id's of case affecting
-    "affecting_strings": CELLAR_AFFECTING_STRING,  # entire strings with more details about case affecting
-    "citations_extra_info": CELLAR_CITATIONS_EXTRA_INFO,  # Citations with exact paragraphs cited
+    "affecting_ids": CELLAR_AFFECTING_ID,  # cellar ids of the case affecting
+    # Singular in 2.x; it was affecting_strings before.
+    "affecting_string": CELLAR_AFFECTING_STRING,  # strings with more detail about case affecting
+    "citations_extra_info": CELLAR_CITATIONS_EXTRA_INFO,  # citations with exact paragraphs cited
 }
+
 MAP_RS_OPINION = MAP_RS.copy()
 MAP_RS_OPINION[ECLI_DECISION] = ECLI_DECISION  # not in original data, added through script
 
