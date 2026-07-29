@@ -157,7 +157,14 @@ class _BaseRowProcessor:
 
 
 class PostgresRSProcessor(_BaseRowProcessor):
-    """Rechtspraak rows -> cle_v2.cases + cle_v2.rs_document + cle_v2.case_text."""
+    """Rechtspraak rows -> cle_v2.cases + cle_v2.rs_document + cle_v2.case_text.
+
+    Defaults here are written as `or`, not as a second argument to get(). The
+    transformer emits every mapped column as a header, so a column the source
+    did not fill is present and empty rather than absent, and a get() default
+    never fires for it. That put an empty string in cases.sources on every row
+    and, for language, broke the foreign key onto language.iso_code outright.
+    """
 
     key_field = ECLI
     conflict_col = "ecli"
@@ -168,7 +175,7 @@ class PostgresRSProcessor(_BaseRowProcessor):
             "ecli": row[ECLI],
             "title": row.get(RS_TITLE),
             "date_decision": row.get(RS_DATE) or None,
-            "source": row.get(SOURCE, "Rechtspraak"),
+            "source": row.get(SOURCE) or "Rechtspraak",
         }
 
     def _detail_row(self, row, case_id):
@@ -178,8 +185,8 @@ class PostgresRSProcessor(_BaseRowProcessor):
             "document_type": row.get(RS_TYPE),
             "instance": row.get(RS_CREATOR),
             "domains": _split_set(row.get(RS_SUBJECT)),
-            "source": row.get(SOURCE, "Rechtspraak"),
-            "jurisdiction_country": row.get(JURISDICTION_COUNTRY, "NL"),
+            "source": row.get(SOURCE) or "Rechtspraak",
+            "jurisdiction_country": row.get(JURISDICTION_COUNTRY) or "NL",
             "procedure_type": row.get(RS_PROCEDURE),
             "url_publication": row.get(RS_IDENTIFIER2),
             "legal_provisions": _split_set(row.get(RS_REFERENCES)),
@@ -256,7 +263,7 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
         return {
             "item_id": row[ECHR_DOCUMENT_ID],
             "case_id": case_id,
-            "language": row.get(ECHR_LANGUAGE, "en"),
+            "language": (row.get(ECHR_LANGUAGE) or "en").lower(),
             "extractedappno": row.get(ECHR_PARTICIPANTS),
             "docname": row.get(ECHR_TITLE),
             "doctype": row.get(ECHR_DOCUMENT_TYPE),
