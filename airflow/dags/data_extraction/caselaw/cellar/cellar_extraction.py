@@ -60,14 +60,6 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         logging.info(f"{paths['metadata']} exists, skipping extraction.")
         return paths
 
-    username = getenv("EURLEX_WEBSERVICE_USERNAME")
-    password = getenv("EURLEX_WEBSERVICE_PASSWORD")
-    if not username or not password:
-        raise RuntimeError(
-            "Missing EURLEX credentials: set EURLEX_WEBSERVICE_USERNAME and "
-            "EURLEX_WEBSERVICE_PASSWORD environment variables."
-        )
-
     # Disable SSL verification for this task only: the CELLAR endpoint's
     # certificate chain fails validation from some networks. Runs inside the
     # forked task process, so other DAGs' HTTPS calls keep verification.
@@ -113,14 +105,20 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     if hasattr(cell, "requests"):
         cell.requests.Session = lambda: session
 
+    # No EUR-Lex webservice credentials. 2.x documents username and password as
+    # deprecated and ignored, and enriches citations over SPARQL
+    # unconditionally, so requiring them only refused to run over something the
+    # library would not have read.
+    #
+    # save=False with return_data=True replaces save_file="n". The old spelling
+    # still resolves to the same thing in 2.x, as a deprecated alias.
     metadata, full_text_json = cell.get_cellar_extra(
-        save_file="n",
+        save=False,
+        return_data=True,
         max_ecli=amount,
         sd=starting_date,
         ed=args.ending_date,
         threads=15,
-        username=username,
-        password=password,
     )
 
     if isinstance(metadata, bool):
