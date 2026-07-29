@@ -83,7 +83,7 @@ CELLAR_KEYWORDS = "keywords"  # keywords for case
 CELLAR_DELIVERED_COURT = (
     "delivered_by_court_formation"  # court (chamber) that delivered the judgment
 )
-CELLAR_JUDICIAL_TYPE = "judicial_type_procedure"  # type of procedure with more info
+CELLAR_JUDICIAL_TYPE = "judicial_procedure_type"  # type of procedure with more info
 CELLAR_TYPE_PROCEDURE = "type_procedure"  # type of procedure
 CELLAR_CONCLUSIONS = "conclusions"  # opinion of the Advocate-General
 CELLAR_LEGAL_RESOURCE = "legal_resource"  # source that the case interprets
@@ -97,7 +97,7 @@ CELLAR_NATIONAL_JUDGMENT = "national_judgement"  # source of national case
 CELLAR_JOURNAL_ARTICLES = "references_journals"  # references to journal articles
 CELLAR_SECTOR = "sector"  # type of source
 CELLAR_RESOURCE_TYPE = "resource_type"  # document type
-CELLAR_YEAR_OF_RESOURCE = "judgement_year"  # judgement year
+CELLAR_YEAR_OF_RESOURCE = "year_of_resource"  # judgement year
 CELLAR_LANGUAGE = "language_procedure"  # language of procedure
 CELLAR_CITED_BY = "cited_by"  # works citing the work
 CELLAR_CITING = "citing"  # works cited in work
