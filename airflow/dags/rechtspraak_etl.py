@@ -6,7 +6,10 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import (
     rechtspraak_extract,
 )
+import pandas as pd
 from data_loading import data_loader
+from data_loading.clients.postgres import PostgresCLEClient
+from data_loading.lido_reference_loader import load_law_references
 from data_transformation import data_transformer
 from dotenv import find_dotenv, load_dotenv
 from etl_factory import DEFAULT_ARGS, build_monthly_task_group, cleanup_raw_files, get_var
@@ -69,17 +72,61 @@ def rechtspraak_etl(**kwargs):
     logging.info("Starting data loading")
     data_loader.load_data(input_paths=processed_paths, full_text_paths=[], citation_sources=[])
 
+    # Law references, from the pg_lido database the lido_postgres DAG builds
+    # from the monthly LIDO export. The extraction no longer asks the LIDO web
+    # service for these, so this is where they arrive.
+    eclis = _eclis_from(processed_paths)
+    if eclis:
+        client = PostgresCLEClient()
+        try:
+            load_law_references(client, eclis)
+        finally:
+            client.close()
+
     cleanup_raw_files([citation_file, metadata_file, base_file])
     logging.info("Rechtspraak ETL completed successfully")
+
+
+def _eclis_from(processed_paths):
+    """The ECLIs just loaded, read back from the processed CSVs.
+
+    Taken from the files rather than returned by the loader so that a rerun
+    over existing outputs still enriches them: the extraction is skipped when
+    the month is already on disk, and the references should not be skipped with
+    it.
+    """
+    eclis = []
+    for path in processed_paths or []:
+        try:
+            frame = pd.read_csv(path, usecols=["ecli"])
+        except (ValueError, FileNotFoundError):
+            continue
+        eclis.extend(frame["ecli"].dropna().astype(str).tolist())
+    return sorted(set(eclis))
 
 
 with dag:
     etl_tasks = build_monthly_task_group(dag, "rechtspraak_etl", "RS", rechtspraak_etl)
 
-    trigger_segmentation = TriggerDagRunOperator(
-        task_id="trigger_case_segmentation",
-        trigger_dag_id="case_segmentation",
-        wait_for_completion=False,
-    )
-
-    etl_tasks >> trigger_segmentation
+    # Only chain segmentation on when there is a segmentation service to call.
+    #
+    # This used to be unconditional, so a deployment without one finished its
+    # extraction and load and then failed anyway on a task that could not have
+    # worked, leaving the whole run looking broken over an optional step.
+    #
+    # The check is the environment variable rather than segmentation.config,
+    # because that module falls back to a default URL when the variable is
+    # unset, and a default pointing at a service nobody deployed fails at
+    # request time instead of reading as unconfigured.
+    if os.getenv("SEGMENTATION_API_URL", "").strip():
+        trigger_segmentation = TriggerDagRunOperator(
+            task_id="trigger_case_segmentation",
+            trigger_dag_id="case_segmentation",
+            wait_for_completion=False,
+        )
+        etl_tasks >> trigger_segmentation
+    else:
+        logging.info(
+            "SEGMENTATION_API_URL is not set, so rechtspraak_etl does not "
+            "trigger case_segmentation."
+        )
