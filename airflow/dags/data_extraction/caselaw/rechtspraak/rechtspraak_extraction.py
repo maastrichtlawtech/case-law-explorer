@@ -10,7 +10,6 @@ import pandas as pd
 import rechtspraak_extractor.rechtspraak as rex
 from definitions.storage_handler import CSV_RS_CASES
 from dotenv import find_dotenv, load_dotenv
-from rechtspraak_citations_extractor.citations_extractor import get_citations
 from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
 
 env_file = find_dotenv()
@@ -76,12 +75,16 @@ def rechtspraak_extract(
         base_df.to_csv(base_file, index=False)
     else:
         pd.DataFrame().to_csv(base_file, index=False)
-    # Get citations
-    if not metadata_df.empty:
-        citations_df = get_citations(
-            metadata_df, os.getenv("LIDO_USERNAME"), os.getenv("LIDO_PASSWORD"), 1
-        )
-        citations_df.to_csv(citation_file, index=False)
-    else:
-        pd.DataFrame().to_csv(citation_file, index=False)
+    # No LIDO call. Citations and law references come from the pg_lido database
+    # that the lido_postgres DAG builds from the monthly LIDO export, so
+    # resolving them a second time over the LIDO web service would be asking a
+    # remote API for data already held locally.
+    #
+    # This still writes the same file under the same key, because it is the
+    # dataset the transformer reads rather than a citations sidecar: the name
+    # is from when get_citations returned the metadata frame with
+    # citations_incoming, citations_outgoing and legislations_cited added to
+    # it. Those three columns are now absent, which is the intended
+    # consequence; MAP_RS simply finds nothing to map.
+    metadata_df.to_csv(citation_file, index=False)
     return {"base": base_file, "metadata": metadata_file, "citations": citation_file}
