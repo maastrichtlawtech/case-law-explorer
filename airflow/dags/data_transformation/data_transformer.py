@@ -19,6 +19,7 @@ from data_transformation.utils import (
     format_jurisdiction,
     format_rs_alt_sources,
     format_rs_list,
+    format_rs_newline_list,
     format_rs_xml,
 )
 from definitions.mappings.attribute_name_maps import MAP_CELLAR, MAP_ECHR, MAP_RS
@@ -48,6 +49,12 @@ tool_map_rs = {
     "inhoudsindicatie": format_rs_xml,
     "info": format_rs_xml,
     "full_text": format_rs_xml,
+    # citations_outgoing/legislations_cited: newline-joined by both
+    # rechtspraak_extractor's live-API fallback and lido.db (built by
+    # lido_sqlite_build), not comma-joined like the fields format_rs_list
+    # handles above.
+    "citations_outgoing": format_rs_newline_list,
+    "legislations_cited": format_rs_newline_list,
 }
 
 # Keyed on the extractor's column names, like the maps above, so these follow
