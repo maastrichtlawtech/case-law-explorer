@@ -39,6 +39,18 @@ def format_rs_list(text):
     return "; ".join(i for i in set(text.split(", ")))
 
 
+# converts newline-joined multi-value fields ('item1\nitem2\nitem3' -- how
+# rechtspraak_extractor and lido.db both join citations_outgoing/
+# legislations_cited) to unified list notation: 'item1; item2; item3'
+def format_rs_newline_list(text):
+    seen = []
+    for item in text.split("\n"):
+        item = item.strip()
+        if item and item not in seen:
+            seen.append(item)
+    return "; ".join(seen) if seen else None
+
+
 def format_cellar_celex(celex):
     if ";" in celex:
         separate = celex.split(sep=";")
@@ -87,9 +99,14 @@ def format_rs_alt_sources(text):
     return clean
 
 
-# renames RS and LI jurisdiction notation to unified notation
+_MAP_JURISDICTION_UPPER = {key.upper(): value for key, value in MAP_JURISDICTION.items()}
+
+
+# renames RS and LI jurisdiction notation to unified notation. Case-insensitive
+# because dcterms:language (the RS source of this field, both from the live API
+# and lido.db) is lowercase ("nl"), while MAP_JURISDICTION's keys aren't.
 def format_jurisdiction(text):
-    return MAP_JURISDICTION[text]
+    return _MAP_JURISDICTION_UPPER[text.upper()]
 
 
 """ DF OPERATIONS (READ, WRITE, PRINT, SELECT): """
