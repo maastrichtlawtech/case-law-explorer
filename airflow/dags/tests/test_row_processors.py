@@ -11,6 +11,9 @@ from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
     ECHR_DOCUMENT_ID,
     ECLI,
+    RS_BWB_ID,
+    RS_CITING,
+    RS_LEGISLATIONS,
     RS_TITLE,
 )
 
@@ -75,6 +78,85 @@ def test_rs_processor_upload_row_skips_rows_without_ecli(client):
     processor = PostgresRSProcessor(path="unused", client=client)
     assert processor.upload_row({}) == 0
     assert client._conn is None  # never even opened a connection
+
+
+# --- RS processor: case_citation / case_law_reference ------------------------
+
+
+def test_rs_processor_writes_one_case_citation_per_target_ecli(client, hook):
+    processor = PostgresRSProcessor(path="unused", client=client)
+    hook.get_first_return = lambda sql, parameters: (
+        (7,) if parameters["val"] == "ECLI:NL:HR:2024:100" else None
+    )
+    row = {
+        ECLI: "ECLI:NL:HR:2024:3",
+        RS_TITLE: "Some title",
+        RS_CITING: "ECLI:NL:HR:2024:100; ECLI:NL:HR:2024:101",
+    }
+
+    result = processor.upload_row(row)
+
+    conn = client._get_conn()
+    assert result == 1
+    # case + rs_document + case_text + 2 citations
+    assert len(conn.executed) == 5
+    citation_calls = [params for _, params in conn.executed[3:5]]
+    resolved = next(p for p in citation_calls if p["target_ecli_raw"] is None)
+    unresolved = next(p for p in citation_calls if p["target_ecli_raw"] is not None)
+    assert resolved["target_case_id"] == 7
+    assert unresolved["target_ecli_raw"] == "ECLI:NL:HR:2024:101"
+    assert unresolved["target_case_id"] is None
+    assert resolved["relation_type"] == "cites" == unresolved["relation_type"]
+    assert resolved["source_dataset"] == "rs_lido_sqlite" == unresolved["source_dataset"]
+
+
+def test_rs_processor_writes_no_citation_rows_when_citations_outgoing_absent(client):
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {ECLI: "ECLI:NL:HR:2024:4", RS_TITLE: "Some title"}
+
+    result = processor.upload_row(row)
+
+    conn = client._get_conn()
+    assert result == 1
+    assert len(conn.executed) == 3  # case + rs_document + case_text only
+
+
+def test_rs_processor_writes_one_law_reference_per_legislation(client):
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {
+        ECLI: "ECLI:NL:HR:2024:5",
+        RS_TITLE: "Some title",
+        RS_LEGISLATIONS: "art. 6:162 BW; art. 3:1 Awb",
+        RS_BWB_ID: "BWBR0005289",
+    }
+
+    result = processor.upload_row(row)
+
+    conn = client._get_conn()
+    assert result == 1
+    assert len(conn.executed) == 5  # case + rs_document + case_text + 2 law refs
+    law_ref_params = [params for _, params in conn.executed[3:5]]
+    assert {p["raw_reference"] for p in law_ref_params} == {"art. 6:162 BW", "art. 3:1 Awb"}
+    assert all(p["raw_resource"] == "BWBR0005289" for p in law_ref_params)
+    assert all(p["source_dataset"] == "rs_lido_sqlite" for p in law_ref_params)
+
+
+def test_rs_processor_upload_rows_writes_citations_per_row_in_batch(client, hook):
+    processor = PostgresRSProcessor(path="unused", client=client)
+    hook.get_first_return = None  # nothing resolves -> all unresolved raw ECLIs
+    rows = [
+        {ECLI: "ECLI:NL:HR:2024:30", RS_TITLE: "A", RS_CITING: "ECLI:NL:HR:2024:200"},
+        {ECLI: "ECLI:NL:HR:2024:31", RS_TITLE: "B"},
+    ]
+
+    result = processor.upload_rows(rows)
+
+    conn = client._get_conn()
+    assert result == 2
+    # bulk cases + bulk rs_document + bulk case_text + 1 citation (row 2 has none)
+    assert len(conn.executed) == 4
+    _, citation_params = conn.executed[3]
+    assert citation_params["target_ecli_raw"] == "ECLI:NL:HR:2024:200"
 
 
 # --- Cellar processor: 2 statements (case + cjeu_document) -------------------

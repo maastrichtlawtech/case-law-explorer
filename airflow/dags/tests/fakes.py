@@ -106,6 +106,8 @@ class FakeHook:
 
     def get_first(self, sql, parameters=None):
         self.get_first_calls.append((sql, parameters))
+        if callable(self.get_first_return):
+            return self.get_first_return(sql, parameters)
         return self.get_first_return
 
     def get_records(self, sql, parameters=None):
