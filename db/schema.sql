@@ -1,6 +1,8 @@
 CREATE SCHEMA "public";
 CREATE SCHEMA "cle_v2";
 CREATE SCHEMA "legacy";
+CREATE EXTENSION IF NOT EXISTS "vector";
+CREATE EXTENSION IF NOT EXISTS "pg_trgm";
 CREATE TABLE "cle_v2"."_lang_map" (
 	"hudoc" text PRIMARY KEY,
 	"iso" text NOT NULL
@@ -330,6 +332,35 @@ CREATE TABLE "cle_v2"."language" (
 	"iso_code" text PRIMARY KEY,
 	"name" text
 );
+-- Seed for the FKs on case_text.language / cases.language_iso: the 24
+-- official EU languages (ISO 639-1), covering CJEU/Cellar and ECHR/HUDOC
+-- member-state languages as well as Rechtspraak's "nl".
+INSERT INTO "cle_v2"."language" ("iso_code", "name") VALUES
+	('bg', 'Bulgarian'),
+	('hr', 'Croatian'),
+	('cs', 'Czech'),
+	('da', 'Danish'),
+	('nl', 'Dutch'),
+	('en', 'English'),
+	('et', 'Estonian'),
+	('fi', 'Finnish'),
+	('fr', 'French'),
+	('de', 'German'),
+	('el', 'Greek'),
+	('hu', 'Hungarian'),
+	('ga', 'Irish'),
+	('it', 'Italian'),
+	('lv', 'Latvian'),
+	('lt', 'Lithuanian'),
+	('mt', 'Maltese'),
+	('pl', 'Polish'),
+	('pt', 'Portuguese'),
+	('ro', 'Romanian'),
+	('sk', 'Slovak'),
+	('sl', 'Slovenian'),
+	('es', 'Spanish'),
+	('sv', 'Swedish')
+ON CONFLICT ("iso_code") DO NOTHING;
 CREATE TABLE "cle_v2"."legal_provision" (
 	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "cle_v2"."legal_provision_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"legislation_id" bigint,
@@ -341,7 +372,11 @@ CREATE TABLE "cle_v2"."legal_provision" (
 	"text" text,
 	"bwb_label_id" bigint,
 	"lido_id" text CONSTRAINT "legal_provision_lido_id_key" UNIQUE,
-	"jc_id" text CONSTRAINT "legal_provision_jc_id_key" UNIQUE,
+	-- jc_id is NOT reliably unique in real LIDO data (distinct dated lido_id
+	-- nodes for the same provision can share a jci1.3 reference); lido_id is
+	-- the actual unique natural key here. Discovered when the first real
+	-- lido_postgres-successor merge hit a UniqueViolation on this constraint.
+	"jc_id" text,
 	"effective_from" date,
 	"effective_to" date,
 	"snapshot_date" date
@@ -355,7 +390,8 @@ CREATE TABLE "cle_v2"."legislation" (
 	"document_type" text,
 	"enacted_date" date,
 	"lido_id" text CONSTRAINT "legislation_lido_id_key" UNIQUE,
-	"jc_id" text CONSTRAINT "legislation_jc_id_key" UNIQUE,
+	-- Same reasoning as legal_provision.jc_id: not reliably unique in real data.
+	"jc_id" text,
 	"snapshot_date" date
 );
 CREATE TABLE "cle_v2"."legislation_alias" (
@@ -474,7 +510,6 @@ CREATE TABLE "cle_v2"."search_query_log" (
 	"clicked_case_ids" text[],
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
-CREATE UNIQUE INDEX "_lang_map_pkey" ON "cle_v2"."_lang_map" ("hudoc");
 CREATE INDEX "case_citation_idx_relation_type" ON "cle_v2"."case_citation" ("relation_type");
 CREATE INDEX "case_citation_idx_source" ON "cle_v2"."case_citation" ("source_case_id");
 CREATE INDEX "case_citation_idx_source_target" ON "cle_v2"."case_citation" ("source_case_id","target_case_id");
@@ -482,49 +517,33 @@ CREATE INDEX "case_citation_idx_target" ON "cle_v2"."case_citation" ("target_cas
 CREATE INDEX "case_citation_idx_target_celex_raw" ON "cle_v2"."case_citation" ("target_celex_raw");
 CREATE INDEX "case_citation_idx_target_ecli_raw" ON "cle_v2"."case_citation" ("target_ecli_raw");
 CREATE INDEX "case_citation_idx_weight" ON "cle_v2"."case_citation" ("weight");
-CREATE UNIQUE INDEX "case_citation_pkey" ON "cle_v2"."case_citation" ("id");
 CREATE UNIQUE INDEX "case_citation_uk_resolved" ON "cle_v2"."case_citation" ("source_case_id","target_case_id","relation_type","source_dataset");
 CREATE UNIQUE INDEX "case_citation_uk_unresolved_celex" ON "cle_v2"."case_citation" ("source_case_id","target_celex_raw","relation_type","source_dataset");
 CREATE UNIQUE INDEX "case_citation_uk_unresolved_ecli" ON "cle_v2"."case_citation" ("source_case_id","target_ecli_raw","relation_type","source_dataset");
-CREATE UNIQUE INDEX "case_citation_counts_pkey" ON "cle_v2"."case_citation_counts" ("case_id");
-CREATE UNIQUE INDEX "case_cluster_pkey" ON "cle_v2"."case_cluster" ("id");
-CREATE UNIQUE INDEX "case_cluster_membership_pkey" ON "cle_v2"."case_cluster_membership" ("cluster_id","case_id");
 CREATE INDEX "case_domain_idx_domain_id" ON "cle_v2"."case_domain" ("domain_id");
-CREATE UNIQUE INDEX "case_domain_pkey" ON "cle_v2"."case_domain" ("case_id","domain_id");
 CREATE INDEX "case_entity_idx_case_id" ON "cle_v2"."case_entity" ("case_id");
-CREATE UNIQUE INDEX "case_entity_pkey" ON "cle_v2"."case_entity" ("id");
-CREATE UNIQUE INDEX "case_judge_case_id_judge_id_role_key" ON "cle_v2"."case_judge" ("case_id","judge_id","role");
 CREATE INDEX "case_judge_idx_case_id" ON "cle_v2"."case_judge" ("case_id");
 CREATE INDEX "case_judge_idx_judge_id" ON "cle_v2"."case_judge" ("judge_id");
-CREATE UNIQUE INDEX "case_judge_pkey" ON "cle_v2"."case_judge" ("id");
 CREATE INDEX "case_law_reference_idx_case_id" ON "cle_v2"."case_law_reference" ("case_id");
 CREATE INDEX "case_law_reference_idx_legislation" ON "cle_v2"."case_law_reference" ("legislation_id");
 CREATE INDEX "case_law_reference_idx_provision" ON "cle_v2"."case_law_reference" ("provision_id");
 CREATE INDEX "case_law_reference_idx_raw" ON "cle_v2"."case_law_reference" ("raw_scheme","raw_resource");
 CREATE INDEX "case_law_reference_idx_raw_label" ON "cle_v2"."case_law_reference" ("raw_label_id");
-CREATE UNIQUE INDEX "case_law_reference_pkey" ON "cle_v2"."case_law_reference" ("id");
 CREATE UNIQUE INDEX "case_law_reference_uk_legislation" ON "cle_v2"."case_law_reference" ("case_id","legislation_id","role","source_dataset");
 CREATE UNIQUE INDEX "case_law_reference_uk_provision" ON "cle_v2"."case_law_reference" ("case_id","provision_id","role","source_dataset");
-CREATE UNIQUE INDEX "case_law_reference_uk_raw" ON "cle_v2"."case_law_reference" ("case_id","raw_scheme","raw_resource","COALESCE(raw_subdivision, ''::text)","role","source_dataset");
+CREATE UNIQUE INDEX "case_law_reference_uk_raw" ON "cle_v2"."case_law_reference" ("case_id","raw_scheme","raw_resource",COALESCE(raw_subdivision, ''::text),"role","source_dataset");
 CREATE INDEX "case_network_metric_idx_case" ON "cle_v2"."case_network_metric" ("case_id");
-CREATE UNIQUE INDEX "case_network_metric_pkey" ON "cle_v2"."case_network_metric" ("snapshot_id","case_id");
 CREATE INDEX "case_party_idx_party" ON "cle_v2"."case_party" ("party_id");
-CREATE UNIQUE INDEX "case_party_pkey" ON "cle_v2"."case_party" ("case_id","party_id","role","ordinal");
-CREATE UNIQUE INDEX "case_segment_case_id_segment_hash_key" ON "cle_v2"."case_segment" ("case_id","segment_hash");
 CREATE INDEX "case_segment_idx_case_id" ON "cle_v2"."case_segment" ("case_id");
-CREATE UNIQUE INDEX "case_segment_pkey" ON "cle_v2"."case_segment" ("id");
 CREATE INDEX "case_summary_version_idx_case" ON "cle_v2"."case_summary_version" ("case_id");
-CREATE UNIQUE INDEX "case_summary_version_pkey" ON "cle_v2"."case_summary_version" ("id");
 CREATE UNIQUE INDEX "case_summary_version_uk_current" ON "cle_v2"."case_summary_version" ("case_id","segment_scope","summarization_model");
-CREATE UNIQUE INDEX "case_text_case_id_language_source_key" ON "cle_v2"."case_text" ("case_id","language","source");
 CREATE INDEX "case_text_idx_case_id" ON "cle_v2"."case_text" ("case_id");
 CREATE INDEX "case_text_idx_fulltext_tsv" ON "cle_v2"."case_text" USING gin ("fulltext_tsv");
 CREATE INDEX "case_text_idx_stub" ON "cle_v2"."case_text" ("case_id");
-CREATE INDEX "case_text_idx_summary_embedding" ON "cle_v2"."case_text" USING hnsw ("summary_embedding");
+CREATE INDEX "case_text_idx_summary_embedding" ON "cle_v2"."case_text" USING hnsw ("summary_embedding" vector_cosine_ops);
 CREATE INDEX "case_text_idx_summary_tsv" ON "cle_v2"."case_text" USING gin ("summary_tsv");
-CREATE UNIQUE INDEX "case_text_pkey" ON "cle_v2"."case_text" ("id");
 CREATE INDEX "case_idx_case_number" ON "cle_v2"."cases" ("case_number");
-CREATE INDEX "case_idx_case_number_trgm" ON "cle_v2"."cases" USING gin ("case_number");
+CREATE INDEX "case_idx_case_number_trgm" ON "cle_v2"."cases" USING gin ("case_number" gin_trgm_ops);
 CREATE INDEX "case_idx_court" ON "cle_v2"."cases" ("court_id");
 CREATE INDEX "case_idx_date_decision" ON "cle_v2"."cases" ("date_decision");
 CREATE INDEX "case_idx_date_ecli" ON "cle_v2"."cases" ("date_decision","ecli");
@@ -532,81 +551,38 @@ CREATE INDEX "case_idx_ecli" ON "cle_v2"."cases" ("ecli");
 CREATE INDEX "case_idx_importance" ON "cle_v2"."cases" ("importance");
 CREATE INDEX "case_idx_item_id" ON "cle_v2"."cases" ("item_id");
 CREATE INDEX "case_idx_sources" ON "cle_v2"."cases" USING gin ("sources");
-CREATE INDEX "case_idx_title_trgm" ON "cle_v2"."cases" USING gin ("title");
-CREATE UNIQUE INDEX "cases_celex_id_key" ON "cle_v2"."cases" ("celex_id");
-CREATE UNIQUE INDEX "cases_ecli_key" ON "cle_v2"."cases" ("ecli");
+CREATE INDEX "case_idx_title_trgm" ON "cle_v2"."cases" USING gin ("title" gin_trgm_ops);
 CREATE INDEX "cases_idx_case_number_btree" ON "cle_v2"."cases" ("case_number");
-CREATE UNIQUE INDEX "cases_item_id_key" ON "cle_v2"."cases" ("item_id");
-CREATE UNIQUE INDEX "cases_pkey" ON "cle_v2"."cases" ("id");
-CREATE UNIQUE INDEX "cjeu_ag_opinion_case_id_key" ON "cle_v2"."cjeu_ag_opinion" ("case_id");
-CREATE UNIQUE INDEX "cjeu_ag_opinion_pkey" ON "cle_v2"."cjeu_ag_opinion" ("id");
-CREATE UNIQUE INDEX "cjeu_document_case_id_key" ON "cle_v2"."cjeu_document" ("case_id");
-CREATE UNIQUE INDEX "cjeu_document_pkey" ON "cle_v2"."cjeu_document" ("id");
-CREATE UNIQUE INDEX "cjeu_national_document_case_id_key" ON "cle_v2"."cjeu_national_document" ("case_id");
-CREATE UNIQUE INDEX "cjeu_national_document_pkey" ON "cle_v2"."cjeu_national_document" ("id");
-CREATE UNIQUE INDEX "court_code_key" ON "cle_v2"."court" ("code");
-CREATE UNIQUE INDEX "court_pkey" ON "cle_v2"."court" ("id");
-CREATE UNIQUE INDEX "court_formation_code_key" ON "cle_v2"."court_formation" ("code");
-CREATE UNIQUE INDEX "court_formation_pkey" ON "cle_v2"."court_formation" ("id");
-CREATE UNIQUE INDEX "document_type_code_key" ON "cle_v2"."document_type" ("code");
-CREATE UNIQUE INDEX "document_type_pkey" ON "cle_v2"."document_type" ("id");
-CREATE UNIQUE INDEX "domain_pkey" ON "cle_v2"."domain" ("id");
-CREATE UNIQUE INDEX "domain_label_pkey" ON "cle_v2"."domain_label" ("domain_id","language");
 CREATE INDEX "echr_document_idx_case_lang" ON "cle_v2"."echr_document" ("case_id","language");
-CREATE INDEX "echr_document_idx_docname_trgm" ON "cle_v2"."echr_document" USING gin ("docname");
+CREATE INDEX "echr_document_idx_docname_trgm" ON "cle_v2"."echr_document" USING gin ("docname" gin_trgm_ops);
 CREATE INDEX "echr_document_idx_doctype" ON "cle_v2"."echr_document" ("doctype");
 CREATE INDEX "echr_document_idx_doctype_branch" ON "cle_v2"."echr_document" ("doctype_branch");
-CREATE INDEX "echr_document_idx_issue_trgm" ON "cle_v2"."echr_document" USING gin ("issue");
+CREATE INDEX "echr_document_idx_issue_trgm" ON "cle_v2"."echr_document" USING gin ("issue" gin_trgm_ops);
 CREATE INDEX "echr_document_idx_judgement_date" ON "cle_v2"."echr_document" ("judgement_date");
 CREATE INDEX "echr_document_idx_judgement_year" ON "cle_v2"."echr_document" ("judgement_year");
 CREATE INDEX "echr_document_idx_originating_body" ON "cle_v2"."echr_document" ("originating_body");
 CREATE INDEX "echr_document_idx_reference_date" ON "cle_v2"."echr_document" ("reference_date");
-CREATE UNIQUE INDEX "echr_document_pkey" ON "cle_v2"."echr_document" ("item_id");
 CREATE INDEX "echr_document_appno_idx_appno" ON "cle_v2"."echr_document_appno" ("appno");
 CREATE INDEX "echr_document_appno_idx_source" ON "cle_v2"."echr_document_appno" ("source");
-CREATE UNIQUE INDEX "echr_document_appno_pkey" ON "cle_v2"."echr_document_appno" ("item_id","appno","source");
 CREATE INDEX "echr_document_article_idx_filter" ON "cle_v2"."echr_document_article" ("kind","article_code");
-CREATE UNIQUE INDEX "echr_document_article_pkey" ON "cle_v2"."echr_document_article" ("item_id","kind","article_code");
-CREATE UNIQUE INDEX "echr_document_secondary_text_pkey" ON "cle_v2"."echr_document_secondary_text" ("item_id");
 CREATE INDEX "echr_extractor_segments_idx_num_sections" ON "cle_v2"."echr_extractor_segments" ("num_sections");
 CREATE INDEX "echr_extractor_segments_idx_parser" ON "cle_v2"."echr_extractor_segments" ("parser_mode");
-CREATE UNIQUE INDEX "echr_extractor_segments_pkey" ON "cle_v2"."echr_extractor_segments" ("item_id");
-CREATE UNIQUE INDEX "instance_code_key" ON "cle_v2"."instance" ("code");
-CREATE UNIQUE INDEX "instance_pkey" ON "cle_v2"."instance" ("id");
-CREATE UNIQUE INDEX "judge_pkey" ON "cle_v2"."judge" ("id");
-CREATE UNIQUE INDEX "jurisdiction_iso_code_key" ON "cle_v2"."jurisdiction" ("iso_code");
-CREATE UNIQUE INDEX "jurisdiction_pkey" ON "cle_v2"."jurisdiction" ("id");
-CREATE UNIQUE INDEX "language_pkey" ON "cle_v2"."language" ("iso_code");
 CREATE INDEX "legal_provision_idx_bwb_label" ON "cle_v2"."legal_provision" ("bwb_label_id");
-CREATE INDEX "legal_provision_idx_lookup" ON "cle_v2"."legal_provision" ("legislation_id","lower(article_label)","element_type");
-CREATE UNIQUE INDEX "legal_provision_jc_id_key" ON "cle_v2"."legal_provision" ("jc_id");
-CREATE UNIQUE INDEX "legal_provision_lido_id_key" ON "cle_v2"."legal_provision" ("lido_id");
-CREATE UNIQUE INDEX "legal_provision_pkey" ON "cle_v2"."legal_provision" ("id");
+CREATE INDEX "legal_provision_idx_lookup" ON "cle_v2"."legal_provision" ("legislation_id",lower(article_label),"element_type");
 CREATE INDEX "legislation_idx_scheme_identifier" ON "cle_v2"."legislation" ("scheme","identifier");
-CREATE UNIQUE INDEX "legislation_jc_id_key" ON "cle_v2"."legislation" ("jc_id");
-CREATE UNIQUE INDEX "legislation_lido_id_key" ON "cle_v2"."legislation" ("lido_id");
-CREATE UNIQUE INDEX "legislation_pkey" ON "cle_v2"."legislation" ("id");
-CREATE INDEX "legislation_alias_idx_alias_lower" ON "cle_v2"."legislation_alias" ("lower(alias)");
-CREATE INDEX "legislation_alias_idx_alias_trgm" ON "cle_v2"."legislation_alias" USING gin ("alias");
-CREATE UNIQUE INDEX "legislation_alias_pkey" ON "cle_v2"."legislation_alias" ("id");
+CREATE INDEX "legislation_alias_idx_alias_lower" ON "cle_v2"."legislation_alias" (lower(alias));
+CREATE INDEX "legislation_alias_idx_alias_trgm" ON "cle_v2"."legislation_alias" USING gin ("alias" gin_trgm_ops);
+-- No unique constraint existed on this table before (safe to add now: table has
+-- zero rows/writers). Needed by the lido_postgres -> cle_v2 merge (airflow/dags/lido/)
+-- to upsert idempotently on reruns.
+CREATE UNIQUE INDEX "legislation_alias_uk" ON "cle_v2"."legislation_alias" ("legislation_id", "alias");
 CREATE INDEX "lido_link_idx_source_case" ON "cle_v2"."lido_link" ("source_case_id");
 CREATE INDEX "lido_link_idx_target_case" ON "cle_v2"."lido_link" ("target_case_id");
-CREATE UNIQUE INDEX "lido_link_pkey" ON "cle_v2"."lido_link" ("id");
-CREATE UNIQUE INDEX "migration_manifest_pkey" ON "cle_v2"."migration_manifest" ("step");
-CREATE UNIQUE INDEX "network_snapshot_pkey" ON "cle_v2"."network_snapshot" ("id");
-CREATE UNIQUE INDEX "party_pkey" ON "cle_v2"."party" ("id");
-CREATE UNIQUE INDEX "procedure_type_code_key" ON "cle_v2"."procedure_type" ("code");
-CREATE UNIQUE INDEX "procedure_type_pkey" ON "cle_v2"."procedure_type" ("id");
 CREATE INDEX "rs_document_idx_date_decision" ON "cle_v2"."rs_document" ("date_decision");
 CREATE INDEX "rs_document_idx_date_issued" ON "cle_v2"."rs_document" ("date_issued");
 CREATE INDEX "rs_document_idx_date_modified" ON "cle_v2"."rs_document" ("date_modified");
 CREATE INDEX "rs_document_idx_domains_gin" ON "cle_v2"."rs_document" USING gin ("domains");
-CREATE UNIQUE INDEX "rs_document_pkey" ON "cle_v2"."rs_document" ("case_id");
-CREATE UNIQUE INDEX "rs_document_external_authority_pkey" ON "cle_v2"."rs_document_external_authority" ("case_id","raw");
-CREATE UNIQUE INDEX "rs_document_formal_relation_pkey" ON "cle_v2"."rs_document_formal_relation" ("case_id","target_identifier","relation_type","aanleg");
 CREATE INDEX "rs_document_publication_idx_journal" ON "cle_v2"."rs_document_publication" ("journal_abbr");
-CREATE UNIQUE INDEX "rs_document_publication_pkey" ON "cle_v2"."rs_document_publication" ("case_id","raw");
-CREATE UNIQUE INDEX "search_query_log_pkey" ON "cle_v2"."search_query_log" ("id");
 ALTER TABLE "cle_v2"."case_citation" ADD CONSTRAINT "fk_case_citation_context" FOREIGN KEY ("context_segment_id") REFERENCES "cle_v2"."case_segment"("id") ON DELETE SET NULL;
 ALTER TABLE "cle_v2"."case_citation" ADD CONSTRAINT "fk_case_citation_source" FOREIGN KEY ("source_case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."case_citation" ADD CONSTRAINT "fk_case_citation_target" FOREIGN KEY ("target_case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE SET NULL;
@@ -669,9 +645,21 @@ ALTER TABLE "cle_v2"."rs_document_external_authority" ADD CONSTRAINT "fk_rs_docu
 ALTER TABLE "cle_v2"."rs_document_formal_relation" ADD CONSTRAINT "fk_rs_document_formal_source" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."rs_document"("case_id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."rs_document_formal_relation" ADD CONSTRAINT "fk_rs_document_formal_target" FOREIGN KEY ("target_ecli") REFERENCES "cle_v2"."cases"("ecli") ON DELETE SET NULL;
 ALTER TABLE "cle_v2"."rs_document_publication" ADD CONSTRAINT "fk_rs_document_publication_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."rs_document"("case_id") ON DELETE CASCADE;
-CREATE VIEW "cle_v2"."case_text_canonical" TABLESPACE cle_v2 AS (SELECT DISTINCT ON (case_id, language) id, case_id, language, fulltext, summary, summary_source, fulltext_tsv, summary_tsv, summary_embedding, embedding_model, source, text_format, missing_reasons, created_at, updated_at FROM cle_v2.case_text t ORDER BY case_id, language, ( CASE source WHEN 'RECHTSPRAAK'::text THEN 1 WHEN 'HUDOC'::text THEN 2 WHEN 'INFOCURIA_BLOB_HTML'::text THEN 3 WHEN 'CELLAR_ITEM'::text THEN 4 ELSE 5 END), id);
-CREATE VIEW "cle_v2"."echr_v_document_with_text" TABLESPACE cle_v2 AS (SELECT d.item_id, d.case_id, d.language, d.extractedappno, d.docname, d.doctype, d.doctype_branch, d.judgement_date, d.reference_date, d.article, d.conclusion, d.violation, d.nonviolation, d.respondent, d.originating_body, d.represented_by, d.published_by, d.rules_of_court, d.applicability, d.separate_opinion, d.issue, d.importance, d.rank, d.scl, d.external_sources, d.judgement_year, d.created_at, d.updated_at, t.fulltext, t.fulltext_tsv FROM cle_v2.echr_document d LEFT JOIN cle_v2.case_text_canonical t ON t.case_id = d.case_id AND t.language = d.language);
-CREATE VIEW "cle_v2"."echr_v_judgments_decisions" TABLESPACE cle_v2 AS (SELECT item_id, case_id, language, extractedappno, docname, doctype, doctype_branch, judgement_date, reference_date, article, conclusion, violation, nonviolation, respondent, originating_body, represented_by, published_by, rules_of_court, applicability, separate_opinion, issue, importance, rank, scl, external_sources, judgement_year, created_at, updated_at FROM cle_v2.echr_document WHERE doctype ~~* '%JUD%'::text OR doctype ~~* '%DEC%'::text);
-CREATE VIEW "cle_v2"."rs_v_document_law_reference" TABLESPACE cle_v2 AS (SELECT r.case_id, c.ecli, r.raw_resource AS bwb_resource, COALESCE(r.raw_subdivision, ''::text) AS article, r.version_date, r.raw_label_id AS bwb_label_id, r.source_dataset AS source, r.raw_reference AS opschrift, ((('http://wetten.overheid.nl/id/'::text || r.raw_resource) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text)) || '/0'::text AS legal_provision_url, CASE WHEN r.raw_label_id IS NULL THEN NULL::text ELSE (((((('http://linkeddata.overheid.nl/terms/bwb/id/'::text || r.raw_resource) || '/'::text) || r.raw_label_id::text) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text)) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text) END AS legal_provision_url_lido FROM cle_v2.case_law_reference r JOIN cle_v2.cases c ON c.id = r.case_id WHERE r.raw_scheme = 'bwb'::text);
-CREATE VIEW "cle_v2"."rs_v_document_legal_provisions" TABLESPACE cle_v2 AS (SELECT DISTINCT c.ecli, lr.raw_reference AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lr.raw_reference, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lp.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legal_provision lp ON lp.bwb_label_id = lr.raw_label_id WHERE lr.raw_scheme = 'bwb'::text AND lr.raw_label_id IS NOT NULL AND NULLIF(lp.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lp.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource JOIN cle_v2.legal_provision lp ON lp.legislation_id = lg.id AND lower(lp.article_label) = lower(lr.raw_subdivision) AND lp.element_type = 'artikel'::text WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lp.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lg.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, (lg.title || ', Artikel '::text) || lr.raw_subdivision AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL AND NULLIF(lr.raw_subdivision, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, (lg.title || ', Bijlage '::text) || lr.raw_subdivision AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL AND NULLIF(lr.raw_subdivision, ''::text) IS NOT NULL AND lr.raw_reference ~~* '%bijlage%'::text);
-CREATE VIEW "cle_v2"."rs_v_document_with_text" TABLESPACE cle_v2 AS (SELECT d.case_id, d.date_decision, d.document_type, d.instance, d.domains, d.source, d.jurisdiction_country, d.procedure_type, d.url_publication, d.legal_provisions, d.predecessor_successor_cases, d.created_at, d.updated_at, d.date_published, d.date_issued, d.date_modified, d.title, d.language, d.access_rights, d.zittingsplaats, d.replaces_identifier, d.creator_uri, d.vindplaatsen, d.subject_uris, d.zaaknummer, d.opendata_status, t.summary, t.fulltext, t.fulltext_tsv FROM cle_v2.rs_document d LEFT JOIN cle_v2.case_text_canonical t ON t.case_id = d.case_id AND t.language = 'nl'::text);
+-- Reconstructed: not captured anywhere before this fix (not in schema.sql, not
+-- in git history, not in application code) despite being called by
+-- rs_v_document_law_reference below. wetten.overheid.nl/linkeddata.overheid.nl
+-- URLs need a locale-independent YYYY-MM-DD segment, which is what this
+-- provides; to_char (not date::text) makes that independent of DateStyle.
+CREATE OR REPLACE FUNCTION "cle_v2"."rs_date_to_iso"("d" date)
+RETURNS text
+LANGUAGE sql
+IMMUTABLE
+AS $$
+    SELECT to_char(d, 'YYYY-MM-DD');
+$$;
+CREATE VIEW "cle_v2"."case_text_canonical" AS (SELECT DISTINCT ON (case_id, language) id, case_id, language, fulltext, summary, summary_source, fulltext_tsv, summary_tsv, summary_embedding, embedding_model, source, text_format, missing_reasons, created_at, updated_at FROM cle_v2.case_text t ORDER BY case_id, language, ( CASE source WHEN 'RECHTSPRAAK'::text THEN 1 WHEN 'HUDOC'::text THEN 2 WHEN 'INFOCURIA_BLOB_HTML'::text THEN 3 WHEN 'CELLAR_ITEM'::text THEN 4 ELSE 5 END), id);
+CREATE VIEW "cle_v2"."echr_v_document_with_text" AS (SELECT d.item_id, d.case_id, d.language, d.extractedappno, d.docname, d.doctype, d.doctype_branch, d.judgement_date, d.reference_date, d.article, d.conclusion, d.violation, d.nonviolation, d.respondent, d.originating_body, d.represented_by, d.published_by, d.rules_of_court, d.applicability, d.separate_opinion, d.issue, d.importance, d.rank, d.scl, d.external_sources, d.judgement_year, d.created_at, d.updated_at, t.fulltext, t.fulltext_tsv FROM cle_v2.echr_document d LEFT JOIN cle_v2.case_text_canonical t ON t.case_id = d.case_id AND t.language = d.language);
+CREATE VIEW "cle_v2"."echr_v_judgments_decisions" AS (SELECT item_id, case_id, language, extractedappno, docname, doctype, doctype_branch, judgement_date, reference_date, article, conclusion, violation, nonviolation, respondent, originating_body, represented_by, published_by, rules_of_court, applicability, separate_opinion, issue, importance, rank, scl, external_sources, judgement_year, created_at, updated_at FROM cle_v2.echr_document WHERE doctype ~~* '%JUD%'::text OR doctype ~~* '%DEC%'::text);
+CREATE VIEW "cle_v2"."rs_v_document_law_reference" AS (SELECT r.case_id, c.ecli, r.raw_resource AS bwb_resource, COALESCE(r.raw_subdivision, ''::text) AS article, r.version_date, r.raw_label_id AS bwb_label_id, r.source_dataset AS source, r.raw_reference AS opschrift, ((('http://wetten.overheid.nl/id/'::text || r.raw_resource) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text)) || '/0'::text AS legal_provision_url, CASE WHEN r.raw_label_id IS NULL THEN NULL::text ELSE (((((('http://linkeddata.overheid.nl/terms/bwb/id/'::text || r.raw_resource) || '/'::text) || r.raw_label_id::text) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text)) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text) END AS legal_provision_url_lido FROM cle_v2.case_law_reference r JOIN cle_v2.cases c ON c.id = r.case_id WHERE r.raw_scheme = 'bwb'::text);
+CREATE VIEW "cle_v2"."rs_v_document_legal_provisions" AS (SELECT DISTINCT c.ecli, lr.raw_reference AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lr.raw_reference, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lp.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legal_provision lp ON lp.bwb_label_id = lr.raw_label_id WHERE lr.raw_scheme = 'bwb'::text AND lr.raw_label_id IS NOT NULL AND NULLIF(lp.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lp.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource JOIN cle_v2.legal_provision lp ON lp.legislation_id = lg.id AND lower(lp.article_label) = lower(lr.raw_subdivision) AND lp.element_type = 'artikel'::text WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lp.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lg.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, (lg.title || ', Artikel '::text) || lr.raw_subdivision AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL AND NULLIF(lr.raw_subdivision, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, (lg.title || ', Bijlage '::text) || lr.raw_subdivision AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL AND NULLIF(lr.raw_subdivision, ''::text) IS NOT NULL AND lr.raw_reference ~~* '%bijlage%'::text);
+CREATE VIEW "cle_v2"."rs_v_document_with_text" AS (SELECT d.case_id, d.date_decision, d.document_type, d.instance, d.domains, d.source, d.jurisdiction_country, d.procedure_type, d.url_publication, d.legal_provisions, d.predecessor_successor_cases, d.created_at, d.updated_at, d.date_published, d.date_issued, d.date_modified, d.title, d.language, d.access_rights, d.zittingsplaats, d.replaces_identifier, d.creator_uri, d.vindplaatsen, d.subject_uris, d.zaaknummer, d.opendata_status, t.summary, t.fulltext, t.fulltext_tsv FROM cle_v2.rs_document d LEFT JOIN cle_v2.case_text_canonical t ON t.case_id = d.case_id AND t.language = 'nl'::text);
