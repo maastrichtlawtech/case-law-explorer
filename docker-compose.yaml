@@ -67,6 +67,13 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    # Defaults (16 celery workers, 4 gunicorn workers) are sized for a
+    # multi-user production install; this is a single-node local setup where
+    # DAGs mostly run one at a time, and the idle worker pool was found
+    # sitting in swap alongside a large merge task, contributing to host
+    # memory pressure that triggered OOM kills of unrelated processes.
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: '2'
+    AIRFLOW__WEBSERVER__WORKERS: '2'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -148,7 +155,7 @@ services:
     <<: *airflow-common
     command: webserver
     ports:
-      - "8080:8080"
+      - "8081:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
