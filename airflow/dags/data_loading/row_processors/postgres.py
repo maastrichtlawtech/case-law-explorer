@@ -27,6 +27,8 @@ from definitions.terminology.attribute_names import (
     ECHR_VIOLATIONS,
     ECLI,
     JURISDICTION_COUNTRY,
+    RS_BWB_ID,
+    RS_CITING,
     RS_CREATOR,
     RS_DATE,
     RS_FULL_TEXT,
@@ -34,6 +36,7 @@ from definitions.terminology.attribute_names import (
     RS_INHOUDSINDICATIE,
     RS_ISSUED,
     RS_LANGUAGE,
+    RS_LEGISLATIONS,
     RS_PROCEDURE,
     RS_REFERENCES,
     RS_RELATION,
@@ -85,6 +88,16 @@ class _BaseRowProcessor:
     def _text_row(self, row, case_id):
         return None
 
+    def _citation_rows(self, row, case_id):
+        """Optional: kwargs dicts for client.upsert_citation (source_case_id
+        filled in by the caller). Default: none."""
+        return []
+
+    def _law_reference_rows(self, row, case_id):
+        """Optional: kwargs dicts for client.upsert_law_reference (case_id
+        filled in by the caller). Default: none."""
+        return []
+
     def _log_failure(self, key, error):
         logging.error(f"{error} {key} ; while upserting {self.detail_table} row into Postgres")
         with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
@@ -106,6 +119,10 @@ class _BaseRowProcessor:
                 text_row = self._text_row(row, case_id)
                 if text_row is not None:
                     self.client.upsert_case_text(**text_row)
+                for citation in self._citation_rows(row, case_id):
+                    self.client.upsert_citation(source_case_id=case_id, **citation)
+                for law_reference in self._law_reference_rows(row, case_id):
+                    self.client.upsert_law_reference(case_id=case_id, **law_reference)
             return 1
         except Exception as e:
             self._log_failure(key, e)
@@ -147,6 +164,15 @@ class _BaseRowProcessor:
                 ]
                 if text_rows:
                     self.client.bulk_upsert_case_text(text_rows)
+                # Citations/law references are per-row, one upsert_* call each
+                # (there's no bulk variant -- the count per case varies from
+                # zero to several, unlike the one-row-per-case tables above).
+                for row in valid:
+                    case_id = case_ids[self._key(row)]
+                    for citation in self._citation_rows(row, case_id):
+                        self.client.upsert_citation(source_case_id=case_id, **citation)
+                    for law_reference in self._law_reference_rows(row, case_id):
+                        self.client.upsert_law_reference(case_id=case_id, **law_reference)
             return len(valid)
         except Exception:
             logging.exception(
@@ -212,6 +238,41 @@ class PostgresRSProcessor(_BaseRowProcessor):
             "summary": row.get(RS_INHOUDSINDICATIE) or row.get(RS_SUMMARY),
             "summary_source": "rechtspraak",
         }
+
+    def _citation_rows(self, row, case_id):
+        """citations_outgoing -> case_citation, one row per cited ECLI.
+        Sourced from lido.db (built monthly by lido_sqlite_build), or the
+        live per-ECLI API for cases missing from it -- outgoing-only, same
+        convention citation_update.py already uses, since citations_incoming
+        is just the mirror of another case's own outgoing edge."""
+        rows = []
+        for target_ecli in _split_set(row.get(RS_CITING)) or []:
+            target_case_id = self.client.resolve_case_id(ecli=target_ecli)
+            rows.append(
+                {
+                    "target_case_id": target_case_id,
+                    "target_ecli_raw": None if target_case_id else target_ecli,
+                    "relation_type": "cites",
+                    "source_dataset": "rs_lido_sqlite",
+                }
+            )
+        return rows
+
+    def _law_reference_rows(self, row, case_id):
+        """legislations_cited -> case_law_reference, one row per citation.
+        Independent of, and additional to, the pg_lido-sourced rows
+        lido_reference_loader.py already writes (distinct source_dataset
+        keeps the two from colliding on the unique index).
+
+        bwb_id is a single value per case today, not one per legislation
+        citation, so every row from the same case currently gets the same
+        raw_resource -- a known limitation until lido.db's legislations_cited/
+        bwb_id are populated in a way that lines up per-entry."""
+        bwb_id = row.get(RS_BWB_ID) or None
+        return [
+            {"raw_reference": legislation, "raw_resource": bwb_id, "source_dataset": "rs_lido_sqlite"}
+            for legislation in (_split_set(row.get(RS_LEGISLATIONS)) or [])
+        ]
 
 
 class PostgresCelexProcessor(_BaseRowProcessor):
