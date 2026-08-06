@@ -96,24 +96,30 @@ The Case Law Explorer is an ETL (Extract, Transform, Load) pipeline system that 
                                 │
                                 ▼
 ┌─────────────────────────────────────────────────────────────────────────────┐
-│                         STORAGE LAYER (Postgres)                           │
+│                          STORAGE LAYER (Postgres)                           │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                             │
-│  Single Postgres instance, two schemas (issue #42 -- see db/README.md):    │
+│  Single Postgres instance, single schema (issue #42 -- see db/README.md;    │
+│  consolidated from an earlier two-schema/two-database design):              │
 │                                                                             │
-│  ┌────────────────────────────────────┐  ┌──────────────────┐              │
-│  │  cle_v2 (this ETL's target)        │  │  public (pg_lido)│              │
-│  │  ┌────────────┐  ┌────────────┐    │  │  ┌────────────┐  │              │
-│  │  │ cases      │  │ case_text  │    │  │  │ legal_case │  │              │
-│  │  │ rs_document│  │ (fulltext, │    │  │  └────────────┘  │              │
-│  │  │ cjeu_...   │  │  summary)  │    │  │  ┌────────────┐  │              │
-│  │  │ echr_...   │  └────────────┘    │  │  │law_element │  │              │
-│  │  └────────────┘  ┌────────────┐    │  │  └────────────┘  │              │
-│  │  ┌────────────┐  │case_segment│    │  │  ┌────────────┐  │              │
-│  │  │case_citation│ │case_summary│    │  │  │ case_law   │  │              │
-│  │  └────────────┘  │_version    │    │  │  └────────────┘  │              │
-│  │                  └────────────┘    │  │                  │              │
-│  └────────────────────────────────────┘  └──────────────────┘              │
+│  ┌───────────────────────────────────────────────────────────────────┐      │
+│  │ cle_v2                                                            │      │
+│  │ ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌───────────────┐ │      │
+│  │ │ cases      │  │ case_text  │  │ legislation│  │ case_citation │ │      │
+│  │ │ rs_document│  │ (fulltext, │  │ legal_     │  │ case_law_     │ │      │
+│  │ │ cjeu_...   │  │  summary)  │  │  provision │  │  reference    │ │      │
+│  │ │ echr_...   │  └────────────┘  │ legislation│  └───────────────┘ │      │
+│  │ └────────────┘  ┌────────────┐  │  _alias    │                    │      │
+│  │                  │case_segment│  └────────────┘                   │      │
+│  │                  │case_summary│                                   │      │
+│  │                  │_version    │                                   │      │
+│  │                  └────────────┘                                   │      │
+│  └───────────────────────────────────────────────────────────────────┘      │
+│                                                                             │
+│  legislation/legal_provision/legislation_alias/case_law_reference are       │
+│  populated by lido_sqlite_build's merge step from lido.db (a SQLite         │
+│  intermediate artifact, not a Postgres database) -- see                     │
+│  airflow/dags/lido/README.md                                                │
 │                                                                             │
 └─────────────────────────────────┬───────────────────────────────────────────┘
                                   │
@@ -233,13 +239,13 @@ Per-source detail tables (`rs_document`, `cjeu_document` + `cjeu_national_docume
 - **Python 3.11**: Main programming language
 - **Apache Airflow 2.10.5**: Workflow orchestration
 - **Docker**: Containerization
-- **PostgreSQL 13**: Airflow metadata + LIDO (`public` schema)
-- **PostgreSQL 16 + pgvector**: `cle_v2` schema -- case metadata, full text, citations, segments, summaries (issue #42)
+- **PostgreSQL 13**: Airflow's own metadata only
+- **PostgreSQL 16 + pgvector**: `cle_v2` schema -- case metadata, full text, citations, segments, summaries, legislation/provisions from LIDO (issue #42)
 - **Redis 7.2**: Celery message broker
 
 ### Python Libraries
 - **pandas**: Data manipulation
-- **psycopg2 / apache-airflow-providers-postgres**: `cle_v2` + LIDO Postgres access
+- **psycopg2 / apache-airflow-providers-postgres**: `cle_v2` access (including the LIDO merge step)
 - **rechtspraak-extractor**: Dutch case law extraction
 - **echr-extractor**: ECHR case extraction
 - **cellar-extractor**: CJEU case extraction
