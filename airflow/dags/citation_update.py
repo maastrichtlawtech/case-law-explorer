@@ -1,3 +1,27 @@
+"""
+DEPRECATED. This DAG was originally built to backfill citations that were
+missing in the old DynamoDB store (issue #42), by hitting the live,
+credentialed LIDO citations API once per known Rechtspraak ECLI. That backfill
+job is done.
+
+Its ongoing role -- the only writer of cle_v2.case_citation, and one of two
+writers of cle_v2.case_law_reference -- is superseded by
+PostgresRSProcessor._citation_rows/_law_reference_rows
+(data_loading/row_processors/postgres.py), which reads the same data out of
+lido.db (built monthly by lido_sqlite_build from the LIDO bulk export)
+instead of asking the live API for it again, per-ECLI, on a schedule.
+
+Do not remove this file yet: keep it until the new path has run successfully
+against real data at least once and its case_citation/case_law_reference
+coverage (source_dataset='rs_lido_sqlite') has been spot-checked against what
+this DAG already produced (source_dataset='LIDO'). Once that's confirmed,
+this DAG can be deleted; see also update_citation_details.py, which makes the
+same kind of live LIDO calls whose citation output PostgresRSProcessor has
+never read (its RS_CITED_BY/RS_CITING/RS_LEGISLATIONS columns survive
+transform_data but nothing consumes them at load time) and is worth
+retiring or rerouting in the same pass.
+"""
+
 import ast
 import logging
 import os
@@ -17,7 +41,8 @@ default_args = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=
 dag = DAG(
     dag_id="update_citations",
     default_args=default_args,
-    description="Update citation details in Postgres (cle_v2)",
+    description="[DEPRECATED, do not remove until rs_lido_sqlite coverage is validated] "
+    "Update citation details in Postgres (cle_v2)",
     catchup=False,
     start_date=datetime(2025, 1, 1),
     schedule=None,
@@ -27,7 +52,14 @@ dag = DAG(
 def _scan_and_update():
     """Re-run LIDO citation resolution for every known RS ecli and upsert the
     result into case_citation / case_law_reference (issue #42: replaces the
-    DynamoDB whole-table scan + set-attribute update)."""
+    DynamoDB whole-table scan + set-attribute update).
+
+    DEPRECATED -- see module docstring."""
+    logging.warning(
+        "update_citations is deprecated: PostgresRSProcessor now writes "
+        "case_citation/case_law_reference from lido.db during rechtspraak_etl. "
+        "This DAG remains only until that path's coverage is validated."
+    )
     with PostgresCLEClient() as client:
         eclis = client.list_rs_eclis()
         logging.info(f"Total eclis found: {len(eclis)}")
