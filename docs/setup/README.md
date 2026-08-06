@@ -95,7 +95,7 @@ At the end, the `data_transformer.py` script, similarly to the extraction script
 
 After its transformation and cleaning, your data is ready to be loaded. `data_loader.py` initializes a single `PostgresCLEClient` (`data_loading/clients/postgres.py`), which wraps the `pg_cle` Airflow connection.
 
-**One-time setup**, mirroring the existing `pg_lido` connection used by `airflow/dags/lido/`:
+**One-time setup**:
 
 ```bash
 airflow connections add pg_cle \
