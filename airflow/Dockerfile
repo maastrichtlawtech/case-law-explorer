@@ -4,9 +4,13 @@ LABEL org.opencontainers.image.source=https://github.com/maastrichtlawtech/case-
 USER root
 
 # Install build dependencies in a single RUN command to reduce layers
+# serdi: lax-mode Turtle-to-N-Triples conversion, needed by the lido_postgres
+# and lido_sqlite_build DAGs to parse the LIDO export (its syntax violations
+# make a strict parser reject it outright).
 RUN apt-get update --quiet && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
+    serdi \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set timezone
