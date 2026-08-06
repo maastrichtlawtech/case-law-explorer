@@ -1,21 +1,22 @@
 """
-Loads Rechtspraak law references from the pg_lido database into
-cle_v2.case_law_reference.
+DEPRECATED. Used to load Rechtspraak law references from a separate pg_lido
+database into cle_v2.case_law_reference, built monthly by a standalone
+lido_postgres DAG (airflow/dags/lido/) that independently downloaded and
+parsed the same 12GB LIDO export as lido_sqlite_build.
 
-The lido_postgres DAG builds pg_lido monthly from the LIDO export at
-data.overheid.nl. This reads what it built rather than asking the LIDO web
-service for the same thing again: the extraction already stopped calling that
-service, and the export is the same data without a credential or a rate limit
-in front of it.
+pg_lido is gone. lido_postgres's parsing logic now lives in the
+rechtspraak-lido-sqlite package itself (case AND law subjects, one pass,
+one lido.db), and its former Postgres-loading role is
+airflow/dags/lido/tasks/merge_into_cle.py, run as the last task of
+lido_sqlite_build -- it merges lido.db's law_element/case_law/law_alias
+tables straight into cle_v2 (legislation/legal_provision/legislation_alias/
+case_law_reference), no intermediate database. rechtspraak_etl.py no longer
+calls this module.
 
-The two schemas were made for each other. pg_lido's case_law.source is
-'lido-ref' or 'lido-linkt', and case_law_reference.source_dataset documents
-'rs_lido_ref' and 'rs_lido_linkt'; case_law.opschrift is the verbatim citation
-string that raw_reference is described as holding. This is the join those
-comments were written for.
-
-Case-to-case citations are not here. pg_lido links cases to legislation and
-nothing else, so case_citation is not something this can populate.
+Do not remove this file until that merge path's case_law_reference coverage
+(source_dataset='rs_lido_ref'/'rs_lido_linkt') has been spot-checked against
+what this module used to produce from pg_lido, in case anything relied on it
+running from rechtspraak_etl specifically rather than from lido_sqlite_build.
 """
 
 import logging
