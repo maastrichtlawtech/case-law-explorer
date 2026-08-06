@@ -6,13 +6,11 @@ from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import (
     rechtspraak_extract,
 )
-import pandas as pd
 from data_loading import data_loader
-from data_loading.clients.postgres import PostgresCLEClient
-from data_loading.lido_reference_loader import load_law_references
 from data_transformation import data_transformer
 from dotenv import find_dotenv, load_dotenv
 from etl_factory import DEFAULT_ARGS, build_monthly_task_group, cleanup_raw_files, get_var
+from lido_sqlite_paths import get_lido_sqlite_paths
 
 from airflow import DAG
 
@@ -47,12 +45,14 @@ def rechtspraak_etl(**kwargs):
         logging.info(f"All output files exist in {month_dir}, skipping extraction.")
     else:
         # Run extraction for this month
+        _, lido_sqlite_db_path = get_lido_sqlite_paths(_data_path)
         result_paths = rechtspraak_extract(
             starting_date=date_str,
             ending_date=end_date.strftime("%Y-%m-%d"),
             amount=int(get_var("RS_AMOUNT_TO_EXTRACT", "1000")),
             output_dir=month_dir,
             skip_if_exists=True,
+            lido_sqlite_db_path=str(lido_sqlite_db_path),
         )
         citation_file = result_paths["citations"]
         metadata_file = result_paths["metadata"]
@@ -72,37 +72,8 @@ def rechtspraak_etl(**kwargs):
     logging.info("Starting data loading")
     data_loader.load_data(input_paths=processed_paths, full_text_paths=[], citation_sources=[])
 
-    # Law references, from the pg_lido database the lido_postgres DAG builds
-    # from the monthly LIDO export. The extraction no longer asks the LIDO web
-    # service for these, so this is where they arrive.
-    eclis = _eclis_from(processed_paths)
-    if eclis:
-        client = PostgresCLEClient()
-        try:
-            load_law_references(client, eclis)
-        finally:
-            client.close()
-
     cleanup_raw_files([citation_file, metadata_file, base_file])
     logging.info("Rechtspraak ETL completed successfully")
-
-
-def _eclis_from(processed_paths):
-    """The ECLIs just loaded, read back from the processed CSVs.
-
-    Taken from the files rather than returned by the loader so that a rerun
-    over existing outputs still enriches them: the extraction is skipped when
-    the month is already on disk, and the references should not be skipped with
-    it.
-    """
-    eclis = []
-    for path in processed_paths or []:
-        try:
-            frame = pd.read_csv(path, usecols=["ecli"])
-        except (ValueError, FileNotFoundError):
-            continue
-        eclis.extend(frame["ecli"].dropna().astype(str).tolist())
-    return sorted(set(eclis))
 
 
 with dag:
