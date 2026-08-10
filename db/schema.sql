@@ -151,6 +151,11 @@ CREATE TABLE "cle_v2"."cases" (
 	"ecli" text CONSTRAINT "cases_ecli_key" UNIQUE,
 	"item_id" text CONSTRAINT "cases_item_id_key" UNIQUE,
 	"celex_id" text CONSTRAINT "cases_celex_id_key" UNIQUE,
+	-- 4th natural key, used only by the 5 tribunal sources (no ECLI/CELEX/item_id
+	-- exists for them). Convention: f"{TRIBUNAL_BODY}:{body_native_key}", e.g.
+	-- "KIFID:uitspraak-2026-0706-bindend" -- see
+	-- docs/plans/tribunals-disciplinary-schema.md section 1.
+	"external_ref" text CONSTRAINT "cases_external_ref_key" UNIQUE,
 	"title" text,
 	"date_decision" date,
 	"date_published" date,
@@ -224,6 +229,27 @@ CREATE TABLE "cle_v2"."court_formation" (
 	"code" text CONSTRAINT "court_formation_code_key" UNIQUE,
 	"label" text,
 	"judge_count" smallint
+);
+-- Dutch disciplinary (tuchtrecht) judgments, one row per case (like rs_document).
+-- See docs/plans/tribunals-disciplinary-schema.md section 1.
+CREATE TABLE "cle_v2"."disciplinary_document" (
+	"case_id" bigint PRIMARY KEY,
+	"domain" text,
+	"creator" text,
+	"seat" text,
+	"case_number" text,
+	"date_decision" date,
+	"date_modified" date,
+	"decision_type" text,
+	"subject" text[],
+	"sub_subject" text[],
+	"version" integer,
+	"page_url" text,
+	"xml_url" text,
+	"pdf_url" text,
+	"source" text DEFAULT 'Tuchtrecht' NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 CREATE TABLE "cle_v2"."document_type" (
 	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "cle_v2"."document_type_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
@@ -311,6 +337,66 @@ CREATE TABLE "cle_v2"."echr_extractor_segments" (
 	"segmented_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"extractor_version" text
 );
+-- De Geschillencommissie tribunal, one row per case. No ECLI; cases.external_ref
+-- (source key f"GESCHILLENCOMMISSIE:{body_native_key}") is the natural key.
+CREATE TABLE "cle_v2"."gc_document" (
+	"case_id" bigint PRIMARY KEY,
+	"committee" text,
+	"committee_slug" text,
+	"category" text,
+	"year" integer,
+	"decision_type" text,
+	"outcome" text,
+	"reference_code" text,
+	"title" text,
+	"source_url" text,
+	"last_modified" timestamp with time zone,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+-- GIP (Geschilleninstantie Pensioenfondsen) tribunal, one row per case. No ECLI;
+-- cases.external_ref (source key f"GIP:{body_native_key}") is the natural key.
+CREATE TABLE "cle_v2"."gip_document" (
+	"case_id" bigint PRIMARY KEY,
+	"dispute_type" text,
+	"type" text,
+	"date_decision" date,
+	"subject" text,
+	"pension_fund" text,
+	"date_submitted" date,
+	"date_published" date,
+	"summary" text,
+	"case_summary" text,
+	"pdf_url" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+-- Huurcommissie tribunal, one row per case. No ECLI; cases.external_ref (source
+-- key f"HUURCOMMISSIE:{body_native_key}") is the natural key. Contains real
+-- personal data (submitter/address/postal_code) -- see plan section "Confirmed
+-- scope" for the CDSM Art.3 research-exception basis.
+CREATE TABLE "cle_v2"."huurcommissie_document" (
+	"case_id" bigint PRIMARY KEY,
+	"case_number" text,
+	"date_decision" date,
+	"date_published" date,
+	"objected_title" text,
+	"decision" text,
+	"residence_type" text,
+	"submitter" text,
+	"city" text,
+	"postal_code" text,
+	"residence_address" text,
+	"residence_points" numeric,
+	"law_article" text,
+	"amount_before_verdict" numeric,
+	"amount_after_verdict" numeric,
+	"temporarily_decreased_rent" boolean,
+	"leges_conviction" boolean,
+	"pdf_url" text,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
 CREATE TABLE "cle_v2"."instance" (
 	"id" bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY (sequence name "cle_v2"."instance_id_seq" INCREMENT BY 1 MINVALUE 1 MAXVALUE 9223372036854775807 START WITH 1 CACHE 1),
 	"code" text CONSTRAINT "instance_code_key" UNIQUE,
@@ -327,6 +413,95 @@ CREATE TABLE "cle_v2"."jurisdiction" (
 	"iso_code" text CONSTRAINT "jurisdiction_iso_code_key" UNIQUE,
 	"name" text,
 	"type" text
+);
+-- Seed: jurisdiction/court were previously unpopulated by every source (see
+-- docs/plans/tribunals-disciplinary-schema.md). This is the first writer,
+-- scoped to the disciplinary/tribunal sources.
+INSERT INTO "cle_v2"."jurisdiction" ("iso_code", "name", "type") VALUES
+	('NL', 'Netherlands', 'country')
+ON CONFLICT ("iso_code") DO NOTHING;
+-- Seed: one court row per Dutch disciplinary (tuchtrecht) board, derived from
+-- the 39 distinct `creator` values in
+-- judgments_disciplinary_NL/metadata/index.csv. No natural short code exists
+-- for these, so `code` is left NULL and the disciplinary row processor looks
+-- these up by exact `name` match against the XML <creator> value instead.
+INSERT INTO "cle_v2"."court" ("name", "level", "jurisdiction_id") VALUES
+	('Accountantskamer', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Centraal Tuchtcollege voor de Gezondheidszorg', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Hof van Discipline', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht ''s-Gravenhage', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht ''s-Hertogenbosch', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Alkmaar', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Almelo', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Amsterdam', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Arnhem', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Assen', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Breda', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Dordrecht', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Haarlem', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Leeuwarden', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Maastricht', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Middelburg', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Roermond', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Rotterdam', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer van toezicht Zutphen', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Kamer voor het notariaat', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Raad van Discipline ''s-Gravenhage', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Raad van Discipline ''s-Hertogenbosch', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Raad van Discipline Amsterdam', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Raad van Discipline Arnhem', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Raad van Discipline Arnhem-Leeuwarden', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Raad van Discipline Leeuwarden', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Regionaal Tuchtcollege voor de Gezondheidszorg ''s-Hertogenbosch', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Regionaal Tuchtcollege voor de Gezondheidszorg Amsterdam', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Regionaal Tuchtcollege voor de Gezondheidszorg Den Haag', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Regionaal Tuchtcollege voor de Gezondheidszorg Eindhoven', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Regionaal Tuchtcollege voor de Gezondheidszorg Groningen', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Regionaal Tuchtcollege voor de Gezondheidszorg Zwolle', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Tuchtcollege voor de Scheepvaart', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Tuchtgerecht Akkerbouwproductschappen', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Tuchtgerecht Productschap Pluimvee en Eieren', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Tuchtgerecht Productschap Vee en Vlees', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Veterinair Beroepscollege', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('Veterinair Tuchtcollege', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('kamer voor gerechtsdeurwaarders', 'disciplinary_board', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL'))
+ON CONFLICT DO NOTHING;
+-- Seed: one court row per tribunal body. `code` matches the TRIBUNAL_BODY
+-- token used in cases.external_ref (f"{TRIBUNAL_BODY}:{body_native_key}"), so
+-- the row processors can resolve court_id by an exact, stable key.
+INSERT INTO "cle_v2"."court" ("code", "name", "level", "jurisdiction_id") VALUES
+	('GESCHILLENCOMMISSIE', 'De Geschillencommissie', 'tribunal', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('SKGZ', 'Stichting Klachten en Geschillen Zorgverzekeringen (SKGZ)', 'tribunal', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('KIFID', 'Klachteninstituut Financiële Dienstverlening (Kifid)', 'tribunal', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('HUURCOMMISSIE', 'Huurcommissie', 'tribunal', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL')),
+	('GIP', 'Geschilleninstantie Pensioenfondsen (GIP)', 'tribunal', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL'))
+ON CONFLICT ("code") DO NOTHING;
+-- Kifid has a genuine first-instance/appeal hierarchy (Geschillencommissie vs
+-- Commissie van Beroep) modeled as child court rows via parent_court_id. Named
+-- distinctly from the top-level 'De Geschillencommissie' tribunal body above --
+-- Kifid's own "Geschillencommissie" panel is a different organization that
+-- happens to share the generic name.
+INSERT INTO "cle_v2"."court" ("code", "name", "level", "jurisdiction_id", "parent_court_id") VALUES
+	('KIFID_GESCHILLENCOMMISSIE', 'Kifid - Geschillencommissie', 'tribunal', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL'), (SELECT id FROM cle_v2.court WHERE code = 'KIFID')),
+	('KIFID_COMMISSIE_VAN_BEROEP', 'Kifid - Commissie van Beroep', 'tribunal', (SELECT id FROM cle_v2.jurisdiction WHERE iso_code = 'NL'), (SELECT id FROM cle_v2.court WHERE code = 'KIFID'))
+ON CONFLICT ("code") DO NOTHING;
+-- Kifid tribunal, one row per case. No ECLI; cases.external_ref (source key
+-- f"KIFID:{body_native_key}") is the natural key.
+CREATE TABLE "cle_v2"."kifid_document" (
+	"case_id" bigint PRIMARY KEY,
+	"case_number" text,
+	"nature" text,
+	"category" text,
+	"authority" text,
+	"target_group" text,
+	"defendant" text,
+	"tags" text[],
+	"summary" text,
+	"detail_url" text,
+	"pdf_url" text,
+	"is_published" boolean,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
 );
 CREATE TABLE "cle_v2"."language" (
 	"iso_code" text PRIMARY KEY,
@@ -510,6 +685,22 @@ CREATE TABLE "cle_v2"."search_query_log" (
 	"clicked_case_ids" text[],
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL
 );
+-- SKGZ tribunal, one row per case. No ECLI; cases.external_ref (source key
+-- f"SKGZ:{body_native_key}") is the natural key.
+CREATE TABLE "cle_v2"."skgz_document" (
+	"case_id" bigint PRIMARY KEY,
+	"case_number" text,
+	"date_decision" date,
+	"date_published" date,
+	"outcome" text,
+	"category" text,
+	"category_all" text[],
+	"summary" text,
+	"pdf_url" text,
+	"related_case_numbers" text[],
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
 CREATE INDEX "case_citation_idx_relation_type" ON "cle_v2"."case_citation" ("relation_type");
 CREATE INDEX "case_citation_idx_source" ON "cle_v2"."case_citation" ("source_case_id");
 CREATE INDEX "case_citation_idx_source_target" ON "cle_v2"."case_citation" ("source_case_id","target_case_id");
@@ -553,6 +744,7 @@ CREATE INDEX "case_idx_item_id" ON "cle_v2"."cases" ("item_id");
 CREATE INDEX "case_idx_sources" ON "cle_v2"."cases" USING gin ("sources");
 CREATE INDEX "case_idx_title_trgm" ON "cle_v2"."cases" USING gin ("title" gin_trgm_ops);
 CREATE INDEX "cases_idx_case_number_btree" ON "cle_v2"."cases" ("case_number");
+CREATE INDEX "disciplinary_document_idx_date_decision" ON "cle_v2"."disciplinary_document" ("date_decision");
 CREATE INDEX "echr_document_idx_case_lang" ON "cle_v2"."echr_document" ("case_id","language");
 CREATE INDEX "echr_document_idx_docname_trgm" ON "cle_v2"."echr_document" USING gin ("docname" gin_trgm_ops);
 CREATE INDEX "echr_document_idx_doctype" ON "cle_v2"."echr_document" ("doctype");
@@ -567,6 +759,8 @@ CREATE INDEX "echr_document_appno_idx_source" ON "cle_v2"."echr_document_appno" 
 CREATE INDEX "echr_document_article_idx_filter" ON "cle_v2"."echr_document_article" ("kind","article_code");
 CREATE INDEX "echr_extractor_segments_idx_num_sections" ON "cle_v2"."echr_extractor_segments" ("num_sections");
 CREATE INDEX "echr_extractor_segments_idx_parser" ON "cle_v2"."echr_extractor_segments" ("parser_mode");
+CREATE INDEX "gip_document_idx_date_decision" ON "cle_v2"."gip_document" ("date_decision");
+CREATE INDEX "huurcommissie_document_idx_date_decision" ON "cle_v2"."huurcommissie_document" ("date_decision");
 CREATE INDEX "legal_provision_idx_bwb_label" ON "cle_v2"."legal_provision" ("bwb_label_id");
 CREATE INDEX "legal_provision_idx_lookup" ON "cle_v2"."legal_provision" ("legislation_id",lower(article_label),"element_type");
 CREATE INDEX "legislation_idx_scheme_identifier" ON "cle_v2"."legislation" ("scheme","identifier");
@@ -583,6 +777,7 @@ CREATE INDEX "rs_document_idx_date_issued" ON "cle_v2"."rs_document" ("date_issu
 CREATE INDEX "rs_document_idx_date_modified" ON "cle_v2"."rs_document" ("date_modified");
 CREATE INDEX "rs_document_idx_domains_gin" ON "cle_v2"."rs_document" USING gin ("domains");
 CREATE INDEX "rs_document_publication_idx_journal" ON "cle_v2"."rs_document_publication" ("journal_abbr");
+CREATE INDEX "skgz_document_idx_date_decision" ON "cle_v2"."skgz_document" ("date_decision");
 ALTER TABLE "cle_v2"."case_citation" ADD CONSTRAINT "fk_case_citation_context" FOREIGN KEY ("context_segment_id") REFERENCES "cle_v2"."case_segment"("id") ON DELETE SET NULL;
 ALTER TABLE "cle_v2"."case_citation" ADD CONSTRAINT "fk_case_citation_source" FOREIGN KEY ("source_case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."case_citation" ADD CONSTRAINT "fk_case_citation_target" FOREIGN KEY ("target_case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE SET NULL;
@@ -622,6 +817,7 @@ ALTER TABLE "cle_v2"."cjeu_document" ADD CONSTRAINT "fk_cjeu_document_formation"
 ALTER TABLE "cle_v2"."cjeu_national_document" ADD CONSTRAINT "fk_cjeu_national_document_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."court" ADD CONSTRAINT "fk_court_jurisdiction" FOREIGN KEY ("jurisdiction_id") REFERENCES "cle_v2"."jurisdiction"("id");
 ALTER TABLE "cle_v2"."court" ADD CONSTRAINT "fk_court_parent_court" FOREIGN KEY ("parent_court_id") REFERENCES "cle_v2"."court"("id");
+ALTER TABLE "cle_v2"."disciplinary_document" ADD CONSTRAINT "fk_disciplinary_document_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."domain" ADD CONSTRAINT "fk_domain_parent" FOREIGN KEY ("parent_id") REFERENCES "cle_v2"."domain"("id");
 ALTER TABLE "cle_v2"."domain_label" ADD CONSTRAINT "fk_domain_label_domain" FOREIGN KEY ("domain_id") REFERENCES "cle_v2"."domain"("id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."domain_label" ADD CONSTRAINT "fk_domain_label_language" FOREIGN KEY ("language") REFERENCES "cle_v2"."language"("iso_code");
@@ -631,7 +827,11 @@ ALTER TABLE "cle_v2"."echr_document_appno" ADD CONSTRAINT "fk_echr_document_appn
 ALTER TABLE "cle_v2"."echr_document_article" ADD CONSTRAINT "fk_echr_document_article_doc" FOREIGN KEY ("item_id") REFERENCES "cle_v2"."echr_document"("item_id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."echr_document_secondary_text" ADD CONSTRAINT "fk_echr_document_secondary_text_doc" FOREIGN KEY ("item_id") REFERENCES "cle_v2"."echr_document"("item_id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."echr_extractor_segments" ADD CONSTRAINT "fk_echr_extractor_segments_doc" FOREIGN KEY ("item_id") REFERENCES "cle_v2"."echr_document"("item_id") ON DELETE CASCADE;
+ALTER TABLE "cle_v2"."gc_document" ADD CONSTRAINT "fk_gc_document_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
+ALTER TABLE "cle_v2"."gip_document" ADD CONSTRAINT "fk_gip_document_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
+ALTER TABLE "cle_v2"."huurcommissie_document" ADD CONSTRAINT "fk_huurcommissie_document_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."judge" ADD CONSTRAINT "fk_judge_court" FOREIGN KEY ("court_id") REFERENCES "cle_v2"."court"("id");
+ALTER TABLE "cle_v2"."kifid_document" ADD CONSTRAINT "fk_kifid_document_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."legal_provision" ADD CONSTRAINT "fk_legal_provision" FOREIGN KEY ("legislation_id") REFERENCES "cle_v2"."legislation"("id");
 ALTER TABLE "cle_v2"."legal_provision" ADD CONSTRAINT "fk_legal_provision_parent" FOREIGN KEY ("parent_id") REFERENCES "cle_v2"."legal_provision"("id");
 ALTER TABLE "cle_v2"."legislation" ADD CONSTRAINT "fk_legislation_jurisdiction" FOREIGN KEY ("jurisdiction_id") REFERENCES "cle_v2"."jurisdiction"("id");
@@ -645,6 +845,7 @@ ALTER TABLE "cle_v2"."rs_document_external_authority" ADD CONSTRAINT "fk_rs_docu
 ALTER TABLE "cle_v2"."rs_document_formal_relation" ADD CONSTRAINT "fk_rs_document_formal_source" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."rs_document"("case_id") ON DELETE CASCADE;
 ALTER TABLE "cle_v2"."rs_document_formal_relation" ADD CONSTRAINT "fk_rs_document_formal_target" FOREIGN KEY ("target_ecli") REFERENCES "cle_v2"."cases"("ecli") ON DELETE SET NULL;
 ALTER TABLE "cle_v2"."rs_document_publication" ADD CONSTRAINT "fk_rs_document_publication_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."rs_document"("case_id") ON DELETE CASCADE;
+ALTER TABLE "cle_v2"."skgz_document" ADD CONSTRAINT "fk_skgz_document_case" FOREIGN KEY ("case_id") REFERENCES "cle_v2"."cases"("id") ON DELETE CASCADE;
 -- Reconstructed: not captured anywhere before this fix (not in schema.sql, not
 -- in git history, not in application code) despite being called by
 -- rs_v_document_law_reference below. wetten.overheid.nl/linkeddata.overheid.nl
