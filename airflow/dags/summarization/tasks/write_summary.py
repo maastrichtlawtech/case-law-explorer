@@ -1,17 +1,30 @@
 from airflow.providers.postgres.hooks.postgres import PostgresHook
 from summarization.config import CONN_PG_CLE, SUMMARIZATION_MODEL, TARGET_ROLES
 
-# NOTE: case_summary_version_uk_current is a plain (non-partial) unique index
-# on (case_id, segment_scope, summarization_model) -- it allows only one row
-# per that triple, ever, despite version_number/parent_version_id/rejected_at
-# suggesting a full history table. So "new version" here means updating that
-# one row in place (version_number += 1), not inserting a second row.
+# NOTE: in db/schema.sql, case_summary_version_uk_current is a plain
+# (non-partial) unique index on (case_id, segment_scope, summarization_model)
+# -- it allows only one row per that triple, ever, despite version_number/
+# parent_version_id/rejected_at suggesting a full history table. So "new
+# version" here means updating that one row in place (version_number += 1),
+# not inserting a second row.
+#
+# The migration behind the Coolify bundle declares the same index name over
+# the same columns but WHERE is_current = true AND rejected_at IS NULL, which
+# is the history table the column set implies: superseded and rejected rows
+# may accumulate, and only the live one is constrained. This statement stays
+# correct either way -- it writes is_current = true and leaves rejected_at
+# NULL, so the row it upserts is the one that index covers -- but the arbiter
+# has to name that predicate, because Postgres will not infer a partial index
+# without it. Restating a predicate the unqualified index does not have is
+# harmless, so one form works on both.
 SQL_UPSERT_SUMMARY_VERSION = """
     INSERT INTO cle_v2.case_summary_version
         (case_id, language, summary_text, summarization_model, segment_scope, version_number, is_current, generation_source)
     VALUES
         (%(case_id)s, %(language)s, %(summary_text)s, %(summarization_model)s, %(segment_scope)s, 1, true, 'etl')
-    ON CONFLICT (case_id, segment_scope, summarization_model) DO UPDATE SET
+    ON CONFLICT (case_id, segment_scope, summarization_model)
+        WHERE is_current = true AND rejected_at IS NULL
+    DO UPDATE SET
         summary_text = EXCLUDED.summary_text,
         language = EXCLUDED.language,
         version_number = cle_v2.case_summary_version.version_number + 1,
