@@ -110,7 +110,14 @@ SELECT c.id, leg.id, cl.opschrift, 'cited',
 FROM {SCHEMA}._lido_stage_case_law cl
 JOIN {SCHEMA}.cases c ON c.ecli = cl.ecli
 JOIN {SCHEMA}.legislation leg ON leg.lido_id = cl.law_lido_id
-ON CONFLICT (case_id, legislation_id, role, source_dataset) DO NOTHING;
+-- The predicate names the partial index this arbiter is meant to hit. See the
+-- note on upsert_citation in data_loading/clients/postgres.py: db/schema.sql
+-- declares case_law_reference_uk_legislation unqualified, the Coolify bundle's
+-- migration declares it WHERE-qualified, and only the qualified form is
+-- inferable on both.
+ON CONFLICT (case_id, legislation_id, role, source_dataset)
+    WHERE provision_id IS NULL AND legislation_id IS NOT NULL AND raw_resource IS NULL
+DO NOTHING;
 
 -- 5b. case_law_reference, provision-target
 INSERT INTO {SCHEMA}.case_law_reference (case_id, provision_id, raw_reference, role, source_dataset)
@@ -123,7 +130,9 @@ SELECT c.id, lp.id, cl.opschrift, 'cited',
 FROM {SCHEMA}._lido_stage_case_law cl
 JOIN {SCHEMA}.cases c ON c.ecli = cl.ecli
 JOIN {SCHEMA}.legal_provision lp ON lp.lido_id = cl.law_lido_id
-ON CONFLICT (case_id, provision_id, role, source_dataset) DO NOTHING;
+ON CONFLICT (case_id, provision_id, role, source_dataset)
+    WHERE provision_id IS NOT NULL AND raw_resource IS NULL
+DO NOTHING;
 """
 
 
