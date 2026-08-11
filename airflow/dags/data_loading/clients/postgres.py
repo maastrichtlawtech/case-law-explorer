@@ -151,12 +151,29 @@ class PostgresCLEClient:
         (target_ecli_raw/target_celex_raw), deduped via the table's own
         unique indexes instead of a manual read-modify-write S3 merge.
         """
+        # Each arbiter carries the predicate of the index it is meant to hit.
+        #
+        # cle_v2 deployments differ here: db/schema.sql declares these three
+        # indexes unqualified, while the migration behind the Coolify bundle
+        # declares them WHERE-qualified, one per resolution state, so that an
+        # unresolved edge is deduplicated at all (a plain unique index treats
+        # every NULL target_case_id as distinct and lets duplicates through).
+        #
+        # Postgres only infers a *partial* index as an arbiter when the
+        # statement restates its predicate, so without these the upsert fails
+        # on the partial schema with "there is no unique or exclusion
+        # constraint matching the ON CONFLICT specification". Restating a
+        # predicate an unqualified index does not have is harmless, so this one
+        # form works on both.
         if target_case_id is not None:
             conflict_cols = "(source_case_id, target_case_id, relation_type, source_dataset)"
+            conflict_where = "WHERE target_case_id IS NOT NULL"
         elif target_ecli_raw is not None:
             conflict_cols = "(source_case_id, target_ecli_raw, relation_type, source_dataset)"
+            conflict_where = "WHERE target_case_id IS NULL AND target_ecli_raw IS NOT NULL"
         elif target_celex_raw is not None:
             conflict_cols = "(source_case_id, target_celex_raw, relation_type, source_dataset)"
+            conflict_where = "WHERE target_case_id IS NULL AND target_celex_raw IS NOT NULL"
         else:
             raise ValueError("upsert_citation requires one of target_case_id/target_ecli_raw/target_celex_raw")
 
@@ -167,7 +184,7 @@ class PostgresCLEClient:
             VALUES
                 (%(source_case_id)s, %(target_case_id)s, %(target_ecli_raw)s, %(target_celex_raw)s,
                  %(relation_type)s, %(source_dataset)s, %(weight)s, %(is_cross_jurisdiction)s)
-            ON CONFLICT {conflict_cols} DO NOTHING;
+            ON CONFLICT {conflict_cols} {conflict_where} DO NOTHING;
         """
         self._execute(
             sql,
