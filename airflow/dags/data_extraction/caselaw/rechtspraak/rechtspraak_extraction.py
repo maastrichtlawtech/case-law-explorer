@@ -32,6 +32,16 @@ FULL_TEXT_MIN_LENGTH = 1000
 EXTRA_SQLITE_COLUMNS = ["legislations_cited", "bwb_id"]
 
 
+def _daily_ranges(starting_date: str, ending_date: str):
+    """Yield one-day API windows for every date in an inclusive range."""
+    current_date = datetime.strptime(starting_date, "%Y-%m-%d")
+    end_date = datetime.strptime(ending_date, "%Y-%m-%d")
+    while current_date <= end_date:
+        next_date = current_date + timedelta(days=1)
+        yield current_date, next_date
+        current_date = next_date
+
+
 def _cap_base_extraction(base_extraction: pd.DataFrame | None, amount: int):
     """Enforce the caller's document cap on the extractor's returned page.
 
@@ -97,7 +107,11 @@ def _backfill_full_text(
     if not missing.any():
         return metadata_df
 
-    if base_extraction is not None and not base_extraction.empty and "summary" in base_extraction.columns:
+    if (
+        base_extraction is not None
+        and not base_extraction.empty
+        and "summary" in base_extraction.columns
+    ):
         summaries = (
             base_extraction[["id", "summary"]]
             .dropna(subset=["id"])
@@ -107,7 +121,9 @@ def _backfill_full_text(
         usable = summaries.set_index("ecli")["summary"]
         usable = usable[usable.apply(_looks_like_full_text)]
         fill_from_base = metadata_df["ecli"].map(usable)
-        metadata_df["full_text"] = metadata_df["full_text"].mask(missing & fill_from_base.notna(), fill_from_base)
+        metadata_df["full_text"] = metadata_df["full_text"].mask(
+            missing & fill_from_base.notna(), fill_from_base
+        )
         missing = _is_missing_full_text(metadata_df["full_text"])
 
     if not missing.any() or base_extraction is None or base_extraction.empty:
@@ -124,9 +140,13 @@ def _backfill_full_text(
     if live_df is None or live_df.empty or "full_text" not in live_df.columns:
         return metadata_df
 
-    live_full_text = live_df.dropna(subset=["ecli"]).drop_duplicates("ecli").set_index("ecli")["full_text"]
+    live_full_text = (
+        live_df.dropna(subset=["ecli"]).drop_duplicates("ecli").set_index("ecli")["full_text"]
+    )
     fill_from_live = metadata_df["ecli"].map(live_full_text)
-    metadata_df["full_text"] = metadata_df["full_text"].mask(missing & fill_from_live.notna(), fill_from_live)
+    metadata_df["full_text"] = metadata_df["full_text"].mask(
+        missing & fill_from_live.notna(), fill_from_live
+    )
     return metadata_df
 
 
@@ -156,12 +176,8 @@ def rechtspraak_extract(
 
     os.makedirs(output_dir, exist_ok=True)
     metadata_df_list = []
-    current_date = datetime.strptime(starting_date, "%Y-%m-%d")
-    end_date = datetime.strptime(ending_date, "%Y-%m-%d")
-
     # Extract per day in the range
-    while current_date < end_date:
-        next_date = current_date + timedelta(days=1)
+    for current_date, next_date in _daily_ranges(starting_date, ending_date):
         logging.info(f"Processing date range: {current_date.date()} - {next_date.date()}")
         base_extraction = rex.get_rechtspraak(
             max_ecli=amount, sd=str(current_date.date()), ed=str(next_date.date()), save_file="n"
@@ -193,7 +209,6 @@ def rechtspraak_extract(
         if metadata_df is not None:
             metadata_df.to_csv(metadata_file_day, index=False)
             metadata_df_list.append(metadata_df)
-        current_date = next_date
     # Concatenate all metadata
     if metadata_df_list:
         metadata_df = pd.concat(metadata_df_list, ignore_index=True)
