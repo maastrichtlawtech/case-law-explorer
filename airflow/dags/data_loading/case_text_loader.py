@@ -10,7 +10,6 @@ longer needed -- this reads the same JSON files and upserts each entry.
 import json
 import logging
 import os
-from contextlib import suppress
 
 from data_loading.language_codes import normalize_language_code
 from data_transformation.utils import format_cellar_celex
@@ -33,7 +32,9 @@ def load_fulltext(client, files_location_paths: list) -> None:
                 item_id = item["item_id"]
                 case_id = client.resolve_case_id_by_item_id(item_id)
                 if case_id is None:
-                    logging.info(f"No case found for ECHR item_id {item_id}, skipping full text")
+                    logging.info(
+                        f"No case found for ECHR item_id {item_id}, skipping full text"
+                    )
                     continue
                 client.upsert_case_text(
                     case_id=case_id,
@@ -70,10 +71,6 @@ def load_fulltext(client, files_location_paths: list) -> None:
         logging.info(
             f"{loaded}/{len(data)} full-text records loaded from {os.path.basename(file_location_path)}"
         )
-        # another task may have consumed the file concurrently; upserts are
-        # idempotent, so a double-read is harmless and a missing file is fine
-        with suppress(FileNotFoundError):
-            os.remove(file_location_path)
 
 
 if __name__ == "__main__":

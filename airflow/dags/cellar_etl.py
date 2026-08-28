@@ -6,7 +6,12 @@ from data_extraction.caselaw.cellar.cellar_extraction import cellar_extract
 from data_loading import data_loader
 from data_transformation import data_transformer
 from dotenv import find_dotenv, load_dotenv
-from etl_factory import DEFAULT_ARGS, build_monthly_task_group, cleanup_raw_files, get_var
+from etl_factory import (
+    DEFAULT_ARGS,
+    build_monthly_task_group,
+    cleanup_raw_files,
+    get_var,
+)
 
 from airflow import DAG
 
@@ -43,7 +48,9 @@ def cellar_etl(**kwargs):
         "--ending-date",
         end_date.strftime("%Y-%m-%d"),
     ]
-    raw_paths = cellar_extract(extraction_args, output_dir=month_dir, skip_if_exists=True)
+    raw_paths = cellar_extract(
+        extraction_args, output_dir=month_dir, skip_if_exists=True
+    )
     logging.info("Cellar extraction completed")
 
     # Transform into a month-scoped processed dir, then load exactly those
@@ -63,7 +70,14 @@ def cellar_etl(**kwargs):
         edge_dir=month_dir,
     )
 
-    cleanup_raw_files([raw_paths["metadata"], raw_paths["nodes"], raw_paths["edges"]])
+    cleanup_raw_files(
+        [
+            raw_paths["metadata"],
+            raw_paths["full_text"],
+            raw_paths["nodes"],
+            raw_paths["edges"],
+        ]
+    )
     logging.info("Cellar ETL completed successfully")
 
 

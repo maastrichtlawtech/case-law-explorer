@@ -13,7 +13,6 @@ Edge file format (one per line): "<source_identifier>,<target_identifier>"
 
 import logging
 import os
-from contextlib import suppress
 
 from definitions.storage_handler import (
     TXT_CELLAR_EDGES,
@@ -22,7 +21,16 @@ from definitions.storage_handler import (
 )
 
 CELLAR_EDGE_FILES = [(TXT_CELLAR_EDGES, "celex", "EURLEX")]
-ECHR_EDGE_FILES = [(TXT_ECHR_EDGES, "ecli", "ECHR")]
+ECHR_EDGE_FILES = [(TXT_ECHR_EDGES, "echr", "ECHR")]
+
+
+def _resolve_case_id(client, identifier: str, target_key: str):
+    if target_key == "celex":
+        return client.resolve_case_id(celex_id=identifier)
+    case_id = client.resolve_case_id(ecli=identifier)
+    if case_id is None:
+        case_id = client.resolve_case_id_by_item_id(identifier)
+    return case_id
 
 
 def _load_edge_file(client, path: str, target_key: str, source_dataset: str) -> int:
@@ -38,34 +46,30 @@ def _load_edge_file(client, path: str, target_key: str, source_dataset: str) -> 
                 continue
             source_id, target_id = line.split(",", 1)
 
-            source_case_id = (
-                client.resolve_case_id(celex_id=source_id)
-                if target_key == "celex"
-                else client.resolve_case_id(ecli=source_id)
-            )
+            source_case_id = _resolve_case_id(client, source_id, target_key)
             if source_case_id is None:
                 continue
 
-            target_case_id = (
-                client.resolve_case_id(celex_id=target_id)
-                if target_key == "celex"
-                else client.resolve_case_id(ecli=target_id)
-            )
+            target_case_id = _resolve_case_id(client, target_id, target_key)
 
             client.upsert_citation(
                 source_case_id=source_case_id,
                 target_case_id=target_case_id,
-                target_celex_raw=target_id if target_key == "celex" and target_case_id is None else None,
-                target_ecli_raw=target_id if target_key == "ecli" and target_case_id is None else None,
+                target_celex_raw=(
+                    target_id
+                    if target_key == "celex" and target_case_id is None
+                    else None
+                ),
+                target_ecli_raw=(
+                    target_id
+                    if target_key == "echr" and target_case_id is None
+                    else None
+                ),
                 relation_type="cites",
                 source_dataset=source_dataset,
             )
             loaded += 1
 
-    # another task may have consumed the file concurrently; upserts are
-    # idempotent, so a double-read is harmless and a missing file is fine
-    with suppress(FileNotFoundError):
-        os.remove(path)
     return loaded
 
 

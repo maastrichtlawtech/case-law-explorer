@@ -13,6 +13,7 @@ from os import getenv
 from os.path import basename, join
 
 import echr_extractor as echr
+import pandas as pd
 from airflow.models.variable import Variable
 from definitions.storage_handler import (
     CSV_ECHR_CASES,
@@ -37,13 +38,38 @@ def _output_paths(output_dir):
             "full_text": join(output_dir, basename(JSON_FULL_TEXT_ECHR)),
             "nodes": join(output_dir, TXT_ECHR_NODES),
             "edges": join(output_dir, TXT_ECHR_EDGES),
+            "missing_references": join(output_dir, "ECHR_missing_references.csv"),
         }
     return {
         "metadata": get_path_raw(CSV_ECHR_CASES),
         "full_text": JSON_FULL_TEXT_ECHR,
         "nodes": get_path_raw(TXT_ECHR_NODES),
         "edges": get_path_raw(TXT_ECHR_EDGES),
+        "missing_references": get_path_raw("ECHR_missing_references.csv"),
     }
+
+
+def _resolve_external_citations_enabled():
+    return str(
+        Variable.get(
+            "ECHR_RESOLVE_EXTERNAL_CITATIONS",
+            default_var=getenv("ECHR_RESOLVE_EXTERNAL_CITATIONS", "true"),
+        )
+    ).lower() in ("true", "1", "yes")
+
+
+def _write_citation_artifacts(metadata, paths):
+    nodes, edges, missing = echr.get_nodes_edges(
+        df=metadata,
+        save_file="n",
+        resolve_external=_resolve_external_citations_enabled(),
+    )
+    nodes[["ecli"]].to_csv(paths["nodes"], index=False, header=False)
+    with open(paths["edges"], "w") as f:
+        for _, row in edges.iterrows():
+            for target in row["references"]:
+                f.write(f"{row['ecli']},{target}\n")
+    missing.to_csv(paths["missing_references"], index=False)
 
 
 def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
@@ -54,6 +80,11 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     """
     paths = _output_paths(output_dir)
     if skip_if_exists and os.path.exists(paths["metadata"]):
+        if not all(
+            os.path.exists(paths[name]) for name in ("edges", "missing_references")
+        ):
+            logging.info("Rebuilding missing ECHR citation artifacts from metadata")
+            _write_citation_artifacts(pd.read_csv(paths["metadata"]), paths)
         logging.info(f"{paths['metadata']} exists, skipping extraction.")
         return paths
 
@@ -89,7 +120,10 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         default=None,
     )
     parser.add_argument(
-        "--end-date", help="Last modification date to look back from", required=False, default=None
+        "--end-date",
+        help="Last modification date to look back from",
+        required=False,
+        default=None,
     )
     parser.add_argument(
         "--skip-missing-dates",
@@ -154,7 +188,9 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         f"Downloading {args.count if 'count' in args and args.count is not None else 'all'} ECHR documents"
     )
     if args.fresh:
-        metadata, full_text = echr.get_echr_extra(**kwargs, start_date="1990-01-01", save_file="n")
+        metadata, full_text = echr.get_echr_extra(
+            **kwargs, start_date="1990-01-01", save_file="n"
+        )
     elif args.start_date and args.end_date:
         logging.info(
             f"Starting from manually specified date: {args.start_date} and ending at end date: {args.end_date}"
@@ -169,7 +205,9 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         )
     elif args.end_date:
         logging.info(f"Ending at manually specified end date {args.end_date}")
-        metadata, full_text = echr.get_echr_extra(**kwargs, end_date=args.end_date, save_file="n")
+        metadata, full_text = echr.get_echr_extra(
+            **kwargs, end_date=args.end_date, save_file="n"
+        )
     else:
         logging.info("Starting from the last update the script can find")
         metadata, full_text = echr.get_echr_extra(
@@ -183,14 +221,9 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
             json.dump(full_text, f)
         logging.info("Adding Nodes and Edges lists to storage")
         # Getting nodes and edges, citation-based. For creating a citation graph
-        nodes, edges, _missing = echr.get_nodes_edges(df=metadata, save_file="n")
-        nodes[["ecli"]].to_csv(paths["nodes"], index=False, header=False)
-        # one "<source>,<target>" line per citation: the format the citation
-        # graph loader parses. edges rows are (ecli, [target eclis]).
-        with open(paths["edges"], "w") as f:
-            for _, row in edges.iterrows():
-                for target in row["references"]:
-                    f.write(f"{row['ecli']},{target}\n")
+        # One "<source>,<target>" line per citation: the format the citation
+        # graph loader parses. Missing references are retained for verification.
+        _write_citation_artifacts(metadata, paths)
     else:
         logging.info("No ECHR data found")
 
