@@ -10,6 +10,7 @@ from data_loading.row_processors.postgres import (
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
     ECHR_DOCUMENT_ID,
+    ECHR_LANGUAGE,
     ECLI,
     RS_BWB_ID,
     RS_CITING,
@@ -56,7 +57,9 @@ def test_rs_processor_upload_row_commits_once_for_the_whole_row(client):
     assert len(conn.executed) == 3
 
 
-def test_rs_processor_upload_row_rolls_back_the_whole_row_on_mid_row_failure(client, redirect_failure_log):
+def test_rs_processor_upload_row_rolls_back_the_whole_row_on_mid_row_failure(
+    client, redirect_failure_log
+):
     processor = PostgresRSProcessor(path="unused", client=client)
     row = {ECLI: "ECLI:NL:HR:2024:2", RS_TITLE: "Some title"}
 
@@ -201,6 +204,23 @@ def test_item_id_processor_upload_row_commits_once(client):
     assert result == 1
     assert conn.commit_count == 1
     assert len(conn.executed) == 2
+
+
+def test_item_id_processor_normalizes_hudoc_language_to_iso2(client):
+    processor = PostgresItemIdProcessor(path="unused", client=client)
+
+    assert (
+        processor._detail_row({ECHR_DOCUMENT_ID: "001-12345", ECHR_LANGUAGE: "ENG"}, case_id=7)[
+            "language"
+        ]
+        == "en"
+    )
+    assert (
+        processor._detail_row({ECHR_DOCUMENT_ID: "001-12346", ECHR_LANGUAGE: "FRE"}, case_id=8)[
+            "language"
+        ]
+        == "fr"
+    )
 
 
 def test_item_id_processor_upload_row_rolls_back_on_failure(client, redirect_failure_log):

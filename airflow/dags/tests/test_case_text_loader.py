@@ -2,7 +2,7 @@ import json
 import os
 
 from data_loading.case_text_loader import load_fulltext
-from definitions.storage_handler import JSON_FULL_TEXT_CELLAR
+from definitions.storage_handler import JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR
 
 
 class RecordingClient:
@@ -15,6 +15,10 @@ class RecordingClient:
 
     def upsert_case_text(self, **row):
         self.rows.append(row)
+
+    def resolve_case_id_by_item_id(self, item_id):
+        assert item_id == "001-12345"
+        return 43
 
 
 def test_cellar_fulltexts_keep_each_translation_language(tmp_path):
@@ -51,3 +55,18 @@ def test_cellar_fulltext_accepts_legacy_language_key(tmp_path):
     load_fulltext(client, [str(path)])
 
     assert client.rows[0]["language"] == "de"
+
+
+def test_hudoc_fulltext_normalizes_three_letter_language(tmp_path):
+    path = tmp_path / os.path.basename(JSON_FULL_TEXT_ECHR)
+    path.write_text(
+        json.dumps([{"item_id": "001-12345", "language": "FRE", "full_text": "Français"}]),
+        encoding="utf-8",
+    )
+    client = RecordingClient()
+
+    load_fulltext(client, [str(path)])
+
+    assert client.rows == [
+        {"case_id": 43, "language": "fr", "source": "HUDOC", "fulltext": "Français"}
+    ]
