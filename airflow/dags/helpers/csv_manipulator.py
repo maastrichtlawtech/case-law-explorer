@@ -21,10 +21,6 @@ from definitions.storage_handler import DIR_DATA_PROCESSED
 # dropped here so the intermediate CSV stays the width of what we store.
 COLUMNS_TO_KEEP = set(MAP_CELLAR)
 
-# Judgments and AG opinions. "Unknown" is kept because the extractor leaves the
-# type blank for a share of rows that are judgments in practice.
-types_to_keep = ["Unknown", "Opinion of the Advocate General", "Judgment"]
-
 
 def drop_columns(data):
     """Reduce an extractor frame in place to CJEU case law and stored columns.
@@ -34,20 +30,16 @@ def drop_columns(data):
     for column in [c for c in data.columns if c not in COLUMNS_TO_KEEP]:
         data.pop(column)
 
-    # Court of Justice proper. The extractor returns everything carrying an
-    # ECLI, including national and EFTA courts.
-    data.drop(data[~data["ecli"].str.contains("ECLI:EU:C", na=False)].index, inplace=True)
+    # Keep every document from the EU courts (Court of Justice, General Court,
+    # and any other EU-court designator), while excluding national/EFTA ECLIs.
+    # Sector 6 below already identifies case-law documents, so filtering again
+    # by resource_type would silently discard Orders and other valid case data.
+    data.drop(data[~data["ecli"].str.startswith("ECLI:EU:", na=False)].index, inplace=True)
 
     # Sector 6 is case law. Note this also discards the sector 3 legislation
     # that cellar-extractor 2.x added support for: if that is wanted in
     # cle_v2, this is the line that decides it.
     data.drop(data[~data["celex"].str.startswith("6", na=False)].index, inplace=True)
-
-    data["resource_type"] = data["resource_type"].fillna("Unknown")
-    data.drop(
-        data[~data["resource_type"].str.contains("|".join(types_to_keep), na=False)].index,
-        inplace=True,
-    )
 
     data.reset_index(inplace=True, drop=True)
 

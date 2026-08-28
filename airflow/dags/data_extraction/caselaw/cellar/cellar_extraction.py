@@ -69,9 +69,15 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     os.environ["CURL_CA_BUNDLE"] = ""
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("--amount", help="number of documents to retrieve", type=int, required=False)
-    parser.add_argument("--starting-date", help="Last modification date to look forward from", required=False)
-    parser.add_argument("--ending-date", help="Last modification date to look forward from", required=False)
+    parser.add_argument(
+        "--amount", help="number of documents to retrieve", type=int, required=False
+    )
+    parser.add_argument(
+        "--starting-date", help="Last modification date to look forward from", required=False
+    )
+    parser.add_argument(
+        "--ending-date", help="Last modification date to look forward from", required=False
+    )
     # Airflow gives extra arguments ('celery worker'); ignore unknown args.
     args, unknown = parser.parse_known_args(args)
 
@@ -155,8 +161,10 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     end = time.time()
     logging.info("--- DONE ---")
     logging.info(f"Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
-    # Start date for the next incremental download
-    Variable.set(key="CELEX_LAST_DATE", value=args.ending_date)
+    # Explicitly dated monthly tasks must not race over the shared incremental
+    # checkpoint. Only the incremental mode owns and advances it.
+    if not args.starting_date:
+        Variable.set(key="CELEX_LAST_DATE", value=args.ending_date)
     return paths
 
 
