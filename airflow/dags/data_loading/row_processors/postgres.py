@@ -1,4 +1,5 @@
 import logging
+from datetime import date
 
 from data_loading.language_codes import normalize_language_code
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
@@ -57,6 +58,17 @@ def _split_set(value):
     if not value:
         return None
     return [v for v in value.split(SET_SEP) if v]
+
+
+def _earliest_iso_date(value):
+    """Reduce a semicolon-separated timestamp list to one PostgreSQL date."""
+    dates = []
+    for item in str(value or "").split(";"):
+        try:
+            dates.append(date.fromisoformat(item.strip()[:10]))
+        except ValueError:
+            continue
+    return min(dates) if dates else None
 
 
 class _BaseRowProcessor:
@@ -303,7 +315,7 @@ class PostgresCelexProcessor(_BaseRowProcessor):
             "proc_type": row.get(CELLAR_TYPE_PROCEDURE),
             # best available proxy for date_lodged; CELLAR extraction doesn't
             # capture a distinct "lodged" date today
-            "date_lodged": row.get(CELLAR_CREATION_OF_WORK) or None,
+            "date_lodged": _earliest_iso_date(row.get(CELLAR_CREATION_OF_WORK)),
             "journal_refs": row.get(CELLAR_JOURNAL_ARTICLES),
             "citations_extra_info": row.get(CELLAR_CITATIONS_EXTRA_INFO),
         }
