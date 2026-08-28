@@ -46,6 +46,7 @@ dag = DAG(
     start_date=datetime(2025, 1, 1),
     catchup=False,
     schedule="0 0 8 * *",  # monthly, 8th at midnight UTC
+    max_active_runs=1,  # lido.db is a single-writer SQLite artifact
 )
 
 
