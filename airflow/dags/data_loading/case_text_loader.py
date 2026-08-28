@@ -48,13 +48,20 @@ def load_fulltext(client, files_location_paths: list) -> None:
                     continue
                 client.upsert_case_text(
                     case_id=case_id,
-                    language=(item.get("language") or "en").lower(),
+                    # cellar-extractor 2.x emits one record per available
+                    # translation and names the field ``text_language``.
+                    # Keep accepting the legacy ``language`` key for older
+                    # artifacts, but do not collapse every translation onto
+                    # the English conflict key.
+                    language=(item.get("text_language") or item.get("language") or "en").lower(),
                     source="CELLAR_ITEM",
                     fulltext=item.get("full_text") or item.get("text"),
                 )
                 loaded += 1
 
-        logging.info(f"{loaded}/{len(data)} full-text records loaded from {os.path.basename(file_location_path)}")
+        logging.info(
+            f"{loaded}/{len(data)} full-text records loaded from {os.path.basename(file_location_path)}"
+        )
         # another task may have consumed the file concurrently; upserts are
         # idempotent, so a double-read is harmless and a missing file is fine
         with suppress(FileNotFoundError):
