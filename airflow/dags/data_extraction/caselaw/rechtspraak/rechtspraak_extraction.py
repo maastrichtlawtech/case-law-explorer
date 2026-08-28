@@ -32,6 +32,58 @@ FULL_TEXT_MIN_LENGTH = 1000
 EXTRA_SQLITE_COLUMNS = ["legislations_cited", "bwb_id"]
 
 
+def _bounded_get_data_from_url(base_url, total_docs, start_date, end_date):
+    """Paginate Rechtspraak with a no-progress stop.
+
+    The upstream count can occasionally exceed the rows its feed actually
+    returns (observed as 1,037 vs 1,036). The dependency's paginator waits for
+    the advertised total forever in that case, requesting empty pages without
+    a termination condition.
+    """
+    all_results = []
+    from_index = 0
+    while len(all_results) < total_docs:
+        url = rex._build_api_url(
+            base_url,
+            rex.MAX_ECLIS_PER_PAGE,
+            from_index,
+            start_date,
+            end_date,
+        )
+        response = rex.requests.get(url, timeout=rex.API_REQUEST_TIMEOUT)
+        response.raise_for_status()
+        response.raw.decode_content = True
+        payload = rex.parse_xml_response(response.text)
+        entries = payload.get("feed", {}).get("entry", [])
+        if not isinstance(entries, list):
+            entries = [entries] if entries else []
+        if not entries:
+            logging.warning(
+                "Rechtspraak returned an empty page at offset %s after %s/%s rows; "
+                "stopping instead of retrying forever",
+                from_index,
+                len(all_results),
+                total_docs,
+            )
+            break
+        all_results.extend(entries)
+        logging.info("Retrieved %s cases (total: %s)", len(entries), len(all_results))
+        from_index += rex.MAX_ECLIS_PER_PAGE
+        if len(all_results) < total_docs:
+            rex.time.sleep(rex.SLEEP_BETWEEN_REQUESTS)
+    return all_results[:total_docs]
+
+
+def _get_rechtspraak_bounded(**kwargs):
+    """Run the dependency with this task's bounded paginator."""
+    original = rex.get_data_from_url
+    rex.get_data_from_url = _bounded_get_data_from_url
+    try:
+        return rex.get_rechtspraak(**kwargs)
+    finally:
+        rex.get_data_from_url = original
+
+
 def _daily_ranges(starting_date: str, ending_date: str):
     """Yield one-day API windows for every date in an inclusive range."""
     current_date = datetime.strptime(starting_date, "%Y-%m-%d")
@@ -179,7 +231,7 @@ def rechtspraak_extract(
     # Extract per day in the range
     for current_date, next_date in _daily_ranges(starting_date, ending_date):
         logging.info(f"Processing date range: {current_date.date()} - {next_date.date()}")
-        base_extraction = rex.get_rechtspraak(
+        base_extraction = _get_rechtspraak_bounded(
             max_ecli=amount, sd=str(current_date.date()), ed=str(next_date.date()), save_file="n"
         )
         base_extraction = _cap_base_extraction(base_extraction, amount)
