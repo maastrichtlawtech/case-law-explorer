@@ -70,7 +70,7 @@ def format_rs_date(text):
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original ECHR date format DD-MM-YYYY
 def format_echr_date(text):
-    return dateutil.parser.parse(text).date()
+    return dateutil.parser.parse(text, dayfirst=True).date()
 
 
 def format_domains(text):
