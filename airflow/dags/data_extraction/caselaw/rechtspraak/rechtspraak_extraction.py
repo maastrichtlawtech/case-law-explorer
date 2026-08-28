@@ -32,6 +32,27 @@ FULL_TEXT_MIN_LENGTH = 1000
 EXTRA_SQLITE_COLUMNS = ["legislations_cited", "bwb_id"]
 
 
+def _cap_base_extraction(base_extraction: pd.DataFrame | None, amount: int):
+    """Enforce the caller's document cap on the extractor's returned page.
+
+    rechtspraak_extractor currently fetches Atom pages in batches of 1,000.
+    It stops once the requested count is reached, but returns the whole final
+    page instead of truncating it.  A 25-document pilot can therefore flow on
+    as 1,000 metadata requests and database upserts unless the DAG guards the
+    boundary itself.
+    """
+    if base_extraction is None or len(base_extraction) <= amount:
+        return base_extraction
+
+    logging.warning(
+        "rechtspraak_extractor returned %s rows for max_ecli=%s; "
+        "truncating to the requested limit",
+        len(base_extraction),
+        amount,
+    )
+    return base_extraction.head(amount).copy()
+
+
 def _lido_sqlite_db_path(lido_sqlite_db_path: str | None) -> str:
     if lido_sqlite_db_path:
         return lido_sqlite_db_path
@@ -145,6 +166,7 @@ def rechtspraak_extract(
         base_extraction = rex.get_rechtspraak(
             max_ecli=amount, sd=str(current_date.date()), ed=str(next_date.date()), save_file="n"
         )
+        base_extraction = _cap_base_extraction(base_extraction, amount)
         # Store the dataframe for the current date
         base_file_day = os.path.join(output_dir, f"base_{current_date.date()}.csv")
         if base_extraction is not None:
