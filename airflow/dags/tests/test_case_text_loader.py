@@ -8,6 +8,7 @@ from definitions.storage_handler import JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_EC
 class RecordingClient:
     def __init__(self):
         self.rows = []
+        self.echr_language = "fr"
 
     def resolve_case_id(self, *, celex_id):
         assert celex_id == "62026CJ0001"
@@ -19,6 +20,10 @@ class RecordingClient:
     def resolve_case_id_by_item_id(self, item_id):
         assert item_id == "001-12345"
         return 43
+
+    def resolve_echr_language_by_item_id(self, item_id):
+        assert item_id == "001-12345"
+        return self.echr_language
 
 
 def test_cellar_fulltexts_keep_each_translation_language(tmp_path):
@@ -105,4 +110,24 @@ def test_hudoc_fulltext_normalizes_three_letter_language(tmp_path):
 
     assert client.rows == [
         {"case_id": 43, "language": "fr", "source": "HUDOC", "fulltext": "Français"}
+    ]
+
+
+def test_hudoc_fulltext_uses_metadata_language_when_blob_omits_it(tmp_path):
+    path = tmp_path / os.path.basename(JSON_FULL_TEXT_ECHR)
+    path.write_text(
+        json.dumps([{"item_id": "001-12345", "full_text": "Texte français"}]),
+        encoding="utf-8",
+    )
+    client = RecordingClient()
+
+    load_fulltext(client, [str(path)])
+
+    assert client.rows == [
+        {
+            "case_id": 43,
+            "language": "fr",
+            "source": "HUDOC",
+            "fulltext": "Texte français",
+        }
     ]
