@@ -1,4 +1,10 @@
-from data_transformation.utils import format_jurisdiction, format_rs_newline_list
+from datetime import date
+
+from data_transformation.utils import (
+    format_echr_date,
+    format_jurisdiction,
+    format_rs_newline_list,
+)
 
 
 def test_format_jurisdiction_accepts_lowercase_dcterms_language_code():
@@ -27,3 +33,7 @@ def test_format_rs_newline_list_single_value_no_trailing_separator():
 def test_format_rs_newline_list_returns_none_for_empty_input():
     assert format_rs_newline_list("") is None
     assert format_rs_newline_list("\n\n  \n") is None
+
+
+def test_format_echr_date_uses_documented_day_month_year_order():
+    assert format_echr_date("09-07-2026") == date(2026, 7, 9)
