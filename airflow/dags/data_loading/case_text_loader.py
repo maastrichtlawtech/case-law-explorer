@@ -13,6 +13,7 @@ import os
 from contextlib import suppress
 
 from data_loading.language_codes import normalize_language_code
+from data_transformation.utils import format_cellar_celex
 from definitions.storage_handler import JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR
 
 
@@ -42,7 +43,11 @@ def load_fulltext(client, files_location_paths: list) -> None:
                 )
                 loaded += 1
             elif file_name == os.path.basename(JSON_FULL_TEXT_CELLAR):
-                celex = item["celex"]
+                # CELLAR may identify a document with multiple CELEX values
+                # (for example ``62025CJ0051;62025CJ0051_SUM``).  Metadata is
+                # normalized to the canonical, non-suffixed CELEX before the
+                # case row is stored, so resolve full text by that same value.
+                celex = format_cellar_celex(item["celex"])
                 case_id = client.resolve_case_id(celex_id=celex)
                 if case_id is None:
                     logging.info(f"No case found for celex {celex}, skipping full text")

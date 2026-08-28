@@ -57,6 +57,34 @@ def test_cellar_fulltext_accepts_legacy_language_key(tmp_path):
     assert client.rows[0]["language"] == "de"
 
 
+def test_cellar_fulltext_resolves_composite_celex_by_canonical_id(tmp_path):
+    path = tmp_path / os.path.basename(JSON_FULL_TEXT_CELLAR)
+    path.write_text(
+        json.dumps(
+            [
+                {
+                    "celex": "62026CJ0001;62026CJ0001_RES",
+                    "text_language": "EN",
+                    "text": "English",
+                }
+            ]
+        ),
+        encoding="utf-8",
+    )
+    client = RecordingClient()
+
+    load_fulltext(client, [str(path)])
+
+    assert client.rows == [
+        {
+            "case_id": 42,
+            "language": "en",
+            "source": "CELLAR_ITEM",
+            "fulltext": "English",
+        }
+    ]
+
+
 def test_hudoc_fulltext_normalizes_three_letter_language(tmp_path):
     path = tmp_path / os.path.basename(JSON_FULL_TEXT_ECHR)
     path.write_text(
