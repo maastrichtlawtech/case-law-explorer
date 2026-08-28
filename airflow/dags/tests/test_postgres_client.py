@@ -146,6 +146,15 @@ def test_has_lido_resolution_passes_the_ecli_as_a_parameter(client, hook):
     assert parameters == {"ecli": "ECLI:NL:HR:2024:3"}
 
 
+def test_resolve_echr_language_by_item_id(client, hook):
+    hook.get_first_return = ("fr",)
+
+    assert client.resolve_echr_language_by_item_id("001-250884") == "fr"
+    sql, parameters = hook.get_first_calls[-1]
+    assert "echr_document" in sql
+    assert parameters == {"val": "001-250884"}
+
+
 def test_nested_transactions_only_commit_at_the_outermost_level(client):
     with client.transaction():
         client.upsert_case(ecli="ECLI:NL:HR:2024:6", source="Rechtspraak")

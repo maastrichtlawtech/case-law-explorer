@@ -341,6 +341,19 @@ class PostgresCLEClient:
         )
         return row[0] if row else None
 
+    def resolve_echr_language_by_item_id(self, item_id: str) -> str | None:
+        """Return the language stored with the HUDOC metadata document.
+
+        echr-extractor's full-text records do not always repeat the language.
+        The metadata row is authoritative and is also the language used by
+        ``echr_v_document_with_text`` when it joins onto ``case_text``.
+        """
+        row = self.hook.get_first(
+            f"SELECT language FROM {SCHEMA}.echr_document WHERE item_id = %(val)s",
+            parameters={"val": item_id},
+        )
+        return row[0] if row else None
+
     def list_rs_eclis(self) -> list[str]:
         """All Rechtspraak ECLIs known so far, for the citation-refresh DAGs to iterate over."""
         rows = self.hook.get_records(

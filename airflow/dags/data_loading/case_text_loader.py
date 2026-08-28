@@ -36,9 +36,17 @@ def load_fulltext(client, files_location_paths: list) -> None:
                         f"No case found for ECHR item_id {item_id}, skipping full text"
                     )
                     continue
+                # echr-extractor full-text records commonly omit ``language``.
+                # normalize_language_code(None) falls back to English, which
+                # mislabeled every French body and made the language-keyed
+                # echr_v_document_with_text view look as if it had no text.
+                # The already-loaded metadata row is the source of truth.
+                metadata_language = client.resolve_echr_language_by_item_id(item_id)
                 client.upsert_case_text(
                     case_id=case_id,
-                    language=normalize_language_code(item.get("language")),
+                    language=normalize_language_code(
+                        metadata_language or item.get("language")
+                    ),
                     source="HUDOC",
                     fulltext=item.get("full_text") or item.get("text"),
                 )
