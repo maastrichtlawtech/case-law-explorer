@@ -9,7 +9,7 @@
 cellar_extractor==2.0.0
 # Pin the unreleased timeout propagation fix by immutable commit. HUDOC's
 # conversion endpoint routinely takes longer than the old hard-coded 10s.
-echr_extractor @ https://github.com/maastrichtlawtech/echr-extractor/archive/e86a7957410db2ae904bd7918319a586a2ecc227.tar.gz
+echr_extractor==1.3.2
 rechtspraak_extractor==1.6.0
 rechtspraak_citations_extractor==1.2.0
 rechtspraak-lido-sqlite==0.2.0
