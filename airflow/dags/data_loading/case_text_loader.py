@@ -12,6 +12,7 @@ import logging
 import os
 from contextlib import suppress
 
+from data_loading.language_codes import normalize_language_code
 from definitions.storage_handler import JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR
 
 
@@ -35,7 +36,7 @@ def load_fulltext(client, files_location_paths: list) -> None:
                     continue
                 client.upsert_case_text(
                     case_id=case_id,
-                    language=(item.get("language") or "en").lower(),
+                    language=normalize_language_code(item.get("language")),
                     source="HUDOC",
                     fulltext=item.get("full_text") or item.get("text"),
                 )
@@ -53,7 +54,9 @@ def load_fulltext(client, files_location_paths: list) -> None:
                     # Keep accepting the legacy ``language`` key for older
                     # artifacts, but do not collapse every translation onto
                     # the English conflict key.
-                    language=(item.get("text_language") or item.get("language") or "en").lower(),
+                    language=normalize_language_code(
+                        item.get("text_language") or item.get("language")
+                    ),
                     source="CELLAR_ITEM",
                     fulltext=item.get("full_text") or item.get("text"),
                 )

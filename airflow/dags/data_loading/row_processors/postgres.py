@@ -1,5 +1,6 @@
 import logging
 
+from data_loading.language_codes import normalize_language_code
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
@@ -270,7 +271,11 @@ class PostgresRSProcessor(_BaseRowProcessor):
         bwb_id are populated in a way that lines up per-entry."""
         bwb_id = row.get(RS_BWB_ID) or None
         return [
-            {"raw_reference": legislation, "raw_resource": bwb_id, "source_dataset": "rs_lido_sqlite"}
+            {
+                "raw_reference": legislation,
+                "raw_resource": bwb_id,
+                "source_dataset": "rs_lido_sqlite",
+            }
             for legislation in (_split_set(row.get(RS_LEGISLATIONS)) or [])
         ]
 
@@ -324,7 +329,7 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
         return {
             "item_id": row[ECHR_DOCUMENT_ID],
             "case_id": case_id,
-            "language": (row.get(ECHR_LANGUAGE) or "en").lower(),
+            "language": normalize_language_code(row.get(ECHR_LANGUAGE)),
             "extractedappno": row.get(ECHR_PARTICIPANTS),
             "docname": row.get(ECHR_TITLE),
             "doctype": row.get(ECHR_DOCUMENT_TYPE),
