@@ -6,7 +6,12 @@ from data_extraction.caselaw.echr.echr_extraction import echr_extract
 from data_loading import data_loader
 from data_transformation import data_transformer
 from dotenv import find_dotenv, load_dotenv
-from etl_factory import DEFAULT_ARGS, build_monthly_task_group, cleanup_raw_files, get_var
+from etl_factory import (
+    DEFAULT_ARGS,
+    build_monthly_task_group,
+    cleanup_raw_files,
+    get_var,
+)
 
 from airflow import DAG
 
@@ -63,7 +68,15 @@ def echr_etl(**kwargs):
         edge_dir=month_dir,
     )
 
-    cleanup_raw_files([raw_paths["metadata"], raw_paths["nodes"], raw_paths["edges"]])
+    cleanup_raw_files(
+        [
+            raw_paths["metadata"],
+            raw_paths["full_text"],
+            raw_paths["nodes"],
+            raw_paths["edges"],
+            raw_paths["missing_references"],
+        ]
+    )
     logging.info("ECHR ETL completed successfully")
 
 
