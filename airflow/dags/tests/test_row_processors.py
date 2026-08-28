@@ -1,3 +1,5 @@
+from datetime import date
+
 import pytest
 from data_loading.clients import postgres as postgres_module
 from data_loading.clients.postgres import PostgresCLEClient
@@ -9,6 +11,7 @@ from data_loading.row_processors.postgres import (
 )
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
+    CELLAR_CREATION_OF_WORK,
     ECHR_DOCUMENT_ID,
     ECHR_LANGUAGE,
     ECLI,
@@ -175,6 +178,21 @@ def test_celex_processor_upload_row_commits_once(client):
     assert result == 1
     assert conn.commit_count == 1
     assert len(conn.executed) == 2
+
+
+def test_celex_processor_reduces_creation_timestamps_to_earliest_date(client):
+    processor = PostgresCelexProcessor(path="unused", client=client)
+    detail = processor._detail_row(
+        {
+            CELLAR_CELEX: "62026CJ0001",
+            CELLAR_CREATION_OF_WORK: (
+                "2026-08-25T13:14:18.334+02:00;" "2026-07-03T15:32:35.648+02:00;" "not-a-date"
+            ),
+        },
+        case_id=7,
+    )
+
+    assert detail["date_lodged"] == date(2026, 7, 3)
 
 
 def test_celex_processor_upload_row_rolls_back_on_failure(client, redirect_failure_log):
