@@ -58,6 +58,53 @@ def _resolve_external_citations_enabled():
     ).lower() in ("true", "1", "yes")
 
 
+def _canonical_item_ids(metadata):
+    """Map corpus ECLIs to one real HUDOC document item ID.
+
+    HUDOC language variants share an ECLI, while cle_v2 stores each item ID as
+    a separate case and keeps cases.ecli unique. Prefer the variant with an
+    extracted application number; placeholder variants do not have one.
+    """
+    required = {"ecli", "itemid"}
+    if not required.issubset(metadata.columns):
+        return {}
+    candidates = metadata.loc[:, ["ecli", "itemid"]].copy()
+    appnos = metadata.get("extractedappno")
+    candidates["has_appno"] = (
+        appnos.notna() & appnos.astype(str).str.strip().ne("")
+        if appnos is not None
+        else False
+    )
+    candidates["ecli"] = candidates["ecli"].astype(str).str.strip()
+    candidates["itemid"] = candidates["itemid"].astype(str).str.strip()
+    candidates = candidates[
+        candidates["ecli"].ne("")
+        & candidates["ecli"].str.lower().ne("nan")
+        & candidates["itemid"].ne("")
+        & candidates["itemid"].str.lower().ne("nan")
+    ]
+    candidates = candidates.sort_values("has_appno", ascending=False, kind="stable")
+    candidates = candidates.drop_duplicates("ecli")
+    return dict(zip(candidates["ecli"], candidates["itemid"]))
+
+
+def _normalize_edge_identifiers(metadata, path):
+    corpus_item_ids = _canonical_item_ids(metadata)
+    normalized_path = f"{path}.normalized"
+    with open(path, encoding="utf-8") as source_file, open(
+        normalized_path, "w", encoding="utf-8"
+    ) as target_file:
+        for line in source_file:
+            line = line.strip()
+            if not line or "," not in line:
+                continue
+            source, target = line.split(",", 1)
+            source = corpus_item_ids.get(source, source)
+            target = corpus_item_ids.get(target, target)
+            target_file.write(f"{source},{target}\n")
+    os.replace(normalized_path, path)
+
+
 def _write_citation_artifacts(metadata, paths):
     nodes, edges, missing = echr.get_nodes_edges(
         df=metadata,
@@ -65,10 +112,13 @@ def _write_citation_artifacts(metadata, paths):
         resolve_external=_resolve_external_citations_enabled(),
     )
     nodes[["ecli"]].to_csv(paths["nodes"], index=False, header=False)
+    corpus_item_ids = _canonical_item_ids(metadata)
     with open(paths["edges"], "w") as f:
         for _, row in edges.iterrows():
+            source = corpus_item_ids.get(str(row["ecli"]), row["ecli"])
             for target in row["references"]:
-                f.write(f"{row['ecli']},{target}\n")
+                target = corpus_item_ids.get(str(target), target)
+                f.write(f"{source},{target}\n")
     missing.to_csv(paths["missing_references"], index=False)
 
 
@@ -80,11 +130,14 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     """
     paths = _output_paths(output_dir)
     if skip_if_exists and os.path.exists(paths["metadata"]):
+        metadata = pd.read_csv(paths["metadata"])
         if not all(
             os.path.exists(paths[name]) for name in ("edges", "missing_references")
         ):
             logging.info("Rebuilding missing ECHR citation artifacts from metadata")
-            _write_citation_artifacts(pd.read_csv(paths["metadata"]), paths)
+            _write_citation_artifacts(metadata, paths)
+        else:
+            _normalize_edge_identifiers(metadata, paths["edges"])
         logging.info(f"{paths['metadata']} exists, skipping extraction.")
         return paths
 

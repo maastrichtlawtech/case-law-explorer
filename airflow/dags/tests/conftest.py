@@ -25,9 +25,25 @@ def _stub_package(name):
 
 
 _stub_package("airflow")
+_stub_package("airflow.models")
 _stub_package("airflow.providers")
 _stub_package("airflow.providers.postgres")
 _stub_package("airflow.providers.postgres.hooks")
+
+if "airflow.models.variable" not in sys.modules:
+    variable_module = types.ModuleType("airflow.models.variable")
+
+    class Variable:
+        @staticmethod
+        def get(key, default_var=None):
+            return default_var
+
+        @staticmethod
+        def set(key, value):
+            return None
+
+    variable_module.Variable = Variable
+    sys.modules["airflow.models.variable"] = variable_module
 
 if "airflow.providers.postgres.hooks.postgres" not in sys.modules:
     hooks_postgres = types.ModuleType("airflow.providers.postgres.hooks.postgres")
