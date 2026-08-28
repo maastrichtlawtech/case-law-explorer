@@ -123,12 +123,17 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         # legacy global-path mode: refuse to clobber an existing extraction
         Storage().setup_pipeline(output_paths=[paths["metadata"]])
 
-    try:
-        # Getting date of last update from airflow database
-        last_updated = Variable.get("ECHR_LAST_DATE")
-    except Exception:
-        last_updated = getenv("ECHR_START_DATE")
-        Variable.set(key="ECHR_LAST_DATE", value=last_updated)
+    # Explicitly dated monthly tasks do not need the shared incremental
+    # checkpoint. Avoiding it also prevents parallel July/August tasks from
+    # racing to create the same Airflow Variable.
+    last_updated = args.start_date
+    if not last_updated:
+        try:
+            # Getting date of last update from airflow database
+            last_updated = Variable.get("ECHR_LAST_DATE")
+        except Exception:
+            last_updated = getenv("ECHR_START_DATE")
+            Variable.set(key="ECHR_LAST_DATE", value=last_updated)
 
     today_date = str(datetime.today().date())
     logging.info("START DATE (LAST UPDATE):" + last_updated)
@@ -192,7 +197,8 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     end = time.time()
     logging.info("--- DONE ---")
     logging.info(f"Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
-    Variable.set(key="ECHR_LAST_DATE", value=args.end_date or today_date)
+    if not args.start_date:
+        Variable.set(key="ECHR_LAST_DATE", value=args.end_date or today_date)
     return paths
 
 
