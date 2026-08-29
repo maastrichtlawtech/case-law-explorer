@@ -1,6 +1,9 @@
+import json
+
 import pandas as pd
 from data_extraction.caselaw.echr.echr_extraction import (
     _canonical_item_ids,
+    _full_text_coverage,
     _normalize_edge_identifiers,
 )
 
@@ -52,3 +55,28 @@ def test_normalize_edges_uses_item_ids_for_corpus_documents(tmp_path):
         "001-source,001-target",
         "001-source,ECLI:CE:ECHR:2000:EXTERNAL",
     ]
+
+
+def test_full_text_coverage_counts_only_nonempty_matching_bodies(tmp_path):
+    metadata = pd.DataFrame(
+        [{"itemid": "001-one"}, {"itemid": "001-two"}, {"itemid": "001-three"}]
+    )
+    path = tmp_path / "ECHR_full_text.json"
+    path.write_text(
+        json.dumps(
+            [
+                {"item_id": "001-one", "full_text": "Judgment"},
+                {"item_id": "001-two", "full_text": ""},
+                {"item_id": "unrelated", "full_text": "Other"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert _full_text_coverage(metadata, str(path)) == 1 / 3
+
+
+def test_full_text_coverage_is_zero_for_a_missing_artifact(tmp_path):
+    metadata = pd.DataFrame([{"itemid": "001-one"}])
+
+    assert _full_text_coverage(metadata, str(tmp_path / "missing.json")) == 0.0
