@@ -122,6 +122,35 @@ def _write_citation_artifacts(metadata, paths):
     missing.to_csv(paths["missing_references"], index=False)
 
 
+def _full_text_coverage(metadata, full_text_path):
+    """Return the share of extracted HUDOC item IDs with a non-empty body."""
+    if "itemid" not in metadata.columns or not os.path.isfile(full_text_path):
+        return 0.0
+    item_ids = {
+        str(value).strip()
+        for value in metadata["itemid"].dropna()
+        if str(value).strip()
+    }
+    if not item_ids:
+        return 1.0
+    try:
+        with open(full_text_path, encoding="utf-8") as source:
+            records = json.load(source)
+    except (OSError, json.JSONDecodeError):
+        return 0.0
+    if not isinstance(records, list):
+        return 0.0
+    bodies = {
+        str(record.get("item_id", "")).strip(): (
+            record.get("full_text") or record.get("text") or ""
+        )
+        for record in records
+        if isinstance(record, dict) and record.get("item_id")
+    }
+    available = sum(bool(str(bodies.get(item_id, "")).strip()) for item_id in item_ids)
+    return available / len(item_ids)
+
+
 def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     """
     Run the ECHR extraction. Writes metadata CSV, full-text JSON, and
@@ -131,15 +160,25 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     paths = _output_paths(output_dir)
     if skip_if_exists and os.path.exists(paths["metadata"]):
         metadata = pd.read_csv(paths["metadata"])
-        if not all(
-            os.path.exists(paths[name]) for name in ("edges", "missing_references")
-        ):
-            logging.info("Rebuilding missing ECHR citation artifacts from metadata")
-            _write_citation_artifacts(metadata, paths)
-        else:
-            _normalize_edge_identifiers(metadata, paths["edges"])
-        logging.info(f"{paths['metadata']} exists, skipping extraction.")
-        return paths
+        minimum_coverage = float(getenv("ECHR_SKIP_MIN_TEXT_RATIO", "0.90"))
+        coverage = _full_text_coverage(metadata, paths["full_text"])
+        if coverage >= minimum_coverage:
+            if not all(
+                os.path.exists(paths[name])
+                for name in ("edges", "missing_references")
+            ):
+                logging.info("Rebuilding missing ECHR citation artifacts from metadata")
+                _write_citation_artifacts(metadata, paths)
+            else:
+                _normalize_edge_identifiers(metadata, paths["edges"])
+            logging.info(f"{paths['metadata']} exists, skipping extraction.")
+            return paths
+        logging.warning(
+            "Existing ECHR full-text coverage %.3f is below %.3f; "
+            "rebuilding the monthly extraction.",
+            coverage,
+            minimum_coverage,
+        )
 
     # set up script arguments
     parser = argparse.ArgumentParser()
