@@ -49,6 +49,18 @@ def _output_paths(output_dir):
     }
 
 
+def _artifacts_complete(paths):
+    """Return true only when the complete monthly extraction is present."""
+    return all(os.path.isfile(path) for path in paths.values())
+
+
+def _write_lines(path, values):
+    """Write a graph artifact, including an empty file for an empty result."""
+    lines = [] if values is False or values is None else values
+    with open(path, "w") as f:
+        f.write("\n".join(lines))
+
+
 def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     """
     Run the CELLAR extraction. Writes metadata CSV, full-text JSON, and
@@ -56,9 +68,15 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     continues from the CELEX_LAST_DATE Airflow Variable.
     """
     paths = _output_paths(output_dir)
-    if skip_if_exists and os.path.exists(paths["metadata"]):
-        logging.info(f"{paths['metadata']} exists, skipping extraction.")
+    if skip_if_exists and _artifacts_complete(paths):
+        logging.info("All CELLAR artifacts exist, skipping extraction.")
         return paths
+    if skip_if_exists and any(os.path.exists(path) for path in paths.values()):
+        missing = [name for name, path in paths.items() if not os.path.isfile(path)]
+        logging.warning(
+            "Incomplete CELLAR extraction found; rebuilding it. Missing: %s",
+            ", ".join(missing),
+        )
 
     # Disable SSL verification for this task only: the CELLAR endpoint's
     # certificate chain fails validation from some networks. Runs inside the
@@ -147,15 +165,11 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
 
     # Node and edge lists based on citations, for the citation graph
     nodes, edges = cell.get_nodes_and_edges_lists(metadata)
-    if nodes is not False:
-        with open(paths["nodes"], "w") as f:
-            f.write("\n".join(nodes))
-    else:
+    _write_lines(paths["nodes"], nodes)
+    _write_lines(paths["edges"], edges)
+    if nodes is False:
         logging.info("No nodes found")
-    if edges is not False:
-        with open(paths["edges"], "w") as f:
-            f.write("\n".join(edges))
-    else:
+    if edges is False:
         logging.info("No edges found")
 
     end = time.time()
