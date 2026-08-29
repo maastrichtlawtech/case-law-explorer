@@ -52,13 +52,15 @@ def format_rs_newline_list(text):
 
 
 def format_cellar_celex(celex):
-    if ";" in celex:
-        separate = celex.split(sep=";")
-        for c in separate:
-            if "_" not in c:
-                return c
-    else:
-        return celex
+    options = [part.strip() for part in str(celex).split(";") if part.strip()]
+    if not options:
+        return None
+    # Prefer a primary document over an information notice. Some valid ECLIs
+    # only expose suffixed documents (for example RES and EXT); those still
+    # belong to the canonical base CELEX used by the loader and full-text rows.
+    non_information = [part for part in options if "INF" not in part]
+    selected = non_information[0] if non_information else options[0]
+    return selected.split("_", 1)[0]
 
 
 # converts string representation of a date into datetime (YYYY-MM-DD)

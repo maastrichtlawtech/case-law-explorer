@@ -1,6 +1,7 @@
 from datetime import date
 
 from data_transformation.utils import (
+    format_cellar_celex,
     format_echr_date,
     format_jurisdiction,
     format_rs_newline_list,
@@ -37,3 +38,16 @@ def test_format_rs_newline_list_returns_none_for_empty_input():
 
 def test_format_echr_date_uses_documented_day_month_year_order():
     assert format_echr_date("09-07-2026") == date(2026, 7, 9)
+
+
+def test_format_cellar_celex_canonicalizes_suffix_only_documents():
+    assert (
+        format_cellar_celex("62025TJ0204_RES;62025TJ0204_EXT")
+        == "62025TJ0204"
+    )
+
+
+def test_format_cellar_celex_prefers_non_information_document():
+    assert (
+        format_cellar_celex("62025TJ0267_INF;62025TJ0267") == "62025TJ0267"
+    )
