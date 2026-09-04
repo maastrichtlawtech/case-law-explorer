@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 
+from airflow.operators.python import PythonOperator
 from data_extraction.caselaw.echr.echr_extraction import echr_extract
 from data_loading import data_loader
 from data_transformation import data_transformer
@@ -10,7 +11,9 @@ from etl_factory import (
     DEFAULT_ARGS,
     build_monthly_task_group,
     cleanup_raw_files,
-    get_var,
+    get_optional_int,
+    get_schedule,
+    register_promotion,
 )
 
 from airflow import DAG
@@ -18,10 +21,12 @@ from airflow import DAG
 dag = DAG(
     dag_id="echr_etl",
     default_args=DEFAULT_ARGS,
-    description="ECHR ETL with monthly task groups",
+    description="Scheduled and manually windowed ECHR ETL",
     start_date=datetime(2025, 1, 1),
     catchup=False,
-    schedule=None,
+    schedule=get_schedule("ECHR", "0 4 * * 1"),
+    max_active_runs=1,
+    max_active_tasks=1,
 )
 
 
@@ -30,6 +35,7 @@ def echr_etl(**kwargs):
     start_date = kwargs["start_date"]
     end_date = kwargs["end_date"]
     _data_path = kwargs["_data_path"]
+    force_refresh = kwargs.get("force_refresh", False)
 
     logging.info(f"Starting ECHR ETL for {start_date} to {end_date}")
 
@@ -45,10 +51,15 @@ def echr_etl(**kwargs):
         date_str,
         "--end-date",
         end_date.strftime("%Y-%m-%d"),
-        "--count",
-        str(int(get_var("ECHR_AMOUNT_TO_EXTRACT", "1000"))),
     ]
-    raw_paths = echr_extract(extraction_args, output_dir=month_dir, skip_if_exists=True)
+    amount = get_optional_int("ECHR_AMOUNT_TO_EXTRACT")
+    if amount is not None:
+        extraction_args.extend(["--count", str(amount)])
+    raw_paths = echr_extract(
+        extraction_args,
+        output_dir=month_dir,
+        skip_if_exists=not force_refresh,
+    )
     logging.info("ECHR extraction completed")
 
     # Transform into a month-scoped processed dir, then load exactly those
@@ -81,4 +92,10 @@ def echr_etl(**kwargs):
 
 
 with dag:
-    build_monthly_task_group(dag, "echr_etl", "ECHR", echr_etl)
+    etl_tasks = build_monthly_task_group(dag, "echr_etl", "ECHR", echr_etl)
+    promotion = PythonOperator(
+        task_id="register_promotion",
+        python_callable=register_promotion,
+        op_kwargs={"dag_id": "echr_etl", "var_prefix": "ECHR"},
+    )
+    etl_tasks >> promotion

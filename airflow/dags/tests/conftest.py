@@ -26,9 +26,37 @@ def _stub_package(name):
 
 _stub_package("airflow")
 _stub_package("airflow.models")
+_stub_package("airflow.operators")
 _stub_package("airflow.providers")
 _stub_package("airflow.providers.postgres")
 _stub_package("airflow.providers.postgres.hooks")
+_stub_package("airflow.utils")
+
+if "airflow.operators.python" not in sys.modules:
+    operators_python = types.ModuleType("airflow.operators.python")
+
+    class PythonOperator:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    operators_python.PythonOperator = PythonOperator
+    sys.modules["airflow.operators.python"] = operators_python
+
+if "airflow.utils.task_group" not in sys.modules:
+    task_group_module = types.ModuleType("airflow.utils.task_group")
+
+    class TaskGroup:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    task_group_module.TaskGroup = TaskGroup
+    sys.modules["airflow.utils.task_group"] = task_group_module
 
 if "airflow.models.variable" not in sys.modules:
     variable_module = types.ModuleType("airflow.models.variable")
