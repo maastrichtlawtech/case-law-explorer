@@ -71,9 +71,7 @@ def _canonical_item_ids(metadata):
     candidates = metadata.loc[:, ["ecli", "itemid"]].copy()
     appnos = metadata.get("extractedappno")
     candidates["has_appno"] = (
-        appnos.notna() & appnos.astype(str).str.strip().ne("")
-        if appnos is not None
-        else False
+        appnos.notna() & appnos.astype(str).str.strip().ne("") if appnos is not None else False
     )
     candidates["ecli"] = candidates["ecli"].astype(str).str.strip()
     candidates["itemid"] = candidates["itemid"].astype(str).str.strip()
@@ -123,14 +121,20 @@ def _write_citation_artifacts(metadata, paths):
 
 
 def _full_text_coverage(metadata, full_text_path):
-    """Return the share of extracted HUDOC item IDs with a non-empty body."""
+    """Return the share of downloadable HUDOC item IDs with a non-empty body.
+
+    HUDOC publishes placeholder rows for an unavailable official-language
+    variant. They intentionally have no conversion body and must not reduce
+    the extraction quality ratio.
+    """
     if "itemid" not in metadata.columns or not os.path.isfile(full_text_path):
         return 0.0
-    item_ids = {
-        str(value).strip()
-        for value in metadata["itemid"].dropna()
-        if str(value).strip()
-    }
+    if "isplaceholder" in metadata.columns:
+        placeholder_values = (
+            metadata["isplaceholder"].fillna(False).astype(str).str.strip().str.lower()
+        )
+        metadata = metadata.loc[~placeholder_values.isin({"1", "true", "yes"})]
+    item_ids = {str(value).strip() for value in metadata["itemid"].dropna() if str(value).strip()}
     if not item_ids:
         return 1.0
     try:
@@ -163,10 +167,7 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         minimum_coverage = float(getenv("ECHR_SKIP_MIN_TEXT_RATIO", "0.90"))
         coverage = _full_text_coverage(metadata, paths["full_text"])
         if coverage >= minimum_coverage:
-            if not all(
-                os.path.exists(paths[name])
-                for name in ("edges", "missing_references")
-            ):
+            if not all(os.path.exists(paths[name]) for name in ("edges", "missing_references")):
                 logging.info("Rebuilding missing ECHR citation artifacts from metadata")
                 _write_citation_artifacts(metadata, paths)
             else:
@@ -280,9 +281,7 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         f"Downloading {args.count if 'count' in args and args.count is not None else 'all'} ECHR documents"
     )
     if args.fresh:
-        metadata, full_text = echr.get_echr_extra(
-            **kwargs, start_date="1990-01-01", save_file="n"
-        )
+        metadata, full_text = echr.get_echr_extra(**kwargs, start_date="1990-01-01", save_file="n")
     elif args.start_date and args.end_date:
         logging.info(
             f"Starting from manually specified date: {args.start_date} and ending at end date: {args.end_date}"
@@ -297,9 +296,7 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         )
     elif args.end_date:
         logging.info(f"Ending at manually specified end date {args.end_date}")
-        metadata, full_text = echr.get_echr_extra(
-            **kwargs, end_date=args.end_date, save_file="n"
-        )
+        metadata, full_text = echr.get_echr_extra(**kwargs, end_date=args.end_date, save_file="n")
     else:
         logging.info("Starting from the last update the script can find")
         metadata, full_text = echr.get_echr_extra(

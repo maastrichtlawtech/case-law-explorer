@@ -58,9 +58,7 @@ def test_normalize_edges_uses_item_ids_for_corpus_documents(tmp_path):
 
 
 def test_full_text_coverage_counts_only_nonempty_matching_bodies(tmp_path):
-    metadata = pd.DataFrame(
-        [{"itemid": "001-one"}, {"itemid": "001-two"}, {"itemid": "001-three"}]
-    )
+    metadata = pd.DataFrame([{"itemid": "001-one"}, {"itemid": "001-two"}, {"itemid": "001-three"}])
     path = tmp_path / "ECHR_full_text.json"
     path.write_text(
         json.dumps(
@@ -80,3 +78,19 @@ def test_full_text_coverage_is_zero_for_a_missing_artifact(tmp_path):
     metadata = pd.DataFrame([{"itemid": "001-one"}])
 
     assert _full_text_coverage(metadata, str(tmp_path / "missing.json")) == 0.0
+
+
+def test_full_text_coverage_excludes_language_placeholders(tmp_path):
+    metadata = pd.DataFrame(
+        [
+            {"itemid": "001-placeholder", "isplaceholder": True},
+            {"itemid": "001-real", "isplaceholder": False},
+        ]
+    )
+    path = tmp_path / "ECHR_full_text.json"
+    path.write_text(
+        json.dumps([{"item_id": "001-real", "full_text": "Judgment"}]),
+        encoding="utf-8",
+    )
+
+    assert _full_text_coverage(metadata, str(path)) == 1.0

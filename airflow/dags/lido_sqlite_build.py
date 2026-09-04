@@ -29,7 +29,7 @@ shared the bind-mounted data/ tree and could otherwise race this one.
 from datetime import datetime
 
 from airflow.operators.python import PythonOperator
-from etl_factory import DEFAULT_ARGS
+from etl_factory import DEFAULT_ARGS, register_promotion
 from lido.tasks.merge_into_cle import merge_lido_db_into_cle_v2
 from lido_sqlite_paths import get_lido_sqlite_paths
 from src.bwbidlist import build_law_aliases
@@ -88,4 +88,9 @@ with dag:
         task_id="merge_lido_db_into_cle",
         python_callable=_merge_into_cle,
     )
-    download_task >> build_task >> build_aliases_task >> merge_task
+    promotion_task = PythonOperator(
+        task_id="register_promotion",
+        python_callable=register_promotion,
+        op_kwargs={"dag_id": "lido_sqlite_build"},
+    )
+    download_task >> build_task >> build_aliases_task >> merge_task >> promotion_task

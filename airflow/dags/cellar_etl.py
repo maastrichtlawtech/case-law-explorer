@@ -2,6 +2,7 @@ import logging
 import os
 from datetime import datetime
 
+from airflow.operators.python import PythonOperator
 from data_extraction.caselaw.cellar.cellar_extraction import cellar_extract
 from data_loading import data_loader
 from data_transformation import data_transformer
@@ -10,7 +11,9 @@ from etl_factory import (
     DEFAULT_ARGS,
     build_monthly_task_group,
     cleanup_raw_files,
-    get_var,
+    get_optional_int,
+    get_schedule,
+    register_promotion,
 )
 
 from airflow import DAG
@@ -18,10 +21,12 @@ from airflow import DAG
 dag = DAG(
     dag_id="cellar_etl",
     default_args=DEFAULT_ARGS,
-    description="Cellar ETL with monthly task groups",
+    description="Scheduled and manually windowed Cellar ETL",
     start_date=datetime(2025, 1, 1),
     catchup=False,
-    schedule=None,
+    schedule=get_schedule("CELLAR", "0 3 * * 1"),
+    max_active_runs=1,
+    max_active_tasks=1,
 )
 
 
@@ -30,6 +35,7 @@ def cellar_etl(**kwargs):
     start_date = kwargs["start_date"]
     end_date = kwargs["end_date"]
     _data_path = kwargs["_data_path"]
+    force_refresh = kwargs.get("force_refresh", False)
 
     logging.info(f"Starting Cellar ETL for {start_date} to {end_date}")
 
@@ -43,13 +49,16 @@ def cellar_etl(**kwargs):
     extraction_args = [
         "--starting-date",
         date_str,
-        "--amount",
-        str(int(get_var("CELLAR_AMOUNT_TO_EXTRACT", "1000"))),
         "--ending-date",
         end_date.strftime("%Y-%m-%d"),
     ]
+    amount = get_optional_int("CELLAR_AMOUNT_TO_EXTRACT")
+    if amount is not None:
+        extraction_args.extend(["--amount", str(amount)])
     raw_paths = cellar_extract(
-        extraction_args, output_dir=month_dir, skip_if_exists=True
+        extraction_args,
+        output_dir=month_dir,
+        skip_if_exists=not force_refresh,
     )
     logging.info("Cellar extraction completed")
 
@@ -82,4 +91,10 @@ def cellar_etl(**kwargs):
 
 
 with dag:
-    build_monthly_task_group(dag, "cellar_etl", "CELLAR", cellar_etl)
+    etl_tasks = build_monthly_task_group(dag, "cellar_etl", "CELLAR", cellar_etl)
+    promotion = PythonOperator(
+        task_id="register_promotion",
+        python_callable=register_promotion,
+        op_kwargs={"dag_id": "cellar_etl", "var_prefix": "CELLAR"},
+    )
+    etl_tasks >> promotion

@@ -72,6 +72,15 @@ SOURCE_MAPS = {
 }
 
 
+def _is_hudoc_placeholder(row):
+    """True for HUDOC's body-less alternate-language marker rows."""
+    return str(row.get("isplaceholder", "")).strip().lower() in {
+        "1",
+        "true",
+        "yes",
+    }
+
+
 def _infer_caselaw_type(file_name):
     """Map an input file name to its caselaw type via the known source file names."""
     if file_name == CSV_CELLAR_CASES:
@@ -133,6 +142,13 @@ def transform_data(caselaw_type=None, input_paths=None, output_dir=None):
                 reader = DictReader(in_file)
                 # process input file by row
                 for row in reader:
+                    source_type = caselaw_type or _infer_caselaw_type(file_name)
+                    if source_type == "ECHR" and _is_hudoc_placeholder(row):
+                        logging.info(
+                            "Skipping HUDOC language placeholder %s during transformation",
+                            row.get("itemid", "<unknown>"),
+                        )
+                        continue
                     row_clean = dict.fromkeys(field_map.values())
                     for col, value in row.items():
                         if value:
