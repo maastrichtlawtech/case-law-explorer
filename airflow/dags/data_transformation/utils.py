@@ -5,7 +5,7 @@ from ctypes import c_long, sizeof
 
 import dateutil.parser
 import pandas as pd
-from definitions.mappings.attribute_value_maps import *
+from definitions.mappings.attribute_value_maps import MAP_INSTANCE, MAP_JURISDICTION
 from definitions.terminology.attribute_names import ECLI
 from definitions.terminology.attribute_values import Domain
 from lxml import etree
@@ -39,23 +39,28 @@ def format_rs_list(text):
     return "; ".join(i for i in set(text.split(", ")))
 
 
-# converts LI list notation: "['item1', 'item2', 'item3']"
-# to unified list notation: 'item1; item2; item3'
-def format_li_list(text):
-    repl = {"', '": "; ", "['": "", "']": ""}
-    for i, j in repl.items():
-        text = text.replace(i, j)
-    return text
+# converts newline-joined multi-value fields ('item1\nitem2\nitem3' -- how
+# rechtspraak_extractor and lido.db both join citations_outgoing/
+# legislations_cited) to unified list notation: 'item1; item2; item3'
+def format_rs_newline_list(text):
+    seen = []
+    for item in text.split("\n"):
+        item = item.strip()
+        if item and item not in seen:
+            seen.append(item)
+    return "; ".join(seen) if seen else None
 
 
 def format_cellar_celex(celex):
-    if ";" in celex:
-        separate = celex.split(sep=";")
-        for c in separate:
-            if "_" not in c:
-                return c
-    else:
-        return celex
+    options = [part.strip() for part in str(celex).split(";") if part.strip()]
+    if not options:
+        return None
+    # Prefer a primary document over an information notice. Some valid ECLIs
+    # only expose suffixed documents (for example RES and EXT); those still
+    # belong to the canonical base CELEX used by the loader and full-text rows.
+    non_information = [part for part in options if "INF" not in part]
+    selected = non_information[0] if non_information else options[0]
+    return selected.split("_", 1)[0]
 
 
 # converts string representation of a date into datetime (YYYY-MM-DD)
@@ -64,31 +69,16 @@ def format_rs_date(text):
     return dateutil.parser.parse(text).date()
 
 
-# converts string representation of a date into datetime
-# from original LI date format YYYYMMDD or YYYYMMDD.0 (if numeric date was accidentally stored as float)
-def format_li_date(text):
-    return dateutil.parser.parse(str(int(float(text)))).date()
-
-
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original ECHR date format DD-MM-YYYY
 def format_echr_date(text):
-    return dateutil.parser.parse(text).date()
+    return dateutil.parser.parse(text, dayfirst=True).date()
 
 
 def format_domains(text):
     if len(text.split("; ")) == 1:
         text += "; " + text + "-" + Domain.ALGEMEEN_OVERIG_NIED_GELABELD.value
     return text
-
-
-def format_li_domains(text):
-    clean = format_li_list(text)
-    domains = set()
-    for domain in set(clean.split("; ")):
-        domains = domains.union(MAP_LI_DOMAINS[domain])
-    domains_str = format_li_list(str(list(domains)))
-    return format_domains(domains_str)
 
 
 def format_cellar_year(text):
@@ -111,9 +101,14 @@ def format_rs_alt_sources(text):
     return clean
 
 
-# renames RS and LI jurisdiction notation to unified notation
+_MAP_JURISDICTION_UPPER = {key.upper(): value for key, value in MAP_JURISDICTION.items()}
+
+
+# renames RS and LI jurisdiction notation to unified notation. Case-insensitive
+# because dcterms:language (the RS source of this field, both from the live API
+# and lido.db) is lowercase ("nl"), while MAP_JURISDICTION's keys aren't.
 def format_jurisdiction(text):
-    return MAP_JURISDICTION[text]
+    return _MAP_JURISDICTION_UPPER[text.upper()]
 
 
 """ DF OPERATIONS (READ, WRITE, PRINT, SELECT): """

@@ -1,17 +1,19 @@
 """
-Main ECHR extraction routine. Used by the echr_extraction DAG.
+Main ECHR extraction routine. Used by the echr_etl DAG.
 """
 
 import argparse
 import json
 import logging
+import os
 import sys
 import time
 from datetime import datetime
 from os import getenv
-from os.path import abspath, dirname
+from os.path import basename, join
 
 import echr_extractor as echr
+import pandas as pd
 from airflow.models.variable import Variable
 from definitions.storage_handler import (
     CSV_ECHR_CASES,
@@ -25,13 +27,159 @@ from dotenv import find_dotenv, load_dotenv
 
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
-sys.path.append(dirname(dirname(dirname(dirname(abspath(__file__))))))
 
 
-def echr_extract(args):
-    # set up the output path
+def _output_paths(output_dir):
+    """Extraction artifact paths: month-scoped under output_dir when given,
+    otherwise the legacy global raw-dir locations."""
+    if output_dir:
+        return {
+            "metadata": join(output_dir, CSV_ECHR_CASES),
+            "full_text": join(output_dir, basename(JSON_FULL_TEXT_ECHR)),
+            "nodes": join(output_dir, TXT_ECHR_NODES),
+            "edges": join(output_dir, TXT_ECHR_EDGES),
+            "missing_references": join(output_dir, "ECHR_missing_references.csv"),
+        }
+    return {
+        "metadata": get_path_raw(CSV_ECHR_CASES),
+        "full_text": JSON_FULL_TEXT_ECHR,
+        "nodes": get_path_raw(TXT_ECHR_NODES),
+        "edges": get_path_raw(TXT_ECHR_EDGES),
+        "missing_references": get_path_raw("ECHR_missing_references.csv"),
+    }
 
-    output_path = get_path_raw(CSV_ECHR_CASES)
+
+def _resolve_external_citations_enabled():
+    return str(
+        Variable.get(
+            "ECHR_RESOLVE_EXTERNAL_CITATIONS",
+            default_var=getenv("ECHR_RESOLVE_EXTERNAL_CITATIONS", "true"),
+        )
+    ).lower() in ("true", "1", "yes")
+
+
+def _canonical_item_ids(metadata):
+    """Map corpus ECLIs to one real HUDOC document item ID.
+
+    HUDOC language variants share an ECLI, while cle_v2 stores each item ID as
+    a separate case and keeps cases.ecli unique. Prefer the variant with an
+    extracted application number; placeholder variants do not have one.
+    """
+    required = {"ecli", "itemid"}
+    if not required.issubset(metadata.columns):
+        return {}
+    candidates = metadata.loc[:, ["ecli", "itemid"]].copy()
+    appnos = metadata.get("extractedappno")
+    candidates["has_appno"] = (
+        appnos.notna() & appnos.astype(str).str.strip().ne("") if appnos is not None else False
+    )
+    candidates["ecli"] = candidates["ecli"].astype(str).str.strip()
+    candidates["itemid"] = candidates["itemid"].astype(str).str.strip()
+    candidates = candidates[
+        candidates["ecli"].ne("")
+        & candidates["ecli"].str.lower().ne("nan")
+        & candidates["itemid"].ne("")
+        & candidates["itemid"].str.lower().ne("nan")
+    ]
+    candidates = candidates.sort_values("has_appno", ascending=False, kind="stable")
+    candidates = candidates.drop_duplicates("ecli")
+    return dict(zip(candidates["ecli"], candidates["itemid"]))
+
+
+def _normalize_edge_identifiers(metadata, path):
+    corpus_item_ids = _canonical_item_ids(metadata)
+    normalized_path = f"{path}.normalized"
+    with open(path, encoding="utf-8") as source_file, open(
+        normalized_path, "w", encoding="utf-8"
+    ) as target_file:
+        for line in source_file:
+            line = line.strip()
+            if not line or "," not in line:
+                continue
+            source, target = line.split(",", 1)
+            source = corpus_item_ids.get(source, source)
+            target = corpus_item_ids.get(target, target)
+            target_file.write(f"{source},{target}\n")
+    os.replace(normalized_path, path)
+
+
+def _write_citation_artifacts(metadata, paths):
+    nodes, edges, missing = echr.get_nodes_edges(
+        df=metadata,
+        save_file="n",
+        resolve_external=_resolve_external_citations_enabled(),
+    )
+    nodes[["ecli"]].to_csv(paths["nodes"], index=False, header=False)
+    corpus_item_ids = _canonical_item_ids(metadata)
+    with open(paths["edges"], "w") as f:
+        for _, row in edges.iterrows():
+            source = corpus_item_ids.get(str(row["ecli"]), row["ecli"])
+            for target in row["references"]:
+                target = corpus_item_ids.get(str(target), target)
+                f.write(f"{source},{target}\n")
+    missing.to_csv(paths["missing_references"], index=False)
+
+
+def _full_text_coverage(metadata, full_text_path):
+    """Return the share of downloadable HUDOC item IDs with a non-empty body.
+
+    HUDOC publishes placeholder rows for an unavailable official-language
+    variant. They intentionally have no conversion body and must not reduce
+    the extraction quality ratio.
+    """
+    if "itemid" not in metadata.columns or not os.path.isfile(full_text_path):
+        return 0.0
+    if "isplaceholder" in metadata.columns:
+        placeholder_values = (
+            metadata["isplaceholder"].fillna(False).astype(str).str.strip().str.lower()
+        )
+        metadata = metadata.loc[~placeholder_values.isin({"1", "true", "yes"})]
+    item_ids = {str(value).strip() for value in metadata["itemid"].dropna() if str(value).strip()}
+    if not item_ids:
+        return 1.0
+    try:
+        with open(full_text_path, encoding="utf-8") as source:
+            records = json.load(source)
+    except (OSError, json.JSONDecodeError):
+        return 0.0
+    if not isinstance(records, list):
+        return 0.0
+    bodies = {
+        str(record.get("item_id", "")).strip(): (
+            record.get("full_text") or record.get("text") or ""
+        )
+        for record in records
+        if isinstance(record, dict) and record.get("item_id")
+    }
+    available = sum(bool(str(bodies.get(item_id, "")).strip()) for item_id in item_ids)
+    return available / len(item_ids)
+
+
+def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
+    """
+    Run the ECHR extraction. Writes metadata CSV, full-text JSON, and
+    node/edge txt files, and returns their paths. With no --start-date,
+    continues from the ECHR_LAST_DATE Airflow Variable.
+    """
+    paths = _output_paths(output_dir)
+    if skip_if_exists and os.path.exists(paths["metadata"]):
+        metadata = pd.read_csv(paths["metadata"])
+        minimum_coverage = float(getenv("ECHR_SKIP_MIN_TEXT_RATIO", "0.90"))
+        coverage = _full_text_coverage(metadata, paths["full_text"])
+        if coverage >= minimum_coverage:
+            if not all(os.path.exists(paths[name]) for name in ("edges", "missing_references")):
+                logging.info("Rebuilding missing ECHR citation artifacts from metadata")
+                _write_citation_artifacts(metadata, paths)
+            else:
+                _normalize_edge_identifiers(metadata, paths["edges"])
+            logging.info(f"{paths['metadata']} exists, skipping extraction.")
+            return paths
+        logging.warning(
+            "Existing ECHR full-text coverage %.3f is below %.3f; "
+            "rebuilding the monthly extraction.",
+            coverage,
+            minimum_coverage,
+        )
 
     # set up script arguments
     parser = argparse.ArgumentParser()
@@ -65,7 +213,10 @@ def echr_extract(args):
         default=None,
     )
     parser.add_argument(
-        "--end-date", help="Last modification date to look back from", required=False, default=None
+        "--end-date",
+        help="Last modification date to look back from",
+        required=False,
+        default=None,
     )
     parser.add_argument(
         "--skip-missing-dates",
@@ -90,28 +241,26 @@ def echr_extract(args):
     )
 
     args, unknown = parser.parse_known_args(args)
-    # set up locations
     logging.info("--- PREPARATION ---")
-    logging.info("OUTPUT:\t\t\t" + output_path)
+    logging.info("OUTPUT:\t\t\t" + paths["metadata"])
 
-    # set up storage handler
-    storage = Storage()
-    try:
-        # Now Storage will throw an exception when the output_path is occupied
-        # to make sure airflow doesn't crash it needs to be caught
-        # This way the pipeline goes to the next steps of transformation and extraction, hopefully
-        # eventually dealing with the already-existing output file
-        storage.setup_pipeline(output_paths=[output_path])
-        pass
-    except Exception as e:
-        logging.error(e)
-        return
-    try:
-        # Getting date of last update from airflow database
-        last_updated = Variable.get("ECHR_LAST_DATE")
-    except Exception:
-        last_updated = getenv("ECHR_START_DATE")
-        Variable.set(key="ECHR_LAST_DATE", value=last_updated)
+    if output_dir:
+        os.makedirs(output_dir, exist_ok=True)
+    else:
+        # legacy global-path mode: refuse to clobber an existing extraction
+        Storage().setup_pipeline(output_paths=[paths["metadata"]])
+
+    # Explicitly dated monthly tasks do not need the shared incremental
+    # checkpoint. Avoiding it also prevents parallel July/August tasks from
+    # racing to create the same Airflow Variable.
+    last_updated = args.start_date
+    if not last_updated:
+        try:
+            # Getting date of last update from airflow database
+            last_updated = Variable.get("ECHR_LAST_DATE")
+        except Exception:
+            last_updated = getenv("ECHR_START_DATE")
+            Variable.set(key="ECHR_LAST_DATE", value=last_updated)
 
     today_date = str(datetime.today().date())
     logging.info("START DATE (LAST UPDATE):" + last_updated)
@@ -133,7 +282,6 @@ def echr_extract(args):
     )
     if args.fresh:
         metadata, full_text = echr.get_echr_extra(**kwargs, start_date="1990-01-01", save_file="n")
-
     elif args.start_date and args.end_date:
         logging.info(
             f"Starting from manually specified date: {args.start_date} and ending at end date: {args.end_date}"
@@ -156,39 +304,25 @@ def echr_extract(args):
         )
 
     logging.info("--- saving ECHR data")
-    df_filepath = get_path_raw(CSV_ECHR_CASES)
     if metadata is not False:
-        metadata.to_csv(df_filepath, index=False)
-        json_filepath = JSON_FULL_TEXT_ECHR
-        with open(json_filepath, "w") as f:
+        metadata.to_csv(paths["metadata"], index=False)
+        with open(paths["full_text"], "w") as f:
             json.dump(full_text, f)
         logging.info("Adding Nodes and Edges lists to storage")
         # Getting nodes and edges, citation-based. For creating a citation graph
-        nodes, edges = echr.get_nodes_edges(dataframe=metadata, save_file="n")
-        # get only the ecli column in nodes
-        nodes = nodes[["ecli"]]
-
-        # df_nodes_path = get_path_raw(CSV_ECHR_CASES_NODES)
-        # df_edges_path = get_path_raw(CSV_ECHR_CASES_EDGES)
-        nodes_txt = get_path_raw(TXT_ECHR_NODES)
-        edges_txt = get_path_raw(TXT_ECHR_EDGES)
-        # nodes.to_csv(df_nodes_path, index=False)
-        # edges.to_csv(df_edges_path, index=False)
-        # save to text file from dataframe
-        nodes.to_csv(nodes_txt, index=False, header=False, sep="\t")
-        edges.to_csv(edges_txt, index=False, header=False, sep="\t")
-
+        # One "<source>,<target>" line per citation: the format the citation
+        # graph loader parses. Missing references are retained for verification.
+        _write_citation_artifacts(metadata, paths)
     else:
         logging.info("No ECHR data found")
 
-    logging.info("\nUpdating local storage ...")
-
     end = time.time()
-    logging.info("\n--- DONE ---")
-    logging.info("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(end - start)))
-    Variable.set(key="ECHR_LAST_DATE", value=today_date)
+    logging.info("--- DONE ---")
+    logging.info(f"Time taken: {time.strftime('%H:%M:%S', time.gmtime(end - start))}")
+    if not args.start_date:
+        Variable.set(key="ECHR_LAST_DATE", value=args.end_date or today_date)
+    return paths
 
 
 if __name__ == "__main__":
-    # giving arguments to the funtion
     echr_extract(sys.argv[1:])

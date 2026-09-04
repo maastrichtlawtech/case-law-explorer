@@ -4,9 +4,13 @@ LABEL org.opencontainers.image.source=https://github.com/maastrichtlawtech/case-
 USER root
 
 # Install build dependencies in a single RUN command to reduce layers
+# serdi: lax-mode Turtle-to-N-Triples conversion, needed by the lido_postgres
+# and lido_sqlite_build DAGs to parse the LIDO export (its syntax violations
+# make a strict parser reject it outright).
 RUN apt-get update --quiet && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
+    serdi \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Set timezone
@@ -18,10 +22,8 @@ USER airflow
 # Create data directories
 RUN mkdir -p /opt/airflow/data/raw /opt/airflow/data/processed
 
-# Install Python dependencies - pip is already recent in the base image
+# Install first-party dependencies only; the base image already provides
+# Airflow, its providers, and their full dependency stack.
 COPY requirements.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt \
     && rm requirements.txt
-
-# Remove conflicting argparse package
-RUN pip uninstall -y argparse
