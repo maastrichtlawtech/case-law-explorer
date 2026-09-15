@@ -84,7 +84,9 @@ def _get_rechtspraak_bounded(**kwargs):
         rex.get_data_from_url = original
 
 
-def _get_rechtspraak_modified_bounded(starting_date: str, ending_date: str, amount: int):
+def _get_rechtspraak_modified_bounded(
+    starting_date: str, ending_date: str, amount: int
+):
     """Fetch ECLIs changed in a time window, regardless of decision date.
 
     Rechtspraak documents this as the authoritative way to discover newly
@@ -127,9 +129,11 @@ def _daily_ranges(starting_date: str, ending_date: str):
     current_date = datetime.strptime(starting_date, "%Y-%m-%d")
     end_date = datetime.strptime(ending_date, "%Y-%m-%d")
     while current_date <= end_date:
-        next_date = current_date + timedelta(days=1)
-        yield current_date, next_date
-        current_date = next_date
+        # Rechtspraak documents both ends of a two-date query as inclusive.
+        # Using tomorrow as the upper bound therefore downloaded every date
+        # twice: once as a window's end and again as the next window's start.
+        yield current_date, current_date
+        current_date += timedelta(days=1)
 
 
 def _cap_base_extraction(base_extraction: pd.DataFrame | None, amount: int):
@@ -246,13 +250,19 @@ def _backfill_full_text(
         return metadata_df
 
     live_df = get_rechtspraak_metadata(
-        save_file="n", dataframe=subset, _fake_headers=True, data_dir=output_dir, method="api"
+        save_file="n",
+        dataframe=subset,
+        _fake_headers=True,
+        data_dir=output_dir,
+        method="api",
     )
     if live_df is None or live_df.empty or "full_text" not in live_df.columns:
         return metadata_df
 
     live_full_text = (
-        live_df.dropna(subset=["ecli"]).drop_duplicates("ecli").set_index("ecli")["full_text"]
+        live_df.dropna(subset=["ecli"])
+        .drop_duplicates("ecli")
+        .set_index("ecli")["full_text"]
     )
     fill_from_live = metadata_df["ecli"].map(live_full_text)
     metadata_df["full_text"] = metadata_df["full_text"].mask(
@@ -261,7 +271,9 @@ def _backfill_full_text(
     return metadata_df
 
 
-def _metadata_for_base(base_extraction, amount, sqlite_db_path, output_dir, quality_label):
+def _metadata_for_base(
+    base_extraction, amount, sqlite_db_path, output_dir, quality_label
+):
     """Enrich a feed page and enforce identity completeness before loading."""
     base_extraction = _cap_base_extraction(base_extraction, amount)
     if base_extraction is None or base_extraction.empty:
@@ -291,7 +303,9 @@ def _metadata_for_base(base_extraction, amount, sqlite_db_path, output_dir, qual
     minimum_metadata_ratio = float(os.getenv("RS_MIN_METADATA_RATIO", "0.98"))
     body_ratio = (
         0.0
-        if metadata_df is None or metadata_df.empty or "full_text" not in metadata_df.columns
+        if metadata_df is None
+        or metadata_df.empty
+        or "full_text" not in metadata_df.columns
         else float((~_is_missing_full_text(metadata_df["full_text"])).mean())
     )
     logging.info(
@@ -329,9 +343,15 @@ def rechtspraak_extract(
     citation_file = os.path.join(output_dir, CSV_RS_CASES)
 
     # Check if all outputs exist
-    if skip_if_exists and all(os.path.exists(f) for f in [base_file, metadata_file, citation_file]):
+    if skip_if_exists and all(
+        os.path.exists(f) for f in [base_file, metadata_file, citation_file]
+    ):
         logging.info(f"All output files exist in {output_dir}, skipping extraction.")
-        return {"base": base_file, "metadata": metadata_file, "citations": citation_file}
+        return {
+            "base": base_file,
+            "metadata": metadata_file,
+            "citations": citation_file,
+        }
 
     sqlite_db_path = _lido_sqlite_db_path(lido_sqlite_db_path)
 
@@ -339,9 +359,14 @@ def rechtspraak_extract(
     metadata_df_list = []
     # Extract per day in the range
     for current_date, next_date in _daily_ranges(starting_date, ending_date):
-        logging.info(f"Processing date range: {current_date.date()} - {next_date.date()}")
+        logging.info(
+            f"Processing date range: {current_date.date()} - {next_date.date()}"
+        )
         base_extraction = _get_rechtspraak_bounded(
-            max_ecli=amount, sd=str(current_date.date()), ed=str(next_date.date()), save_file="n"
+            max_ecli=amount,
+            sd=str(current_date.date()),
+            ed=str(next_date.date()),
+            save_file="n",
         )
         base_extraction = _cap_base_extraction(base_extraction, amount)
         # Store the dataframe for the current date
@@ -358,7 +383,9 @@ def rechtspraak_extract(
             output_dir,
             str(current_date.date()),
         )
-        metadata_file_day = os.path.join(output_dir, f"metadata_{current_date.date()}.csv")
+        metadata_file_day = os.path.join(
+            output_dir, f"metadata_{current_date.date()}.csv"
+        )
         if metadata_df is not None:
             metadata_df.to_csv(metadata_file_day, index=False)
             metadata_df_list.append(metadata_df)

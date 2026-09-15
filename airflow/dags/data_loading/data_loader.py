@@ -52,7 +52,29 @@ def _processor_for(input_path, client):
     return PostgresRSProcessor(input_path, client)
 
 
-def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edge_dir=None):
+def _deduplicate_rows(rows, row_processor):
+    """Collapse a processed artifact to its source-specific identity.
+
+    The loaders upsert by natural key, so repeated keys are not missing rows.
+    Deduplicating the whole artifact (rather than independently per batch)
+    also avoids counting or loading the same case more than once when source
+    windows overlap or a feed repeats an entry.  The last occurrence wins,
+    matching ``_BaseRowProcessor.upload_rows``.
+    """
+    by_key = {}
+    missing_keys = 0
+    for row in rows:
+        key = row_processor._key(row)
+        if not key:
+            missing_keys += 1
+            continue
+        by_key[key] = row
+    return list(by_key.values()), missing_keys
+
+
+def load_data(
+    input_paths=None, full_text_paths=None, citation_sources=None, edge_dir=None
+):
     """
     Load processed CSVs (and optionally full-text JSONs + citation edge
     files) into Postgres.
@@ -75,7 +97,9 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edg
         ]
     if full_text_paths is None:
         full_text_paths = [JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR]
-    logging.info("Loading into Postgres (cle_v2): %s", [basename(p) for p in input_paths])
+    logging.info(
+        "Loading into Postgres (cle_v2): %s", [basename(p) for p in input_paths]
+    )
 
     with PostgresCLEClient() as client:
         for input_path in input_paths:
@@ -107,22 +131,42 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edg
                             f"ECHR load incomplete: {row_counter}/{case_counter} document rows upserted"
                         )
                     continue
-                batch = []
-                for row in reader:
-                    batch.append(row)
-                    case_counter += 1
-                    if len(batch) >= BATCH_SIZE:
-                        row_counter += row_processor.upload_rows(batch)
-                        batch = []
-                        logging.info(f"... {case_counter} rows read")
-                if batch:
+                rows = list(reader)
+                case_counter = len(rows)
+                unique_rows, missing_keys = _deduplicate_rows(rows, row_processor)
+                if missing_keys:
+                    raise RuntimeError(
+                        f"Load input {basename(input_path)} contains "
+                        f"{missing_keys} row(s) without {row_processor.key_field}"
+                    )
+                duplicate_count = case_counter - len(unique_rows)
+                if duplicate_count:
+                    logging.info(
+                        "Collapsed %s duplicate source row(s) in %s to %s unique identities",
+                        duplicate_count,
+                        basename(input_path),
+                        len(unique_rows),
+                    )
+                for offset in range(0, len(unique_rows), BATCH_SIZE):
+                    batch = unique_rows[offset : offset + BATCH_SIZE]
                     row_counter += row_processor.upload_rows(batch)
+                    logging.info(
+                        "... %s/%s unique rows loaded",
+                        min(offset + BATCH_SIZE, len(unique_rows)),
+                        len(unique_rows),
+                    )
 
-            logging.info(f"{case_counter} cases processed ({row_counter} rows upserted).")
-            if row_counter != case_counter:
+            expected_count = len(unique_rows)
+            logging.info(
+                "%s source rows processed (%s unique rows, %s upserted).",
+                case_counter,
+                expected_count,
+                row_counter,
+            )
+            if row_counter != expected_count:
                 raise RuntimeError(
                     f"Load incomplete for {basename(input_path)}: "
-                    f"{row_counter}/{case_counter} rows upserted"
+                    f"{row_counter}/{expected_count} unique rows upserted"
                 )
 
         if full_text_paths:
