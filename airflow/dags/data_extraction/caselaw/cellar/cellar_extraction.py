@@ -61,17 +61,40 @@ def _write_lines(path, values):
         f.write("\n".join(lines))
 
 
+def _normalize_celex(value):
+    """Return the canonical base CELEX without relying on unreleased APIs.
+
+    Cellar-extractor 2.0.2 is the latest published package.  Its extraction
+    code applies this normalization internally, but it does not yet expose a
+    public ``normalize_celex`` helper.  Keep the Airflow quality checks
+    compatible with that released package while handling composite and
+    derived summary/resume identifiers consistently.
+    """
+    if value != value:
+        return ""
+    normalized = str(value).replace(" ", "")
+    if ";" in normalized:
+        options = [part.strip() for part in normalized.split(";") if part.strip()]
+        if not options:
+            return ""
+        non_inf = [part for part in options if "INF" not in part]
+        normalized = non_inf[0] if non_inf else options[0]
+    if "_" in normalized:
+        normalized = normalized.split("_")[0]
+    return normalized
+
+
 def _full_text_case_coverage(metadata, full_text_records):
     """Share of canonical metadata CELEX IDs having at least one body."""
     if "celex" not in metadata.columns:
         return 0.0
     metadata_ids = {
-        cell.normalize_celex(value) for value in metadata["celex"].dropna() if str(value).strip()
+        _normalize_celex(value) for value in metadata["celex"].dropna() if str(value).strip()
     }
     if not metadata_ids:
         return 1.0
     text_ids = {
-        cell.normalize_celex(record.get("celex", ""))
+        _normalize_celex(record.get("celex", ""))
         for record in full_text_records
         if isinstance(record, dict)
         and str(record.get("full_text") or record.get("text") or "").strip()
@@ -91,7 +114,7 @@ def _noncanonical_fulltext_celexes(full_text_records):
         if not isinstance(record, dict):
             continue
         raw = str(record.get("celex") or "").strip()
-        if raw and raw != cell.normalize_celex(raw):
+        if raw and raw != _normalize_celex(raw):
             invalid.append(raw)
     return sorted(set(invalid))
 
