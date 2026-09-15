@@ -109,7 +109,7 @@ MAP_ECHR = {
     "externalsources": ECHR_SOURCES,  # relevent international acts or previous outcomes (could be of use)
     "extractedappno": ECHR_PARTICIPANTS,  # applicant numbers of all applicants mentioned in the case (could be of use)
     # 'issue': ECHR_ISSUES,  # domestic laws in questions
-    # 'referencedate': ECHR_REFERENCE_DATE,  # date and time that the case was referred to the ECHR (could be of use)
+    "referencedate": ECHR_REFERENCE_DATE,  # date used to group ECLI-less communicated cases
     # 'rulesofcourt': ECHR_RULES_OF_COURT,  # rules of court which needed to be invoked (could be of use)
     "scl": ECHR_CITATIONS,  # Strasburg case law citations
     "DocId": ECHR_DOCID,

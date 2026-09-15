@@ -63,7 +63,10 @@ tool_map_cellar = {
     "year_of_resource": format_cellar_year,
     "celex": format_cellar_celex,
 }
-tool_map_echr = {"judgementdate": format_echr_date}
+tool_map_echr = {
+    "judgementdate": format_echr_date,
+    "referencedate": format_echr_date,
+}
 
 SOURCE_MAPS = {
     "RS": (MAP_RS, tool_map_rs),
@@ -79,6 +82,10 @@ def _is_hudoc_placeholder(row):
         "true",
         "yes",
     }
+
+
+def _is_hudoc_non_case_document(row):
+    return str(row.get("doctype", "")).strip().upper() in {"PR", "CLIN", "CLINF"}
 
 
 def _infer_caselaw_type(file_name):
@@ -149,6 +156,13 @@ def transform_data(caselaw_type=None, input_paths=None, output_dir=None):
                             row.get("itemid", "<unknown>"),
                         )
                         continue
+                    if source_type == "ECHR" and _is_hudoc_non_case_document(row):
+                        logging.info(
+                            "Skipping non-case HUDOC document %s (%s)",
+                            row.get("itemid", "<unknown>"),
+                            row.get("doctype"),
+                        )
+                        continue
                     row_clean = dict.fromkeys(field_map.values())
                     for col, value in row.items():
                         if value:
@@ -159,12 +173,17 @@ def transform_data(caselaw_type=None, input_paths=None, output_dir=None):
                                     row_clean[field_map[col]] = tool_map[col](value.strip())
                                 else:
                                     row_clean[field_map[col]] = value.strip()
-                    # write processed row to output file only if ECLI is not empty
-                    if (
-                        row_clean["ECLI"] is not None
-                        and row_clean["ECLI"] == row_clean["ECLI"]
-                        and row_clean["ECLI"] != ""
-                    ):
+                    # Each source has a different authoritative identity. ECLI
+                    # is mandatory for Rechtspraak, but not for HUDOC: many
+                    # genuine communicated ECHR cases do not have one. The old
+                    # generic ECLI gate silently dropped those documents.
+                    identity_field = {
+                        "RS": "ECLI",
+                        "CELLAR": "celex",
+                        "ECHR": "document_id",
+                    }[source_type]
+                    identity = row_clean.get(identity_field)
+                    if identity is not None and identity == identity and identity != "":
                         row_clean = {k: v for k, v in row_clean.items() if v is not None}
                         writer.writerow(row_clean)
         output_paths.append(output_path)

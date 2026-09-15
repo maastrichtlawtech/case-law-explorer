@@ -40,6 +40,10 @@ def test_format_echr_date_uses_documented_day_month_year_order():
     assert format_echr_date("09-07-2026") == date(2026, 7, 9)
 
 
+def test_format_echr_date_does_not_swap_iso_month_and_day():
+    assert format_echr_date("2026-07-03T00:00:00Z") == date(2026, 7, 3)
+
+
 def test_format_cellar_celex_canonicalizes_suffix_only_documents():
     assert (
         format_cellar_celex("62025TJ0204_RES;62025TJ0204_EXT")

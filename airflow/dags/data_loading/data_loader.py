@@ -90,6 +90,23 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edg
 
             with open(input_path, "r", newline="", encoding="utf8") as in_file:
                 reader = DictReader(in_file)
+                # ECHR variants must be grouped across the complete monthly
+                # artifact. Splitting at an arbitrary batch boundary can put
+                # the English and French documents for one case into separate
+                # case rows. Monthly HUDOC files are small enough to retain.
+                if isinstance(row_processor, PostgresItemIdProcessor):
+                    rows = list(reader)
+                    case_counter = len(rows)
+                    row_counter = row_processor.upload_rows(rows)
+                    logging.info(f"... {case_counter} rows read")
+                    logging.info(
+                        f"{case_counter} cases processed ({row_counter} rows upserted)."
+                    )
+                    if row_counter != case_counter:
+                        raise RuntimeError(
+                            f"ECHR load incomplete: {row_counter}/{case_counter} document rows upserted"
+                        )
+                    continue
                 batch = []
                 for row in reader:
                     batch.append(row)
@@ -102,6 +119,11 @@ def load_data(input_paths=None, full_text_paths=None, citation_sources=None, edg
                     row_counter += row_processor.upload_rows(batch)
 
             logging.info(f"{case_counter} cases processed ({row_counter} rows upserted).")
+            if row_counter != case_counter:
+                raise RuntimeError(
+                    f"Load incomplete for {basename(input_path)}: "
+                    f"{row_counter}/{case_counter} rows upserted"
+                )
 
         if full_text_paths:
             load_fulltext(client, full_text_paths)

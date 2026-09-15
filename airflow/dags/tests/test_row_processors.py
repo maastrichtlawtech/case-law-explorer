@@ -13,7 +13,10 @@ from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
     CELLAR_CREATION_OF_WORK,
     ECHR_DOCUMENT_ID,
+    ECHR_APPLICANTS,
+    ECHR_DOCUMENT_TYPE,
     ECHR_LANGUAGE,
+    ECHR_REFERENCE_DATE,
     ECLI,
     RS_BWB_ID,
     RS_CITING,
@@ -180,6 +183,14 @@ def test_celex_processor_upload_row_commits_once(client):
     assert len(conn.executed) == 2
 
 
+def test_celex_processor_propagates_ecli_to_case(client):
+    processor = PostgresCelexProcessor(path="unused", client=client)
+    case_row = processor._case_row(
+        {CELLAR_CELEX: "62024CJ0001", ECLI: "ECLI:EU:C:2024:1"}
+    )
+    assert case_row["ecli"] == "ECLI:EU:C:2024:1"
+
+
 def test_celex_processor_reduces_creation_timestamps_to_earliest_date(client):
     processor = PostgresCelexProcessor(path="unused", client=client)
     detail = processor._detail_row(
@@ -255,6 +266,59 @@ def test_item_id_processor_upload_row_rolls_back_on_failure(client, redirect_fai
     assert conn.rollback_count == 1
 
 
+def test_item_id_processor_groups_language_variants_by_ecli(client):
+    processor = PostgresItemIdProcessor(path="unused", client=client)
+    rows = [
+        {
+            ECHR_DOCUMENT_ID: "001-fre",
+            ECLI: "ECLI:CE:ECHR:2026:1",
+            ECHR_LANGUAGE: "FRE",
+            ECHR_DOCUMENT_TYPE: "JUD",
+        },
+        {
+            ECHR_DOCUMENT_ID: "001-eng",
+            ECLI: "ECLI:CE:ECHR:2026:1",
+            ECHR_LANGUAGE: "ENG",
+            ECHR_DOCUMENT_TYPE: "JUD",
+        },
+    ]
+
+    assert processor.upload_rows(rows) == 2
+    conn = client._get_conn()
+    assert conn.commit_count == 1
+    assert len(conn.executed) == 3  # one case, two document variants
+    _, case_params = conn.executed[0]
+    assert case_params["item_id"] == "001-eng"
+    assert case_params["ecli"] == "ECLI:CE:ECHR:2026:1"
+    detail_case_ids = {params["case_id"] for _, params in conn.executed[1:]}
+    assert len(detail_case_ids) == 1
+
+
+def test_item_id_processor_groups_ecli_less_variants_by_appno_and_reference_date(client):
+    processor = PostgresItemIdProcessor(path="unused", client=client)
+    rows = [
+        {
+            ECHR_DOCUMENT_ID: "001-fre",
+            ECHR_APPLICANTS: "12345/26",
+            ECHR_REFERENCE_DATE: "2026-07-03",
+            ECHR_LANGUAGE: "FRE",
+        },
+        {
+            ECHR_DOCUMENT_ID: "001-eng",
+            ECHR_APPLICANTS: "12345/26",
+            ECHR_REFERENCE_DATE: "2026-07-03",
+            ECHR_LANGUAGE: "ENG",
+        },
+    ]
+
+    assert processor.upload_rows(rows) == 2
+    conn = client._get_conn()
+    assert len(conn.executed) == 3
+    _, case_params = conn.executed[0]
+    assert case_params["item_id"] == "001-eng"
+    assert case_params["ecli"] is None
+
+
 # --- Batched path: upload_rows ----------------------------------------------
 
 
@@ -297,7 +361,9 @@ def test_upload_rows_skips_rows_without_key_and_handles_empty(client):
     assert client._conn is None  # nothing valid -> no connection opened
 
 
-def test_upload_rows_falls_back_to_row_by_row_on_bulk_failure(client, redirect_failure_log):
+def test_echr_group_failure_is_reported_without_splitting_conceptual_case(
+    client, redirect_failure_log
+):
     processor = PostgresItemIdProcessor(path="unused", client=client)
     rows = [
         {ECHR_DOCUMENT_ID: "001-11111"},
@@ -309,7 +375,7 @@ def test_upload_rows_falls_back_to_row_by_row_on_bulk_failure(client, redirect_f
 
     result = processor.upload_rows(rows)
 
-    assert result == 2
-    assert conn.rollback_count == 1  # the failed bulk transaction
-    # fallback: 2 statements per row x 2 rows, each row committed once
-    assert conn.commit_count == 2
+    assert result == 1
+    assert conn.rollback_count == 1
+    assert conn.commit_count == 1
+    assert "001-11111" in redirect_failure_log.read_text()

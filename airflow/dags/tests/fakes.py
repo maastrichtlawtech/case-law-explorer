@@ -30,6 +30,8 @@ class FakeCursor:
         lowered = sql.lower()
         if "returning" not in lowered:
             return []
+        if "select id from updated" in lowered:
+            return [(self._alloc_id(),)]
         returned_cols = [c.strip().rstrip(";") for c in lowered.split("returning", 1)[1].split(",")]
 
         indices = sorted({int(key.rsplit("_", 1)[1]) for key in params if key.rsplit("_", 1)[-1].isdigit()})

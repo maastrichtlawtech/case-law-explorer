@@ -27,31 +27,14 @@ def load_fulltext(client, files_location_paths: list) -> None:
 
         file_name = os.path.basename(file_location_path)
         loaded = 0
+        if file_name == os.path.basename(JSON_FULL_TEXT_ECHR):
+            loaded = _load_echr_fulltext(client, data)
+            logging.info(
+                f"{loaded}/{len(data)} full-text records loaded from {file_name}"
+            )
+            continue
         for item in data:
-            if file_name == os.path.basename(JSON_FULL_TEXT_ECHR):
-                item_id = item["item_id"]
-                case_id = client.resolve_case_id_by_item_id(item_id)
-                if case_id is None:
-                    logging.info(
-                        f"No case found for ECHR item_id {item_id}, skipping full text"
-                    )
-                    continue
-                # echr-extractor full-text records commonly omit ``language``.
-                # normalize_language_code(None) falls back to English, which
-                # mislabeled every French body and made the language-keyed
-                # echr_v_document_with_text view look as if it had no text.
-                # The already-loaded metadata row is the source of truth.
-                metadata_language = client.resolve_echr_language_by_item_id(item_id)
-                client.upsert_case_text(
-                    case_id=case_id,
-                    language=normalize_language_code(
-                        metadata_language or item.get("language")
-                    ),
-                    source="HUDOC",
-                    fulltext=item.get("full_text") or item.get("text"),
-                )
-                loaded += 1
-            elif file_name == os.path.basename(JSON_FULL_TEXT_CELLAR):
+            if file_name == os.path.basename(JSON_FULL_TEXT_CELLAR):
                 # CELLAR may identify a document with multiple CELEX values
                 # (for example ``62025CJ0051;62025CJ0051_SUM``).  Metadata is
                 # normalized to the canonical, non-suffixed CELEX before the
@@ -79,6 +62,66 @@ def load_fulltext(client, files_location_paths: list) -> None:
         logging.info(
             f"{loaded}/{len(data)} full-text records loaded from {os.path.basename(file_location_path)}"
         )
+
+
+def _hudoc_doctype_rank(doctype):
+    value = str(doctype or "").upper()
+    if "JUD" in value:
+        return 0
+    if "DEC" in value:
+        return 1
+    if "COM" in value:
+        return 2
+    return 3
+
+
+def _load_echr_fulltext(client, data) -> int:
+    """Load the best body per case/language and preserve every other variant.
+
+    HUDOC item IDs belong to document variants. Several variants can map to
+    one conceptual case and language; ``case_text`` stores the deterministic
+    JUD > DEC > COM canonical body and ``echr_document_secondary_text`` keeps
+    the lossless remainder.
+    """
+    grouped = {}
+    for item in data:
+        item_id = item["item_id"]
+        context = client.resolve_echr_document_context(item_id)
+        if context is None:
+            logging.info("No ECHR document found for item_id %s, skipping full text", item_id)
+            continue
+        case_id, metadata_language, doctype = context
+        language = normalize_language_code(metadata_language or item.get("language"))
+        grouped.setdefault((case_id, language), []).append(
+            (item_id, doctype, item.get("full_text") or item.get("text"))
+        )
+
+    loaded = 0
+    for (case_id, language), variants in grouped.items():
+        populated = [variant for variant in variants if str(variant[2] or "").strip()]
+        if not populated:
+            client.upsert_case_text(
+                case_id=case_id,
+                language=language,
+                source="HUDOC",
+                fulltext=None,
+                missing_reasons="HUDOC_BODY_UNAVAILABLE_AFTER_RETRIES",
+                is_stub=True,
+            )
+            continue
+        populated.sort(key=lambda value: (_hudoc_doctype_rank(value[1]), value[0]))
+        canonical = populated[0]
+        client.upsert_case_text(
+            case_id=case_id,
+            language=language,
+            source="HUDOC",
+            fulltext=canonical[2],
+        )
+        loaded += 1
+        for item_id, _, fulltext in populated[1:]:
+            client.upsert_echr_secondary_text(item_id, fulltext)
+            loaded += 1
+    return loaded
 
 
 if __name__ == "__main__":

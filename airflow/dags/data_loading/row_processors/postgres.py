@@ -12,6 +12,7 @@ from definitions.terminology.attribute_names import (
     CELLAR_SECTOR,
     CELLAR_TYPE_PROCEDURE,
     ECHR_APPLICABILITY,
+    ECHR_APPLICANTS,
     ECHR_BRANCH,
     ECHR_CONCLUSION,
     ECHR_DOCUMENT_ID,
@@ -22,6 +23,7 @@ from definitions.terminology.attribute_names import (
     ECHR_NON_VIOLATIONS,
     ECHR_PARTICIPANTS,
     ECHR_PUBLISHED_BY,
+    ECHR_REFERENCE_DATE,
     ECHR_REPRESENTATION,
     ECHR_RESPONDENT,
     ECHR_SEPARATE_OPINION,
@@ -238,6 +240,8 @@ class PostgresRSProcessor(_BaseRowProcessor):
         }
 
     def _text_row(self, row, case_id):
+        fulltext = row.get(RS_FULL_TEXT)
+        has_fulltext = bool(str(fulltext or "").strip())
         return {
             "case_id": case_id,
             # "or", not a get() default: the transformer writes every mapped
@@ -247,9 +251,17 @@ class PostgresRSProcessor(_BaseRowProcessor):
             # the RS value arrives as the jurisdiction "NL".
             "language": (row.get(RS_LANGUAGE) or "nl").lower(),
             "source": "RECHTSPRAAK",
-            "fulltext": row.get(RS_FULL_TEXT),
+            "fulltext": fulltext if has_fulltext else None,
             "summary": row.get(RS_INHOUDSINDICATIE) or row.get(RS_SUMMARY),
             "summary_source": "rechtspraak",
+            # Rechtspraak's feed and content endpoint do not distinguish a
+            # genuinely unpublished body from a fetch that exhausted retries.
+            # Persist that ambiguity instead of treating an empty string as a
+            # successful full-text load.
+            "missing_reasons": (
+                None if has_fulltext else "RECHTSPRAAK_BODY_UNAVAILABLE_OR_FETCH_FAILED"
+            ),
+            "is_stub": not has_fulltext,
         }
 
     def _citation_rows(self, row, case_id):
@@ -299,9 +311,16 @@ class PostgresCelexProcessor(_BaseRowProcessor):
     conflict_col = "celex_id"
     detail_table = "cjeu_document"
 
+    def upload_rows(self, rows: list) -> int:
+        # CJEU and Rechtspraak overlap for some Dutch sector-8 decisions.
+        # Row-wise identity-aware upserts can merge those on ECLI; a bulk
+        # ON CONFLICT (celex_id) cannot also arbitrate an ECLI conflict.
+        return sum(self.upload_row(row) for row in rows)
+
     def _case_row(self, row):
         return {
             "celex_id": row[CELLAR_CELEX],
+            "ecli": row.get(ECLI) or None,
             # no dedicated title field extracted for Cellar cases today
             "date_decision": row.get(CELLAR_DATE_OF_DOCUMENT) or None,
             "source": "EURLEX",
@@ -311,6 +330,7 @@ class PostgresCelexProcessor(_BaseRowProcessor):
         return {
             "case_id": case_id,
             "celex_id": row.get(CELLAR_CELEX),
+            "ecli": row.get(ECLI) or None,
             "sector": row.get(CELLAR_SECTOR),
             "proc_type": row.get(CELLAR_TYPE_PROCEDURE),
             # best available proxy for date_lodged; CELLAR extraction doesn't
@@ -329,9 +349,43 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
     detail_table = "echr_document"
     detail_conflict_cols = ["item_id"]
 
+    @staticmethod
+    def _group_key(row):
+        """Return the conceptual ECHR case key used by the production migration.
+
+        HUDOC item IDs identify document/language variants, not cases. ECLI is
+        the preferred case identity; communicated cases without an ECLI are
+        grouped by application number plus reference date. If HUDOC supplies
+        neither, retaining the item ID is the only lossless fallback.
+        """
+        ecli = str(row.get(ECLI) or "").strip().upper()
+        if ecli:
+            return f"ECLI:{ecli}"
+        appno = str(row.get(ECHR_APPLICANTS) or "").strip()
+        reference_date = str(row.get(ECHR_REFERENCE_DATE) or "").strip()[:10]
+        if appno:
+            return f"APPNO:{appno}:{reference_date}"
+        return f"ITEM:{row[ECHR_DOCUMENT_ID]}"
+
+    @staticmethod
+    def _canonical_rank(row):
+        language = str(row.get(ECHR_LANGUAGE) or "").strip().upper()
+        language_rank = {"ENG": 0, "EN": 0, "FRE": 1, "FR": 1}.get(language, 2)
+        doctype = str(row.get(ECHR_DOCUMENT_TYPE) or "").strip().upper()
+        if "JUD" in doctype:
+            doctype_rank = 0
+        elif "DEC" in doctype:
+            doctype_rank = 1
+        elif "COM" in doctype:
+            doctype_rank = 2
+        else:
+            doctype_rank = 3
+        return language_rank, doctype_rank, str(row[ECHR_DOCUMENT_ID])
+
     def _case_row(self, row):
         return {
             "item_id": row[ECHR_DOCUMENT_ID],
+            "ecli": row.get(ECLI) or None,
             "title": row.get(ECHR_TITLE),
             "date_decision": row.get(ECHR_JUDGMENT_DATE) or None,
             "source": "HUDOC",
@@ -342,7 +396,7 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
             "item_id": row[ECHR_DOCUMENT_ID],
             "case_id": case_id,
             "language": normalize_language_code(row.get(ECHR_LANGUAGE)),
-            "extractedappno": row.get(ECHR_PARTICIPANTS),
+            "extractedappno": row.get(ECHR_PARTICIPANTS) or row.get(ECHR_APPLICANTS),
             "docname": row.get(ECHR_TITLE),
             "doctype": row.get(ECHR_DOCUMENT_TYPE),
             "doctype_branch": row.get(ECHR_BRANCH),
@@ -356,4 +410,43 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
             "applicability": row.get(ECHR_APPLICABILITY),
             "separate_opinion": row.get(ECHR_SEPARATE_OPINION),
             "importance": row.get(ECHR_IMPORTANCE) or None,
+            "reference_date": row.get(ECHR_REFERENCE_DATE) or None,
         }
+
+    def upload_rows(self, rows: list) -> int:
+        """Load every HUDOC variant under one conceptual case.
+
+        This is intentionally row-oriented: an ECHR batch contains multiple
+        item IDs for the same case, while the base bulk loader assumes one
+        natural key equals one case. The source volumes are small enough that
+        correctness and lossless variant handling dominate round-trip count.
+        """
+        by_item_id = {}
+        for row in rows:
+            item_id = self._key(row)
+            if not item_id:
+                logging.warning("NO %s FOUND, skipping row", self.key_field)
+                continue
+            by_item_id[item_id] = row
+
+        groups = {}
+        for row in by_item_id.values():
+            groups.setdefault(self._group_key(row), []).append(row)
+
+        loaded = 0
+        for group_rows in groups.values():
+            canonical = min(group_rows, key=self._canonical_rank)
+            try:
+                with self.client.transaction():
+                    case_id = self.client.upsert_case(**self._case_row(canonical))
+                    for row in group_rows:
+                        self.client.upsert(
+                            table=self.detail_table,
+                            conflict_cols=self.detail_conflict_cols,
+                            values=self._detail_row(row, case_id),
+                        )
+                loaded += len(group_rows)
+            except Exception as error:
+                for row in group_rows:
+                    self._log_failure(self._key(row), error)
+        return loaded

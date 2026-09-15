@@ -25,6 +25,13 @@ class RecordingClient:
         assert item_id == "001-12345"
         return self.echr_language
 
+    def resolve_echr_document_context(self, item_id):
+        assert item_id == "001-12345"
+        return 43, self.echr_language, "JUD"
+
+    def upsert_echr_secondary_text(self, item_id, fulltext):
+        self.rows.append({"secondary_item_id": item_id, "fulltext": fulltext})
+
 
 def test_cellar_fulltexts_keep_each_translation_language(tmp_path):
     path = tmp_path / os.path.basename(JSON_FULL_TEXT_CELLAR)
@@ -130,4 +137,30 @@ def test_hudoc_fulltext_uses_metadata_language_when_blob_omits_it(tmp_path):
             "source": "HUDOC",
             "fulltext": "Texte français",
         }
+    ]
+
+
+def test_hudoc_fulltext_preserves_noncanonical_same_language_variant(tmp_path):
+    path = tmp_path / os.path.basename(JSON_FULL_TEXT_ECHR)
+    path.write_text(
+        json.dumps(
+            [
+                {"item_id": "001-decision", "full_text": "Decision"},
+                {"item_id": "001-judgment", "full_text": "Judgment"},
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    class MultiVariantClient(RecordingClient):
+        def resolve_echr_document_context(self, item_id):
+            doctype = "DEC" if item_id.endswith("decision") else "JUD"
+            return 43, "en", doctype
+
+    client = MultiVariantClient()
+    load_fulltext(client, [str(path)])
+
+    assert client.rows == [
+        {"case_id": 43, "language": "en", "source": "HUDOC", "fulltext": "Judgment"},
+        {"secondary_item_id": "001-decision", "fulltext": "Decision"},
     ]

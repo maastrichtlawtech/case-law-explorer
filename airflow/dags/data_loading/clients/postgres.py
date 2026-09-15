@@ -79,19 +79,49 @@ class PostgresCLEClient:
         if not any([ecli, celex_id, item_id]):
             raise ValueError("upsert_case requires at least one of ecli/celex_id/item_id")
 
-        conflict_col = "ecli" if ecli else ("celex_id" if celex_id else "item_id")
-
+        # A case may be discovered by more than one corpus (notably the Dutch
+        # sector-8 overlap between Rechtspraak and CJEU). Resolve by *any*
+        # supplied identifier before inserting so a celex upsert cannot fail
+        # merely because its ECLI already belongs to an RS row. Existing
+        # identifiers are never replaced; missing identifiers are enriched.
         sql = f"""
-            INSERT INTO {SCHEMA}.cases (ecli, celex_id, item_id, title, date_decision, sources)
-            VALUES (%(ecli)s, %(celex_id)s, %(item_id)s, %(title)s, %(date_decision)s, ARRAY[%(source)s])
-            ON CONFLICT ({conflict_col}) DO UPDATE SET
-                title = COALESCE(EXCLUDED.title, {SCHEMA}.cases.title),
-                date_decision = COALESCE(EXCLUDED.date_decision, {SCHEMA}.cases.date_decision),
-                updated_at = now(),
-                sources = array(
-                    SELECT DISTINCT unnest({SCHEMA}.cases.sources || EXCLUDED.sources)
-                )
-            RETURNING id;
+            WITH existing AS (
+                SELECT id
+                FROM {SCHEMA}.cases
+                WHERE (%(ecli)s IS NOT NULL AND ecli = %(ecli)s)
+                   OR (%(celex_id)s IS NOT NULL AND celex_id = %(celex_id)s)
+                   OR (%(item_id)s IS NOT NULL AND item_id = %(item_id)s)
+                ORDER BY
+                    CASE WHEN %(ecli)s IS NOT NULL AND ecli = %(ecli)s THEN 0 ELSE 1 END,
+                    id
+                LIMIT 1
+                FOR UPDATE
+            ), updated AS (
+                UPDATE {SCHEMA}.cases
+                SET ecli = COALESCE({SCHEMA}.cases.ecli, %(ecli)s),
+                    celex_id = COALESCE({SCHEMA}.cases.celex_id, %(celex_id)s),
+                    item_id = COALESCE({SCHEMA}.cases.item_id, %(item_id)s),
+                    title = COALESCE(%(title)s, {SCHEMA}.cases.title),
+                    date_decision = COALESCE(%(date_decision)s, {SCHEMA}.cases.date_decision),
+                    updated_at = now(),
+                    sources = array(
+                        SELECT DISTINCT unnest({SCHEMA}.cases.sources || ARRAY[%(source)s])
+                    )
+                WHERE id = (SELECT id FROM existing)
+                RETURNING id
+            ), inserted AS (
+                INSERT INTO {SCHEMA}.cases
+                    (ecli, celex_id, item_id, title, date_decision, sources)
+                SELECT %(ecli)s, %(celex_id)s, %(item_id)s, %(title)s,
+                       %(date_decision)s, ARRAY[%(source)s]
+                WHERE NOT EXISTS (SELECT 1 FROM existing)
+                ON CONFLICT DO NOTHING
+                RETURNING id
+            )
+            SELECT id FROM updated
+            UNION ALL
+            SELECT id FROM inserted
+            LIMIT 1;
         """
         params = {
             "ecli": ecli,
@@ -111,15 +141,39 @@ class PostgresCLEClient:
         fulltext: str | None,
         summary: str | None = None,
         summary_source: str | None = None,
+        missing_reasons: str | None = None,
+        is_stub: bool = False,
     ) -> None:
         """Replaces upload_fulltext()/S3 (fulltext_bucket_saving.py): full text lands directly in case_text."""
         sql = f"""
-            INSERT INTO {SCHEMA}.case_text (case_id, language, source, fulltext, summary, summary_source)
-            VALUES (%(case_id)s, %(language)s, %(source)s, %(fulltext)s, %(summary)s, %(summary_source)s)
+            INSERT INTO {SCHEMA}.case_text
+                (case_id, language, source, fulltext, summary, summary_source,
+                 missing_reasons, is_stub)
+            VALUES
+                (%(case_id)s, %(language)s, %(source)s,
+                 NULLIF(BTRIM(%(fulltext)s), ''), %(summary)s, %(summary_source)s,
+                 %(missing_reasons)s, %(is_stub)s)
             ON CONFLICT (case_id, language, source) DO UPDATE SET
-                fulltext = COALESCE(EXCLUDED.fulltext, {SCHEMA}.case_text.fulltext),
+                fulltext = COALESCE(
+                    NULLIF(BTRIM(EXCLUDED.fulltext), ''),
+                    {SCHEMA}.case_text.fulltext
+                ),
                 summary = COALESCE(EXCLUDED.summary, {SCHEMA}.case_text.summary),
                 summary_source = COALESCE(EXCLUDED.summary_source, {SCHEMA}.case_text.summary_source),
+                missing_reasons = CASE
+                    WHEN COALESCE(
+                        NULLIF(BTRIM(EXCLUDED.fulltext), ''),
+                        NULLIF(BTRIM({SCHEMA}.case_text.fulltext), '')
+                    ) IS NOT NULL THEN NULL
+                    ELSE COALESCE(EXCLUDED.missing_reasons, {SCHEMA}.case_text.missing_reasons)
+                END,
+                is_stub = CASE
+                    WHEN COALESCE(
+                        NULLIF(BTRIM(EXCLUDED.fulltext), ''),
+                        NULLIF(BTRIM({SCHEMA}.case_text.fulltext), '')
+                    ) IS NOT NULL THEN false
+                    ELSE EXCLUDED.is_stub OR {SCHEMA}.case_text.is_stub
+                END,
                 updated_at = now();
         """
         self._execute(
@@ -131,6 +185,8 @@ class PostgresCLEClient:
                 "fulltext": fulltext,
                 "summary": summary,
                 "summary_source": summary_source,
+                "missing_reasons": missing_reasons,
+                "is_stub": is_stub,
             },
         )
 
@@ -293,7 +349,7 @@ class PostgresCLEClient:
         self._execute(sql, params)
 
     def bulk_upsert_case_text(self, rows: list[dict]) -> None:
-        """Bulk variant of upsert_case_text(). Each dict needs: case_id, language, source, fulltext, summary, summary_source."""
+        """Bulk variant of upsert_case_text()."""
         if not rows:
             return
 
@@ -302,7 +358,8 @@ class PostgresCLEClient:
         for i, row in enumerate(rows):
             value_clauses.append(
                 f"(%(case_id_{i})s, %(language_{i})s, %(source_{i})s, "
-                f"%(fulltext_{i})s, %(summary_{i})s, %(summary_source_{i})s)"
+                f"NULLIF(BTRIM(%(fulltext_{i})s), ''), %(summary_{i})s, "
+                f"%(summary_source_{i})s, %(missing_reasons_{i})s, %(is_stub_{i})s)"
             )
             params[f"case_id_{i}"] = row["case_id"]
             params[f"language_{i}"] = row["language"]
@@ -310,14 +367,35 @@ class PostgresCLEClient:
             params[f"fulltext_{i}"] = row.get("fulltext")
             params[f"summary_{i}"] = row.get("summary")
             params[f"summary_source_{i}"] = row.get("summary_source")
+            params[f"missing_reasons_{i}"] = row.get("missing_reasons")
+            params[f"is_stub_{i}"] = row.get("is_stub", False)
 
         sql = f"""
-            INSERT INTO {SCHEMA}.case_text (case_id, language, source, fulltext, summary, summary_source)
+            INSERT INTO {SCHEMA}.case_text
+                (case_id, language, source, fulltext, summary, summary_source,
+                 missing_reasons, is_stub)
             VALUES {", ".join(value_clauses)}
             ON CONFLICT (case_id, language, source) DO UPDATE SET
-                fulltext = COALESCE(EXCLUDED.fulltext, {SCHEMA}.case_text.fulltext),
+                fulltext = COALESCE(
+                    NULLIF(BTRIM(EXCLUDED.fulltext), ''),
+                    {SCHEMA}.case_text.fulltext
+                ),
                 summary = COALESCE(EXCLUDED.summary, {SCHEMA}.case_text.summary),
                 summary_source = COALESCE(EXCLUDED.summary_source, {SCHEMA}.case_text.summary_source),
+                missing_reasons = CASE
+                    WHEN COALESCE(
+                        NULLIF(BTRIM(EXCLUDED.fulltext), ''),
+                        NULLIF(BTRIM({SCHEMA}.case_text.fulltext), '')
+                    ) IS NOT NULL THEN NULL
+                    ELSE COALESCE(EXCLUDED.missing_reasons, {SCHEMA}.case_text.missing_reasons)
+                END,
+                is_stub = CASE
+                    WHEN COALESCE(
+                        NULLIF(BTRIM(EXCLUDED.fulltext), ''),
+                        NULLIF(BTRIM({SCHEMA}.case_text.fulltext), '')
+                    ) IS NOT NULL THEN false
+                    ELSE EXCLUDED.is_stub OR {SCHEMA}.case_text.is_stub
+                END,
                 updated_at = now();
         """
         self._execute(sql, params)
@@ -337,9 +415,29 @@ class PostgresCLEClient:
 
     def resolve_case_id_by_item_id(self, item_id: str) -> int | None:
         row = self.hook.get_first(
-            f"SELECT id FROM {SCHEMA}.cases WHERE item_id = %(val)s", parameters={"val": item_id}
+            f"""
+            SELECT case_id FROM {SCHEMA}.echr_document WHERE item_id = %(val)s
+            UNION ALL
+            SELECT id FROM {SCHEMA}.cases WHERE item_id = %(val)s
+            LIMIT 1
+            """,
+            parameters={"val": item_id},
         )
         return row[0] if row else None
+
+    def upsert_echr_secondary_text(self, item_id: str, fulltext: str | None) -> None:
+        """Preserve a non-canonical same-language HUDOC document body."""
+        if not str(fulltext or "").strip():
+            return
+        self._execute(
+            f"""
+            INSERT INTO {SCHEMA}.echr_document_secondary_text (item_id, fulltext)
+            VALUES (%(item_id)s, %(fulltext)s)
+            ON CONFLICT (item_id) DO UPDATE SET
+                fulltext = EXCLUDED.fulltext;
+            """,
+            {"item_id": item_id, "fulltext": fulltext},
+        )
 
     def resolve_echr_language_by_item_id(self, item_id: str) -> str | None:
         """Return the language stored with the HUDOC metadata document.
@@ -353,6 +451,17 @@ class PostgresCLEClient:
             parameters={"val": item_id},
         )
         return row[0] if row else None
+
+    def resolve_echr_document_context(self, item_id: str):
+        """Return ``(case_id, language, doctype)`` for a HUDOC variant."""
+        return self.hook.get_first(
+            f"""
+            SELECT case_id, language, doctype
+            FROM {SCHEMA}.echr_document
+            WHERE item_id = %(val)s
+            """,
+            parameters={"val": item_id},
+        )
 
     def list_rs_eclis(self) -> list[str]:
         """All Rechtspraak ECLIs known so far, for the citation-refresh DAGs to iterate over."""

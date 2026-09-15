@@ -72,6 +72,11 @@ def format_rs_date(text):
 # converts string representation of a date into datetime (YYYY-MM-DD)
 # from original ECHR date format DD-MM-YYYY
 def format_echr_date(text):
+    # ``dayfirst=True`` is needed for HUDOC's legacy DD-MM-YYYY values but it
+    # swaps the month/day of an ISO timestamp such as 2026-07-03. Detect ISO
+    # explicitly before applying the legacy parser.
+    if re.match(r"^\d{4}-\d{2}-\d{2}(?:[T ]|$)", str(text).strip()):
+        return dateutil.parser.isoparse(str(text).strip()).date()
     return dateutil.parser.parse(text, dayfirst=True).date()
 
 

@@ -155,6 +155,20 @@ def test_resolve_echr_language_by_item_id(client, hook):
     assert parameters == {"val": "001-250884"}
 
 
+def test_case_text_never_replaces_a_body_with_blank_input(client):
+    client.upsert_case_text(
+        case_id=1,
+        language="nl",
+        source="RECHTSPRAAK",
+        fulltext="   ",
+        missing_reasons="RECHTSPRAAK_BODY_UNAVAILABLE_OR_FETCH_FAILED",
+    )
+
+    sql, params = client._get_conn().executed[-1]
+    assert "NULLIF(BTRIM(EXCLUDED.fulltext), '')" in sql
+    assert params["missing_reasons"].startswith("RECHTSPRAAK")
+
+
 def test_nested_transactions_only_commit_at_the_outermost_level(client):
     with client.transaction():
         client.upsert_case(ecli="ECLI:NL:HR:2024:6", source="Rechtspraak")
