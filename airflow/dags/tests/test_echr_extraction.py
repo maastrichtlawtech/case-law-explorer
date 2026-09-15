@@ -94,3 +94,19 @@ def test_full_text_coverage_excludes_language_placeholders(tmp_path):
     )
 
     assert _full_text_coverage(metadata, str(path)) == 1.0
+
+
+def test_full_text_coverage_excludes_non_case_documents(tmp_path):
+    metadata = pd.DataFrame(
+        [
+            {"itemid": "001-press", "doctype": "PR"},
+            {"itemid": "001-real", "doctype": "JUD"},
+        ]
+    )
+    path = tmp_path / "ECHR_full_text.json"
+    path.write_text(
+        json.dumps([{"item_id": "001-real", "full_text": "Judgment"}]),
+        encoding="utf-8",
+    )
+
+    assert _full_text_coverage(metadata, str(path)) == 1.0

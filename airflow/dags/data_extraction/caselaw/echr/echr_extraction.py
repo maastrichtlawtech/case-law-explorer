@@ -61,9 +61,10 @@ def _resolve_external_citations_enabled():
 def _canonical_item_ids(metadata):
     """Map corpus ECLIs to one real HUDOC document item ID.
 
-    HUDOC language variants share an ECLI, while cle_v2 stores each item ID as
-    a separate case and keeps cases.ecli unique. Prefer the variant with an
-    extracted application number; placeholder variants do not have one.
+    HUDOC language variants share an ECLI, while cle_v2 stores every variant
+    in echr_document under one conceptual case. Citation artifacts use the
+    canonical item ID. Prefer the variant with an extracted application
+    number; placeholder variants do not have one.
     """
     required = {"ecli", "itemid"}
     if not required.issubset(metadata.columns):
@@ -134,6 +135,9 @@ def _full_text_coverage(metadata, full_text_path):
             metadata["isplaceholder"].fillna(False).astype(str).str.strip().str.lower()
         )
         metadata = metadata.loc[~placeholder_values.isin({"1", "true", "yes"})]
+    if "doctype" in metadata.columns:
+        doctypes = metadata["doctype"].fillna("").astype(str).str.strip().str.upper()
+        metadata = metadata.loc[~doctypes.isin({"PR", "CLIN", "CLINF"})]
     item_ids = {str(value).strip() for value in metadata["itemid"].dropna() if str(value).strip()}
     if not item_ids:
         return 1.0
@@ -305,6 +309,16 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
 
     logging.info("--- saving ECHR data")
     if metadata is not False:
+        if "itemid" not in metadata.columns:
+            raise RuntimeError("ECHR metadata is missing its itemid identity column")
+        item_ids = metadata["itemid"].fillna("").astype(str).str.strip()
+        missing_item_ids = int(item_ids.eq("").sum())
+        duplicate_item_ids = int(item_ids[item_ids.ne("")].duplicated().sum())
+        if missing_item_ids or duplicate_item_ids:
+            raise RuntimeError(
+                "ECHR metadata identity check failed: "
+                f"missing_item_ids={missing_item_ids}, duplicate_item_ids={duplicate_item_ids}"
+            )
         metadata.to_csv(paths["metadata"], index=False)
         with open(paths["full_text"], "w") as f:
             json.dump(full_text, f)
@@ -313,8 +327,21 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         # One "<source>,<target>" line per citation: the format the citation
         # graph loader parses. Missing references are retained for verification.
         _write_citation_artifacts(metadata, paths)
+        coverage = _full_text_coverage(metadata, paths["full_text"])
+        minimum_coverage = float(getenv("ECHR_MIN_TEXT_RATIO", "0.90"))
+        logging.info(
+            "ETL_QUALITY source=ECHR metadata_rows=%s fulltext_ratio=%.4f threshold=%.4f",
+            len(metadata),
+            coverage,
+            minimum_coverage,
+        )
+        if coverage < minimum_coverage:
+            raise RuntimeError(
+                f"ECHR full-text coverage {coverage:.3f} is below "
+                f"the required {minimum_coverage:.3f}; refusing to load this batch"
+            )
     else:
-        logging.info("No ECHR data found")
+        raise RuntimeError("ECHR extractor returned no metadata; refusing an empty load")
 
     end = time.time()
     logging.info("--- DONE ---")

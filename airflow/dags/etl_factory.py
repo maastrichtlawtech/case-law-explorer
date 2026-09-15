@@ -53,6 +53,18 @@ def get_optional_int(name):
     return parsed
 
 
+def get_nonnegative_int(name, default):
+    value = int(str(get_var(name, default)).strip())
+    if value < 0:
+        raise ValueError(f"{name} must be zero or greater")
+    return value
+
+
+def _first_day_months_before(value, months):
+    month_index = value.year * 12 + value.month - 1 - months
+    return date(month_index // 12, month_index % 12 + 1, 1)
+
+
 def _as_date(value, field):
     if isinstance(value, datetime):
         return value.date()
@@ -68,10 +80,11 @@ def resolve_run_window(var_prefix, context):
     """Resolve the inclusive source window for a manual or scheduled run.
 
     Controller/UI runs may provide ``window_start`` and ``window_end`` in
-    dag_run.conf. Scheduled runs refresh the previous and current calendar
-    month, which catches late publications while reusing stable artifact
-    directories. A manual UI run without conf uses the configured backfill
-    dates.
+    dag_run.conf. A manual UI run without conf uses the configured backfill
+    dates. Scheduled runs refresh the current month plus two prior calendar
+    months by default. The overlap is configurable through
+    ``<SOURCE>_SCHEDULE_LOOKBACK_MONTHS`` and catches bodies, translations,
+    and citations which sources publish shortly after the decision metadata.
     """
     dag_run = context.get("dag_run")
     conf = (getattr(dag_run, "conf", None) or {}) if dag_run else {}
@@ -92,9 +105,10 @@ def resolve_run_window(var_prefix, context):
             if interval_end is None:
                 raise ValueError("scheduled run has no data_interval_end")
             end = _as_date(interval_end, "data_interval_end") - timedelta(days=1)
-            current_month = end.replace(day=1)
-            previous_month_end = current_month - timedelta(days=1)
-            start = previous_month_end.replace(day=1)
+            lookback_months = get_nonnegative_int(
+                f"{var_prefix}_SCHEDULE_LOOKBACK_MONTHS", 2
+            )
+            start = _first_day_months_before(end, lookback_months)
         else:
             start = _as_date(get_var(f"{var_prefix}_START_DATE"), f"{var_prefix}_START_DATE")
             end = _as_date(get_var(f"{var_prefix}_END_DATE"), f"{var_prefix}_END_DATE")
@@ -118,6 +132,7 @@ def run_monthly_window(var_prefix, etl_callable, **context):
             end_date=datetime.combine(chunk_end, datetime.min.time()),
             _data_path=get_data_path(),
             force_refresh=scheduled,
+            is_final_chunk=chunk_end == end,
         )
         current = chunk_end + timedelta(days=1)
 

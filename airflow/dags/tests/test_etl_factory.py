@@ -23,7 +23,7 @@ def test_controller_window_takes_precedence():
     )
 
 
-def test_scheduled_window_refreshes_previous_and_current_month():
+def test_scheduled_window_refreshes_two_prior_and_current_month():
     context = {
         "dag_run": SimpleNamespace(
             run_id="scheduled__2026-09-07T04:00:00+00:00",
@@ -34,7 +34,7 @@ def test_scheduled_window_refreshes_previous_and_current_month():
     }
 
     assert etl_factory.resolve_run_window("ECHR", context) == (
-        date(2026, 8, 1),
+        date(2026, 7, 1),
         date(2026, 9, 6),
         True,
     )
@@ -56,10 +56,12 @@ def test_monthly_runner_is_sequential_and_refreshes_scheduled_artifacts(monkeypa
     )
 
     assert [(call["start_date"].date(), call["end_date"].date()) for call in calls] == [
+        (date(2026, 7, 1), date(2026, 7, 31)),
         (date(2026, 8, 1), date(2026, 8, 31)),
         (date(2026, 9, 1), date(2026, 9, 6)),
     ]
     assert all(call["force_refresh"] for call in calls)
+    assert [call["is_final_chunk"] for call in calls] == [False, False, True]
 
 
 def test_successful_run_registers_exact_controller_window():

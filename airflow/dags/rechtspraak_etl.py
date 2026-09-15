@@ -1,11 +1,12 @@
 import logging
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from airflow.operators.python import PythonOperator
 from airflow.operators.trigger_dagrun import TriggerDagRunOperator
 from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import (
     rechtspraak_extract,
+    rechtspraak_extract_modified,
 )
 from data_loading import data_loader
 from data_transformation import data_transformer
@@ -84,6 +85,41 @@ def rechtspraak_etl(**kwargs):
 
     logging.info("Starting data loading")
     data_loader.load_data(input_paths=processed_paths, full_text_paths=[], citation_sources=[])
+
+    # The decision-date window above keeps recent coverage dense. A second,
+    # small modified-date sweep on the final scheduled chunk discovers old
+    # judgments whose metadata or body was published/corrected retroactively.
+    # It remains part of this existing DAG and is separately visible in logs.
+    if force_refresh and kwargs.get("is_final_chunk", False):
+        lookback_days = int(os.getenv("RS_MODIFIED_LOOKBACK_DAYS", "8"))
+        if lookback_days < 1:
+            raise ValueError("RS_MODIFIED_LOOKBACK_DAYS must be positive")
+        modified_end = end_date.date()
+        modified_start = modified_end - timedelta(days=lookback_days - 1)
+        modified_dir = os.path.join(
+            _data_path, "raw", "modified", modified_end.isoformat()
+        )
+        _, lido_sqlite_db_path = get_lido_sqlite_paths(_data_path)
+        modified_paths = rechtspraak_extract_modified(
+            starting_date=modified_start.isoformat(),
+            ending_date=modified_end.isoformat(),
+            amount=get_optional_int("RS_MODIFIED_AMOUNT_TO_EXTRACT") or 1_000_000,
+            output_dir=modified_dir,
+            lido_sqlite_db_path=str(lido_sqlite_db_path),
+        )
+        modified_processed = data_transformer.transform_data(
+            caselaw_type="RS",
+            input_paths=[modified_paths["citations"]],
+            output_dir=os.path.join(
+                _data_path, "processed", "modified", modified_end.isoformat()
+            ),
+        )
+        data_loader.load_data(
+            input_paths=modified_processed,
+            full_text_paths=[],
+            citation_sources=[],
+        )
+        cleanup_raw_files(list(modified_paths.values()))
 
     cleanup_raw_files([citation_file, metadata_file, base_file])
     logging.info("Rechtspraak ETL completed successfully")

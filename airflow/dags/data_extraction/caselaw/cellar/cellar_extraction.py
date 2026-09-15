@@ -61,6 +61,26 @@ def _write_lines(path, values):
         f.write("\n".join(lines))
 
 
+def _full_text_case_coverage(metadata, full_text_records):
+    """Share of canonical metadata CELEX IDs having at least one body."""
+    if "celex" not in metadata.columns:
+        return 0.0
+    metadata_ids = {
+        str(value).split(";", 1)[0].strip()
+        for value in metadata["celex"].dropna()
+        if str(value).strip()
+    }
+    if not metadata_ids:
+        return 1.0
+    text_ids = {
+        str(record.get("celex", "")).split(";", 1)[0].strip()
+        for record in full_text_records
+        if isinstance(record, dict)
+        and str(record.get("full_text") or record.get("text") or "").strip()
+    }
+    return len(metadata_ids & text_ids) / len(metadata_ids)
+
+
 def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     """
     Run the CELLAR extraction. Writes metadata CSV, full-text JSON, and
@@ -159,9 +179,44 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     metadata.to_csv(paths["metadata"], index=False)
 
     # Additional check to drop non-european, irrelevant (for us) cases
-    final_full_texts = [j for j in full_text_json if not j.get("celex").startswith("8")]
+    final_full_texts = [
+        record
+        for record in full_text_json
+        if isinstance(record, dict)
+        and not str(record.get("celex") or "").startswith("8")
+    ]
     with open(paths["full_text"], "w") as f:
         json.dump(final_full_texts, f)
+
+    coverage = _full_text_case_coverage(metadata, final_full_texts)
+    minimum_coverage = float(getenv("CELLAR_MIN_TEXT_RATIO", "0.90"))
+    missing_celex = (
+        int(
+            metadata["celex"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .isin({"", "nan", "None"})
+            .sum()
+        )
+        if "celex" in metadata.columns
+        else len(metadata)
+    )
+    logging.info(
+        "ETL_QUALITY source=CELLAR metadata_rows=%s missing_celex=%s "
+        "case_fulltext_ratio=%.4f threshold=%.4f",
+        len(metadata),
+        missing_celex,
+        coverage,
+        minimum_coverage,
+    )
+    if missing_celex:
+        raise RuntimeError(f"CELLAR metadata contains {missing_celex} rows without CELEX")
+    if coverage < minimum_coverage:
+        raise RuntimeError(
+            f"CELLAR case full-text coverage {coverage:.3f} is below "
+            f"the required {minimum_coverage:.3f}; refusing to load this batch"
+        )
 
     # Node and edge lists based on citations, for the citation graph
     nodes, edges = cell.get_nodes_and_edges_lists(metadata)

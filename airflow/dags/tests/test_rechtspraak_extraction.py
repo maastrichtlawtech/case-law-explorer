@@ -1,6 +1,7 @@
 from datetime import datetime
 from types import SimpleNamespace
 
+import pandas as pd
 from data_extraction.caselaw.rechtspraak import rechtspraak_extraction as extraction
 from data_extraction.caselaw.rechtspraak.rechtspraak_extraction import _daily_ranges
 
@@ -53,3 +54,52 @@ def test_bounded_paginator_stops_when_upstream_count_is_one_too_high(monkeypatch
 
     assert rows == [{"id": "one"}, {"id": "two"}]
     assert calls == ["0", "2"]
+
+
+def test_metadata_coverage_compares_feed_and_loaded_eclis():
+    base = pd.DataFrame({"id": ["ECLI:NL:HR:2026:1", "ECLI:NL:HR:2026:2"]})
+    metadata = pd.DataFrame({"ecli": ["ECLI:NL:HR:2026:1"]})
+
+    assert extraction._metadata_coverage(base, metadata) == 0.5
+
+
+def test_metadata_coverage_allows_an_empty_source_day():
+    assert extraction._metadata_coverage(pd.DataFrame(), pd.DataFrame()) == 1.0
+
+
+def test_modified_paginator_uses_modified_not_decision_date(monkeypatch):
+    calls = []
+
+    class Response:
+        raw = SimpleNamespace(decode_content=False)
+        text = "ignored"
+
+        def raise_for_status(self):
+            return None
+
+    def get(url, params, timeout):
+        calls.append((url, params, timeout))
+        return Response()
+
+    monkeypatch.setattr(extraction.rex.requests, "get", get)
+    monkeypatch.setattr(
+        extraction.rex,
+        "parse_xml_response",
+        lambda text: {"feed": {"entry": [{"id": "one"}]}},
+    )
+    monkeypatch.setattr(
+        extraction.rex,
+        "save_csv",
+        lambda entries, filename, save_file: pd.DataFrame(entries),
+    )
+    monkeypatch.setattr(extraction.rex, "MAX_ECLIS_PER_PAGE", 1000)
+
+    result = extraction._get_rechtspraak_modified_bounded(
+        "2026-09-07", "2026-09-14", 1000
+    )
+
+    assert result["id"].tolist() == ["one"]
+    params = calls[0][1]
+    assert ("modified", "2026-09-07T00:00:00") in params
+    assert ("modified", "2026-09-14T23:59:59") in params
+    assert not any(key == "date" for key, _ in params)

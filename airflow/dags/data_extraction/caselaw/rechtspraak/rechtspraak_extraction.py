@@ -84,6 +84,44 @@ def _get_rechtspraak_bounded(**kwargs):
         rex.get_data_from_url = original
 
 
+def _get_rechtspraak_modified_bounded(starting_date: str, ending_date: str, amount: int):
+    """Fetch ECLIs changed in a time window, regardless of decision date.
+
+    Rechtspraak documents this as the authoritative way to discover newly
+    published or retroactively changed metadata/text. The extractor package
+    currently exposes only decision-date windows, so keep this small adapter
+    local until that API is available upstream.
+    """
+    entries = []
+    from_index = 0
+    while len(entries) < amount:
+        page_size = min(rex.MAX_ECLIS_PER_PAGE, amount - len(entries))
+        response = rex.requests.get(
+            rex.RECHTSPRAAK_API_BASE_URL,
+            params=[
+                ("max", page_size),
+                ("from", from_index),
+                ("modified", f"{starting_date}T00:00:00"),
+                ("modified", f"{ending_date}T23:59:59"),
+            ],
+            timeout=rex.API_REQUEST_TIMEOUT,
+        )
+        response.raise_for_status()
+        response.raw.decode_content = True
+        payload = rex.parse_xml_response(response.text)
+        page = payload.get("feed", {}).get("entry", [])
+        if not isinstance(page, list):
+            page = [page] if page else []
+        if not page:
+            break
+        entries.extend(page)
+        if len(page) < page_size:
+            break
+        from_index += page_size
+        rex.time.sleep(rex.SLEEP_BETWEEN_REQUESTS)
+    return rex.save_csv(entries[:amount], "rechtspraak_modified", save_file="n")
+
+
 def _daily_ranges(starting_date: str, ending_date: str):
     """Yield one-day API windows for every date in an inclusive range."""
     current_date = datetime.strptime(starting_date, "%Y-%m-%d")
@@ -140,7 +178,28 @@ def _looks_like_full_text(value) -> bool:
 
 
 def _is_missing_full_text(series: pd.Series) -> pd.Series:
-    return series.isna() | (series == "")
+    return series.isna() | series.astype(str).str.strip().eq("")
+
+
+def _metadata_coverage(base_extraction, metadata_df):
+    """Share of feed ECLIs represented by a metadata row."""
+    if base_extraction is None or base_extraction.empty:
+        return 1.0
+    expected = {
+        str(value).strip()
+        for value in base_extraction.get("id", pd.Series(dtype=str)).dropna()
+        if str(value).strip()
+    }
+    if not expected:
+        return 1.0
+    if metadata_df is None or metadata_df.empty:
+        return 0.0
+    actual = {
+        str(value).strip()
+        for value in metadata_df.get("ecli", pd.Series(dtype=str)).dropna()
+        if str(value).strip()
+    }
+    return len(expected & actual) / len(expected)
 
 
 def _backfill_full_text(
@@ -202,6 +261,56 @@ def _backfill_full_text(
     return metadata_df
 
 
+def _metadata_for_base(base_extraction, amount, sqlite_db_path, output_dir, quality_label):
+    """Enrich a feed page and enforce identity completeness before loading."""
+    base_extraction = _cap_base_extraction(base_extraction, amount)
+    if base_extraction is None or base_extraction.empty:
+        logging.info(
+            "ETL_QUALITY source=RECHTSPRAAK window=%s metadata_ratio=1.0000 "
+            "fulltext_ratio=0.0000 rows=0",
+            quality_label,
+        )
+        return pd.DataFrame()
+    metadata_df = get_rechtspraak_metadata(
+        save_file="n",
+        dataframe=base_extraction,
+        _fake_headers=True,
+        data_dir=output_dir,
+        method="sqlite",
+        sqlite_db_path=sqlite_db_path,
+        fallback_to_api=True,
+    )
+    if metadata_df is not None and not metadata_df.empty:
+        eclis = base_extraction["id"].tolist() if base_extraction is not None else []
+        extra_df = _fetch_extra_sqlite_columns(eclis, sqlite_db_path)
+        if not extra_df.empty:
+            metadata_df = metadata_df.merge(extra_df, on="ecli", how="left")
+        metadata_df = _backfill_full_text(metadata_df, base_extraction, output_dir)
+
+    metadata_ratio = _metadata_coverage(base_extraction, metadata_df)
+    minimum_metadata_ratio = float(os.getenv("RS_MIN_METADATA_RATIO", "0.98"))
+    body_ratio = (
+        0.0
+        if metadata_df is None or metadata_df.empty or "full_text" not in metadata_df.columns
+        else float((~_is_missing_full_text(metadata_df["full_text"])).mean())
+    )
+    logging.info(
+        "ETL_QUALITY source=RECHTSPRAAK window=%s metadata_ratio=%.4f "
+        "threshold=%.4f fulltext_ratio=%.4f",
+        quality_label,
+        metadata_ratio,
+        minimum_metadata_ratio,
+        body_ratio,
+    )
+    if metadata_ratio < minimum_metadata_ratio:
+        raise RuntimeError(
+            f"Rechtspraak metadata coverage {metadata_ratio:.3f} is below "
+            f"the required {minimum_metadata_ratio:.3f} for {quality_label}; "
+            "refusing to load an incomplete window"
+        )
+    return metadata_df if metadata_df is not None else pd.DataFrame()
+
+
 def rechtspraak_extract(
     starting_date: str,
     ending_date: str,
@@ -242,21 +351,13 @@ def rechtspraak_extract(
         # SQLite first (built from the monthly LIDO export by lido_sqlite_build),
         # live per-ECLI API only as a fallback for ECLIs missing from it
         # entirely -- e.g. very recent cases published since the last refresh.
-        metadata_df = get_rechtspraak_metadata(
-            save_file="n",
-            dataframe=base_extraction,
-            _fake_headers=True,
-            data_dir=output_dir,
-            method="sqlite",
-            sqlite_db_path=sqlite_db_path,
-            fallback_to_api=True,
+        metadata_df = _metadata_for_base(
+            base_extraction,
+            amount,
+            sqlite_db_path,
+            output_dir,
+            str(current_date.date()),
         )
-        if metadata_df is not None and not metadata_df.empty:
-            eclis = base_extraction["id"].tolist() if base_extraction is not None else []
-            extra_df = _fetch_extra_sqlite_columns(eclis, sqlite_db_path)
-            if not extra_df.empty:
-                metadata_df = metadata_df.merge(extra_df, on="ecli", how="left")
-            metadata_df = _backfill_full_text(metadata_df, base_extraction, output_dir)
         metadata_file_day = os.path.join(output_dir, f"metadata_{current_date.date()}.csv")
         if metadata_df is not None:
             metadata_df.to_csv(metadata_file_day, index=False)
@@ -300,3 +401,38 @@ def rechtspraak_extract(
     # data already held locally.
     metadata_df.to_csv(citation_file, index=False)
     return {"base": base_file, "metadata": metadata_file, "citations": citation_file}
+
+
+def rechtspraak_extract_modified(
+    starting_date: str,
+    ending_date: str,
+    amount: int,
+    output_dir: str,
+    lido_sqlite_db_path: str | None = None,
+) -> dict:
+    """Build a normal load artifact from Rechtspraak's modified-date index."""
+    os.makedirs(output_dir, exist_ok=True)
+    paths = {
+        "base": os.path.join(output_dir, "base_extraction_rechtspraak.csv"),
+        "metadata": os.path.join(output_dir, "metadata_extraction_rechtspraak.csv"),
+        "citations": os.path.join(output_dir, CSV_RS_CASES),
+    }
+    base_df = _get_rechtspraak_modified_bounded(starting_date, ending_date, amount)
+    if base_df is None:
+        base_df = pd.DataFrame()
+    metadata_df = _metadata_for_base(
+        base_df,
+        amount,
+        _lido_sqlite_db_path(lido_sqlite_db_path),
+        output_dir,
+        f"modified:{starting_date}:{ending_date}",
+    )
+    if not metadata_df.empty and not base_df.empty and "title" in base_df.columns:
+        titles = base_df[["id", "title"]].dropna(subset=["id"]).drop_duplicates("id")
+        metadata_df = metadata_df.merge(
+            titles.rename(columns={"id": "ecli"}), on="ecli", how="left"
+        )
+    base_df.to_csv(paths["base"], index=False)
+    metadata_df.to_csv(paths["metadata"], index=False)
+    metadata_df.to_csv(paths["citations"], index=False)
+    return paths
