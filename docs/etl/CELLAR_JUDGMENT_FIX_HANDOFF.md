@@ -35,9 +35,12 @@ The revision:
 - has 140 passing unit tests (53 integration tests skipped unless explicitly
   enabled).
 
-`airflow/requirements.txt` pins the revision by immutable GitHub archive URL.
-Do not change it back to PyPI `2.0.2`; that release predates the fix. Move back
-to PyPI only after an upstream release containing PR #14 is verified.
+`airflow/requirements.txt` pins the revision through an immutable Git URL, and
+the Airflow image installs `git` for that build. A GitHub source archive is not
+usable because `setuptools-scm` needs repository metadata to determine the
+package version. Do not change the pin back to PyPI `2.0.2`; that release
+predates the fix. Move back to PyPI only after an upstream release containing
+PR #14 is verified.
 
 ## Airflow safeguards in this branch
 

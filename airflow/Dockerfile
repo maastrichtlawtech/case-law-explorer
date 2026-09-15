@@ -10,6 +10,7 @@ USER root
 RUN apt-get update --quiet && apt-get install -y --no-install-recommends \
     build-essential \
     gcc \
+    git \
     serdi \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
