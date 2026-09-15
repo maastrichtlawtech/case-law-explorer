@@ -20,33 +20,36 @@ jobs:
         python-version: '3.11'
     
     - name: Cache pip packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
         restore-keys: |
           ${{ runner.os }}-pip-
-    
+
     - name: Install linting dependencies
       run: |
         python -m pip install --upgrade pip
         pip install flake8 black isort pylint
-    
+
     - name: Run Black (Code Formatter Check)
       run: |
-        black --check --diff airflow/dags/
+        black --check --diff --line-length=100 airflow/dags/
       continue-on-error: true
-    
+
     - name: Run isort (Import Sorting Check)
       run: |
-        isort --check-only --diff airflow/dags/
+        isort --check-only --diff --profile=black --line-length=100 airflow/dags/
+      # The branch predates a repository-wide formatting baseline. Keep this
+      # visible without blocking correctness checks until that baseline lands.
       continue-on-error: true
-    
-    - name: Run Flake8 (Style Guide)
+
+    - name: Run Flake8 (Syntax and Undefined Names)
       run: |
-        # Stop the build if there are Python syntax errors or undefined names
         flake8 airflow/dags/ --count --select=E9,F63,F7,F82 --show-source --statistics
-        # Exit-zero treats all errors as warnings
+
+    - name: Run Flake8 (Advisory Style Guide)
+      run: |
         flake8 airflow/dags/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       continue-on-error: true
 
@@ -62,42 +65,16 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Cache pip packages
-      uses: actions/cache@v3
-      with:
-        path: ~/.cache/pip
-        key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
-        restore-keys: |
-          ${{ runner.os }}-pip-
-    
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install pytest pytest-cov pytest-mock
-        # Install minimal requirements for testing
-        pip install pandas boto3 python-dotenv
-    
-    - name: Create test directories
-      run: |
-        mkdir -p airflow/data/raw
-        mkdir -p airflow/data/processed
-        mkdir -p airflow/data/full_text
-    
+        # Tests exercise the real extractor/transformer stack. Airflow itself
+        # is stubbed by tests/conftest.py, so install the DAG requirements only.
+        pip install -r airflow/requirements.txt pytest
+
     - name: Run tests
       run: |
-        # When tests are created, this will run them
-        # pytest tests/ --cov=airflow/dags --cov-report=xml --cov-report=html
-        echo "No tests implemented yet. Add tests to tests/ directory."
-      continue-on-error: true
-    
-    - name: Upload coverage reports
-      if: always()
-      uses: codecov/codecov-action@v3
-      with:
-        files: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
-      continue-on-error: true
+        cd airflow/dags && python -m pytest tests/ -q
 
   validate-dags:
     name: Validate Airflow DAGs
@@ -112,7 +89,7 @@ jobs:
         python-version: '3.11'
     
     - name: Cache pip packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.cache/pip
         key: ${{ runner.os }}-pip-${{ hashFiles('**/requirements.txt') }}
@@ -196,15 +173,15 @@ jobs:
       with:
         python-version: '3.11'
     
-    - name: Install safety
+    - name: Install pip-audit
       run: |
         python -m pip install --upgrade pip
-        pip install safety
-    
-    - name: Run safety check
+        pip install pip-audit
+
+    - name: Run pip-audit
       run: |
         # Check for known security vulnerabilities in dependencies
-        safety check --file=airflow/requirements.txt --json || true
+        pip-audit -r airflow/requirements.txt --strict || true
       continue-on-error: true
     
     - name: Run Bandit (Security Linter)
@@ -315,5 +292,4 @@ jobs:
           echo "Please fix Dockerfile issues before merging."
           exit 1
         fi
-
 

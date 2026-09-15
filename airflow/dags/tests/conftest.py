@@ -1,0 +1,87 @@
+"""
+Test scaffolding: puts airflow/dags on sys.path (DAGs import each other as
+top-level packages -- data_loading.*, definitions.*) and stubs out the
+`airflow` package tree so data_loading.clients.postgres's
+`from airflow.providers.postgres.hooks.postgres import PostgresHook` succeeds
+without a real Airflow install. Tests replace PostgresHook themselves with a
+FakeHook (see fakes.py) to drive PostgresCLEClient without a live database.
+"""
+
+import os
+import sys
+import types
+
+DAGS_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+if DAGS_DIR not in sys.path:
+    sys.path.insert(0, DAGS_DIR)
+
+
+def _stub_package(name):
+    if name not in sys.modules:
+        module = types.ModuleType(name)
+        module.__path__ = []  # mark as a package so submodule imports resolve
+        sys.modules[name] = module
+    return sys.modules[name]
+
+
+_stub_package("airflow")
+_stub_package("airflow.models")
+_stub_package("airflow.operators")
+_stub_package("airflow.providers")
+_stub_package("airflow.providers.postgres")
+_stub_package("airflow.providers.postgres.hooks")
+_stub_package("airflow.utils")
+
+if "airflow.operators.python" not in sys.modules:
+    operators_python = types.ModuleType("airflow.operators.python")
+
+    class PythonOperator:
+        def __init__(self, **kwargs):
+            self.kwargs = kwargs
+
+    operators_python.PythonOperator = PythonOperator
+    sys.modules["airflow.operators.python"] = operators_python
+
+if "airflow.utils.task_group" not in sys.modules:
+    task_group_module = types.ModuleType("airflow.utils.task_group")
+
+    class TaskGroup:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    task_group_module.TaskGroup = TaskGroup
+    sys.modules["airflow.utils.task_group"] = task_group_module
+
+if "airflow.models.variable" not in sys.modules:
+    variable_module = types.ModuleType("airflow.models.variable")
+
+    class Variable:
+        @staticmethod
+        def get(key, default_var=None):
+            return default_var
+
+        @staticmethod
+        def set(key, value):
+            return None
+
+    variable_module.Variable = Variable
+    sys.modules["airflow.models.variable"] = variable_module
+
+if "airflow.providers.postgres.hooks.postgres" not in sys.modules:
+    hooks_postgres = types.ModuleType("airflow.providers.postgres.hooks.postgres")
+
+    class PostgresHook:  # placeholder; real tests monkeypatch this attribute
+        def __init__(self, postgres_conn_id=None):
+            self.postgres_conn_id = postgres_conn_id
+
+        def get_conn(self):
+            raise NotImplementedError("tests must monkeypatch PostgresHook/get_conn")
+
+    hooks_postgres.PostgresHook = PostgresHook
+    sys.modules["airflow.providers.postgres.hooks.postgres"] = hooks_postgres

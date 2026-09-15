@@ -1,5 +1,8 @@
 # GraphQL API 
 
+> [!WARNING|label:Superseded]
+> This AppSync/DynamoDB walkthrough predates issue #42's migration to Postgres and the [citations-api](https://github.com/MaastrichtU-BISS/citations-api) REST API, which is what the current [Case Law Explorer UI](https://github.com/MaastrichtU-BISS/citations) actually talks to. Left here for historical reference only; do not set this up for new work.
+
 This walkthrough will teach you how to setup your AWS account to run, load, and serve the from the defined sources (see [Datasets](/datasets/)). You will setup a GraphQL endpoint for your data using AWS AppSync. 
 
 ## Setup AWS

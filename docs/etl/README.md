@@ -1,7 +1,7 @@
 # Data extraction
 
 This walkthrough will teach you how to locally extract data from the defined sources, 
-transform it to be clean and in unified format, and optionally load it to an AWS DynamoDB database.
+transform it to be clean and in unified format, and optionally load it to Postgres.
 For more information about the data sources and the format of the extracted data see [Datasets](/datasets/).
 
 ## Setup
@@ -30,18 +30,12 @@ Create the environmental variables into the `.env` file, as suggested in [`.env.
 AIRFLOW_UID=5000
 URL_RS_ARCHIVE=http://static.rechtspraak.nl/PI/OpenDataUitspraken.zip
 
-# The variables below are used to setup the AWS databases
-AWS_ACCESS_KEY_ID=
-AWS_SECRET_ACCESS_KEY=
-AWS_REGION=
-AWS_DEFAULT_REGION=
+# Postgres (cle_v2) is configured as an Airflow connection (pg_cle), not env vars here -- see setup/?id=load
 
-DDB_TABLE_NAME=caselawexplorer-test
-DDB_TABLE_NAME_CELEX=caselawexplorer-celex-test
-DDB_NAME_ECHR=caselawexplorer-echr-test
-S3_BUCKET_NAME=caselawexplorer-load-test
-CELLAR_NODES_BUCKET_NAME=cellar-nodes-edges-bucket
+SEGMENTATION_API_URL=http://legal-summarizer-service/segment
+SUMMARIZATION_API_URL=http://legal-summarizer-service/summarize
 
+# The variables below are only relevant to the legacy GraphQL/AppSync path (see /graphql/), not the main ETL
 APPSYNC_ENDPOINT=appsync-endpoint-here
 COGNITO_USER_KEY=my-user-key-here
 COGNITO_CLIENT_ID=client-secret-here
@@ -83,7 +77,7 @@ In the storage location, the data directory follows the structure of:
 ## Extract
 
 This walkthrough will extract data from the defined [datasets](/datasets/) into the local storage.
-If you wish to eventually load the processed data into an AWS DynamoDB database, please first follow our guide on [setting up AWS](/graphql/?id=setup-aws).
+If you wish to eventually load the processed data into Postgres, please first follow our guide on [setting up the pg_cle connection](/setup/?id=load).
 
 ### Rechtspraak data
 
@@ -191,10 +185,11 @@ $ python3 airflow/dags/data_transformation/data_transformer.py
 
 ## Load
 
-If you would like to load the data into AWS services instead, please first follow our guide on [setting up AWS](/graphql/?id=setup-aws).
-The [data loader script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/data_loading/data_loader.py) 
-loads the data into the DynamoDB table defined in the `.env` file.
+> [!important] Postgres, not AWS (issue #42)
+> The data loader now targets the `cle_v2` Postgres schema (via the `pg_cle` Airflow connection) instead of DynamoDB/OpenSearch/S3. Set it up per [setup > Load](/setup/?id=load); the old "setting up AWS" walkthrough only applies to the now-superseded [GraphQL/AppSync](/graphql/) path.
 
+The [data loader script](https://github.com/maastrichtlawtech/case-law-explorer/blob/master/airflow/dags/data_loading/data_loader.py)
+loads the data into Postgres.
 
 ```bash
 python3 airflow/dags/data_loading/data_loader.py
@@ -215,12 +210,8 @@ python3 airflow/dags/data_loading/data_loader.py
 - `data/processed/DDB_eclis_failed.csv`
 
 **Functionality:**
-- For each input file: reads input file by row
-- Analyzes row and creates items to put or update in DynamoDB table according to key schema
+- For each metadata input file: reads input file by row, upserts into `cases` + the source-specific detail table (`rs_document` / `cjeu_document` / `echr_document`)
 (see [row_processors reference](reference/row-processors))
-- Analyzes row and creates items to index or update in OpenSearch index
-([row_processors reference](/reference/row-processors/?id=opensearch-service))
-- Loads items to DynamoDB table and/or OpenSearch index as defined in `.env` file
-- Writes errors and item keys/item IDs of failed loading attempts to `data/processed/DDB_eclis_failed.csv`
-- For each full_text file, uploads separate json files containing full-text information for each ECHR/CELLAR case in the AWS bucket.
-- For the nodes and edges for ECHR/CELLAR, it uploads the files onto the nodes-and-edges-bucket or updates the existing files.
+- Writes errors and item keys/item IDs of failed upsert attempts to `data/processed/DDB_eclis_failed.csv`
+- For each full_text file, upserts each case's full text directly into `case_text.fulltext` (`case_text_loader.py`)
+- For the nodes and edges for ECHR/CELLAR, upserts each edge into `case_citation`, resolving `case_id` by ecli/celex where possible (`citation_graph_loader.py`)
