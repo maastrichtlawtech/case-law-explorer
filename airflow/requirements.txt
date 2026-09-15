@@ -9,7 +9,7 @@
 cellar_extractor==2.0.2
 # Includes bounded conversion concurrency, transient 5xx retries with backoff,
 # and language-placeholder filtering.
-echr_extractor==1.3.4
+echr_extractor==1.3.5
 rechtspraak_extractor==1.6.0
 rechtspraak_citations_extractor==1.2.0
 rechtspraak-lido-sqlite==0.2.0
