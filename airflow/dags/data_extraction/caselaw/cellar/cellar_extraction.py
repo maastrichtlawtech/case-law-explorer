@@ -66,19 +66,34 @@ def _full_text_case_coverage(metadata, full_text_records):
     if "celex" not in metadata.columns:
         return 0.0
     metadata_ids = {
-        str(value).split(";", 1)[0].strip()
-        for value in metadata["celex"].dropna()
-        if str(value).strip()
+        cell.normalize_celex(value) for value in metadata["celex"].dropna() if str(value).strip()
     }
     if not metadata_ids:
         return 1.0
     text_ids = {
-        str(record.get("celex", "")).split(";", 1)[0].strip()
+        cell.normalize_celex(record.get("celex", ""))
         for record in full_text_records
         if isinstance(record, dict)
         and str(record.get("full_text") or record.get("text") or "").strip()
     }
     return len(metadata_ids & text_ids) / len(metadata_ids)
+
+
+def _noncanonical_fulltext_celexes(full_text_records):
+    """Return derived/composite CELEX values forbidden in full-text output.
+
+    The fixed extractor stamps the canonical base work on every full-text
+    record. A suffix or composite value here means an older package queried a
+    summary, résumé, or notice work and the Airflow batch must not be loaded.
+    """
+    invalid = []
+    for record in full_text_records:
+        if not isinstance(record, dict):
+            continue
+        raw = str(record.get("celex") or "").strip()
+        if raw and raw != cell.normalize_celex(raw):
+            invalid.append(raw)
+    return sorted(set(invalid))
 
 
 def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
@@ -182,23 +197,22 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     final_full_texts = [
         record
         for record in full_text_json
-        if isinstance(record, dict)
-        and not str(record.get("celex") or "").startswith("8")
+        if isinstance(record, dict) and not str(record.get("celex") or "").startswith("8")
     ]
+    noncanonical_celexes = _noncanonical_fulltext_celexes(final_full_texts)
+    if noncanonical_celexes:
+        raise RuntimeError(
+            "CELLAR emitted non-canonical full-text CELEX identifiers; "
+            "refusing to load possible summary/notice manifestations: "
+            f"{noncanonical_celexes[:20]}"
+        )
     with open(paths["full_text"], "w") as f:
         json.dump(final_full_texts, f)
 
     coverage = _full_text_case_coverage(metadata, final_full_texts)
     minimum_coverage = float(getenv("CELLAR_MIN_TEXT_RATIO", "0.90"))
     missing_celex = (
-        int(
-            metadata["celex"]
-            .fillna("")
-            .astype(str)
-            .str.strip()
-            .isin({"", "nan", "None"})
-            .sum()
-        )
+        int(metadata["celex"].fillna("").astype(str).str.strip().isin({"", "nan", "None"}).sum())
         if "celex" in metadata.columns
         else len(metadata)
     )

@@ -105,9 +105,7 @@ def resolve_run_window(var_prefix, context):
             if interval_end is None:
                 raise ValueError("scheduled run has no data_interval_end")
             end = _as_date(interval_end, "data_interval_end") - timedelta(days=1)
-            lookback_months = get_nonnegative_int(
-                f"{var_prefix}_SCHEDULE_LOOKBACK_MONTHS", 2
-            )
+            lookback_months = get_nonnegative_int(f"{var_prefix}_SCHEDULE_LOOKBACK_MONTHS", 2)
             start = _first_day_months_before(end, lookback_months)
         else:
             start = _as_date(get_var(f"{var_prefix}_START_DATE"), f"{var_prefix}_START_DATE")
@@ -120,6 +118,14 @@ def resolve_run_window(var_prefix, context):
 def run_monthly_window(var_prefix, etl_callable, **context):
     """Run one source window in sequential month-sized chunks."""
     start, end, scheduled = resolve_run_window(var_prefix, context)
+    dag_run = context.get("dag_run")
+    conf = (getattr(dag_run, "conf", None) or {}) if dag_run else {}
+    requested_refresh = str(conf.get("force_refresh", "false")).lower() in {
+        "true",
+        "1",
+        "yes",
+    }
+    force_refresh = scheduled or requested_refresh
     logging.info("Resolved %s window %s to %s", var_prefix, start, end)
     current = start
     while current <= end:
@@ -131,7 +137,7 @@ def run_monthly_window(var_prefix, etl_callable, **context):
             start_date=datetime.combine(current, datetime.min.time()),
             end_date=datetime.combine(chunk_end, datetime.min.time()),
             _data_path=get_data_path(),
-            force_refresh=scheduled,
+            force_refresh=force_refresh,
             is_final_chunk=chunk_end == end,
         )
         current = chunk_end + timedelta(days=1)

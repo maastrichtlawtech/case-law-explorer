@@ -64,6 +64,28 @@ def test_monthly_runner_is_sequential_and_refreshes_scheduled_artifacts(monkeypa
     assert [call["is_final_chunk"] for call in calls] == [False, False, True]
 
 
+def test_manual_backfill_can_force_refresh_historical_artifacts(monkeypatch):
+    calls = []
+    monkeypatch.setattr(etl_factory, "get_data_path", lambda: "/data")
+
+    etl_factory.run_monthly_window(
+        "CELLAR",
+        lambda **kwargs: calls.append(kwargs),
+        dag_run=SimpleNamespace(
+            run_id="manual__cellar_repair",
+            run_type="manual",
+            conf={
+                "window_start": "2011-01-01",
+                "window_end": "2011-02-28",
+                "force_refresh": True,
+            },
+        ),
+    )
+
+    assert len(calls) == 2
+    assert all(call["force_refresh"] for call in calls)
+
+
 def test_successful_run_registers_exact_controller_window():
     context = {
         "dag_run": SimpleNamespace(

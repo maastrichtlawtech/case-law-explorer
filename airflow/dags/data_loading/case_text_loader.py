@@ -29,9 +29,7 @@ def load_fulltext(client, files_location_paths: list) -> None:
         loaded = 0
         if file_name == os.path.basename(JSON_FULL_TEXT_ECHR):
             loaded = _load_echr_fulltext(client, data)
-            logging.info(
-                f"{loaded}/{len(data)} full-text records loaded from {file_name}"
-            )
+            logging.info(f"{loaded}/{len(data)} full-text records loaded from {file_name}")
             continue
         for item in data:
             if file_name == os.path.basename(JSON_FULL_TEXT_CELLAR):
@@ -39,7 +37,14 @@ def load_fulltext(client, files_location_paths: list) -> None:
                 # (for example ``62025CJ0051;62025CJ0051_SUM``).  Metadata is
                 # normalized to the canonical, non-suffixed CELEX before the
                 # case row is stored, so resolve full text by that same value.
-                celex = format_cellar_celex(item["celex"])
+                raw_celex = str(item["celex"]).strip()
+                celex = format_cellar_celex(raw_celex)
+                if raw_celex != celex:
+                    raise ValueError(
+                        "Refusing non-canonical CELLAR full-text CELEX "
+                        f"{raw_celex!r}; rerun extraction with the pinned "
+                        "cellar-extractor revision"
+                    )
                 case_id = client.resolve_case_id(celex_id=celex)
                 if case_id is None:
                     logging.info(f"No case found for celex {celex}, skipping full text")

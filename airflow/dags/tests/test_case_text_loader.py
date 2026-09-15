@@ -1,6 +1,7 @@
 import json
 import os
 
+import pytest
 from data_loading.case_text_loader import load_fulltext
 from definitions.storage_handler import JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR
 
@@ -63,9 +64,7 @@ def test_cellar_fulltexts_keep_each_translation_language(tmp_path):
 def test_cellar_fulltext_accepts_legacy_language_key(tmp_path):
     path = tmp_path / os.path.basename(JSON_FULL_TEXT_CELLAR)
     path.write_text(
-        json.dumps(
-            [{"celex": "62026CJ0001", "language": "DE", "full_text": "Deutsch"}]
-        ),
+        json.dumps([{"celex": "62026CJ0001", "language": "DE", "full_text": "Deutsch"}]),
         encoding="utf-8",
     )
     client = RecordingClient()
@@ -75,7 +74,7 @@ def test_cellar_fulltext_accepts_legacy_language_key(tmp_path):
     assert client.rows[0]["language"] == "de"
 
 
-def test_cellar_fulltext_resolves_composite_celex_by_canonical_id(tmp_path):
+def test_cellar_fulltext_rejects_noncanonical_celex(tmp_path):
     path = tmp_path / os.path.basename(JSON_FULL_TEXT_CELLAR)
     path.write_text(
         json.dumps(
@@ -91,24 +90,16 @@ def test_cellar_fulltext_resolves_composite_celex_by_canonical_id(tmp_path):
     )
     client = RecordingClient()
 
-    load_fulltext(client, [str(path)])
+    with pytest.raises(ValueError, match="Refusing non-canonical CELLAR"):
+        load_fulltext(client, [str(path)])
 
-    assert client.rows == [
-        {
-            "case_id": 42,
-            "language": "en",
-            "source": "CELLAR_ITEM",
-            "fulltext": "English",
-        }
-    ]
+    assert client.rows == []
 
 
 def test_hudoc_fulltext_normalizes_three_letter_language(tmp_path):
     path = tmp_path / os.path.basename(JSON_FULL_TEXT_ECHR)
     path.write_text(
-        json.dumps(
-            [{"item_id": "001-12345", "language": "FRE", "full_text": "Français"}]
-        ),
+        json.dumps([{"item_id": "001-12345", "language": "FRE", "full_text": "Français"}]),
         encoding="utf-8",
     )
     client = RecordingClient()
