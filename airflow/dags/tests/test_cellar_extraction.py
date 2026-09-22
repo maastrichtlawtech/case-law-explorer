@@ -2,7 +2,9 @@ import pandas as pd
 from data_extraction.caselaw.cellar.cellar_extraction import (
     _artifacts_complete,
     _full_text_case_coverage,
+    _metadata_identity_conflicts,
     _noncanonical_fulltext_celexes,
+    _normalize_celex,
     _write_lines,
 )
 
@@ -63,3 +65,21 @@ def test_noncanonical_fulltext_celexes_rejects_derived_work_ids():
         "62026CJ0002_SUM",
         "62026CJ0003;62026CJ0003_RES",
     ]
+
+
+def test_normalize_celex_converts_infocuria_numbered_variant():
+    assert _normalize_celex("62011FO0005.01") == "62011FO0005(01)"
+
+
+def test_metadata_identity_conflicts_reports_one_ecli_with_two_celexes():
+    metadata = pd.DataFrame(
+        [
+            {"ecli": "ECLI:EU:T:2014:1", "celex": "62013TO0505(01)"},
+            {"ecli": "ECLI:EU:T:2014:1", "celex": "62013TO0505(02)"},
+            {"ecli": "ECLI:EU:T:2014:166", "celex": "62013TO0505.03"},
+        ]
+    )
+
+    assert _metadata_identity_conflicts(metadata) == {
+        "ECLI:EU:T:2014:1": ["62013TO0505(01)", "62013TO0505(02)"]
+    }

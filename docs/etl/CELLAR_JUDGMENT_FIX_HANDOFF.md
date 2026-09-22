@@ -21,26 +21,36 @@ were repaired to base `CJ` judgments but 310 still pointed at derived works:
 Airflow must use this immutable `cellar-extractor` revision:
 
 ```text
-2898f3123305d29069654a418f6b6691a4bfbf97
+a0d686dc854a434fe7fb4829c3d353dc37c6ab58
 ```
 
-Upstream PR: <https://github.com/maastrichtlawtech/cellar-extractor/pull/14>
+Upstream PR: <https://github.com/maastrichtlawtech/cellar-extractor/pull/15>
 
 The revision:
 
+- enumerates the date-windowed InfoCuria document catalogue alongside CELLAR
+  SPARQL, adding official orders and judgments missing from the CELLAR graph;
+- lets InfoCuria correct ECLI/CELEX identity fields while retaining richer
+  CELLAR metadata;
+- requires an exact requested CELEX before choosing a document from an
+  InfoCuria procedure, so a sibling judgment cannot populate an order row;
+- limits language fanout to the selected logical document instead of every
+  document in the procedure;
+- converts InfoCuria numbered CELEX variants such as `.01` to EUR-Lex's
+  canonical `(01)` notation;
 - canonicalizes CELEX at the public manifestation API boundary;
 - exposes `normalize_celex()` publicly;
 - lets canonical CELLAR manifestations replace overlapping InfoCuria bodies;
 - retains InfoCuria metadata while making CELLAR authoritative for full text;
-- has 140 passing unit tests (53 integration tests skipped unless explicitly
+- has 144 passing unit tests (53 integration tests skipped unless explicitly
   enabled).
 
 `airflow/requirements.txt` pins the revision through an immutable Git URL, and
 the Airflow image installs `git` for that build. A GitHub source archive is not
 usable because `setuptools-scm` needs repository metadata to determine the
-package version. Do not change the pin back to PyPI `2.0.2`; that release
-predates the fix. Move back to PyPI only after an upstream release containing
-PR #14 is verified.
+package version. Do not change the pin back to PyPI `2.0.3`; that release
+contains the earlier manifestation fix but not catalogue reconciliation. Move
+back to PyPI only after an upstream release containing PR #15 is verified.
 
 ## Airflow safeguards in this branch
 
@@ -48,6 +58,8 @@ PR #14 is verified.
 - Extraction refuses to write a full-text artifact containing composite or
   suffixed CELEX identifiers. This fails before the load stage.
 - The full-text loader independently refuses non-canonical CELLAR identifiers.
+- Extraction logs ECLI/CELEX identity cardinalities and refuses an ECLI mapped
+  to multiple canonical CELEX identifiers in the same window.
 - Manual DAG runs now accept `"force_refresh": true`; this is essential because
   existing month-scoped raw artifacts were produced with the old package and
   would otherwise be reused.
@@ -80,9 +92,9 @@ and forced extraction:
 ```json
 {
   "window_start": "1954-01-01",
-  "window_end": "2026-09-15",
+  "window_end": "2026-09-22",
   "force_refresh": true,
-  "requested_by": "cellar-judgment-repair"
+  "requested_by": "cellar-catalogue-reconciliation"
 }
 ```
 
@@ -108,6 +120,25 @@ Before declaring the repair complete:
 5. Compare pre/post controls: total cases, citations, Rechtspraak texts, and
    HUDOC texts must not move as a consequence of this repair.
 6. Only then re-enable the normal `cellar_etl` schedule and communicate closure.
+
+Also verify the identities that exposed the catalogue gap. At minimum the
+rebuilt output must include these current InfoCuria mappings:
+
+- `ECLI:EU:C:2013:654` -> `62012CO0041`
+- `ECLI:EU:C:2013:656` -> `62011CO0444`
+- `ECLI:EU:C:2014:72` -> `62013CO0298`
+- `ECLI:EU:C:2021:965` -> `62021CO0201(01)`
+- `ECLI:EU:F:2011:62` -> `62011FO0005`
+- `ECLI:EU:T:2003:190` -> `62002TJ0065`
+- `ECLI:EU:T:2014:1` -> `62013TO0505(02)`
+- `ECLI:EU:T:2014:166` -> `62013TO0505(03)`
+
+Do not reintroduce stale production aliases merely to make corpus and database
+counts equal. `ECLI:EU:C:2012:820` and `ECLI:EU:T:2026:68`, for example, are
+not present in the current InfoCuria catalogue; their CELEX identifiers resolve
+there to `ECLI:EU:C:2012:834` and `ECLI:EU:T:2026:79` respectively. Reconcile
+production identities from the authoritative rebuilt corpus and retain an audit
+of aliases rather than loading both rows.
 
 ## Current production warning (2026-09-15)
 

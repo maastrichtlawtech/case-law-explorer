@@ -6,6 +6,7 @@ import argparse
 import json
 import logging
 import os
+import re
 import ssl
 import sys
 import time
@@ -81,7 +82,26 @@ def _normalize_celex(value):
         normalized = non_inf[0] if non_inf else options[0]
     if "_" in normalized:
         normalized = normalized.split("_")[0]
+    normalized = re.sub(r"\.(\d{2})$", r"(\1)", normalized)
     return normalized
+
+
+def _metadata_identity_conflicts(metadata):
+    """Return ECLIs associated with multiple canonical CELEX identifiers."""
+    if "ecli" not in metadata.columns or "celex" not in metadata.columns:
+        return {}
+    by_ecli = {}
+    for ecli, celex in metadata[["ecli", "celex"]].itertuples(index=False, name=None):
+        ecli_value = str(ecli or "").strip()
+        celex_value = _normalize_celex(celex)
+        if ecli_value in {"", "nan", "None"} or celex_value == "":
+            continue
+        by_ecli.setdefault(ecli_value, set()).add(celex_value)
+    return {
+        ecli: sorted(celexes)
+        for ecli, celexes in by_ecli.items()
+        if len(celexes) > 1
+    }
 
 
 def _full_text_case_coverage(metadata, full_text_records):
@@ -239,16 +259,44 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
         if "celex" in metadata.columns
         else len(metadata)
     )
+    missing_ecli = (
+        int(
+            metadata["ecli"]
+            .fillna("")
+            .astype(str)
+            .str.strip()
+            .isin({"", "nan", "None"})
+            .sum()
+        )
+        if "ecli" in metadata.columns
+        else len(metadata)
+    )
+    identity_conflicts = _metadata_identity_conflicts(metadata)
     logging.info(
-        "ETL_QUALITY source=CELLAR metadata_rows=%s missing_celex=%s "
-        "case_fulltext_ratio=%.4f threshold=%.4f",
+        "ETL_QUALITY source=CELLAR metadata_rows=%s unique_eclis=%s "
+        "unique_celexes=%s missing_ecli=%s missing_celex=%s "
+        "identity_conflicts=%s case_fulltext_ratio=%.4f threshold=%.4f",
         len(metadata),
+        metadata["ecli"].nunique() if "ecli" in metadata.columns else 0,
+        metadata["celex"].map(_normalize_celex).nunique()
+        if "celex" in metadata.columns
+        else 0,
+        missing_ecli,
         missing_celex,
+        len(identity_conflicts),
         coverage,
         minimum_coverage,
     )
+    if missing_ecli:
+        raise RuntimeError(f"CELLAR metadata contains {missing_ecli} rows without ECLI")
     if missing_celex:
         raise RuntimeError(f"CELLAR metadata contains {missing_celex} rows without CELEX")
+    if identity_conflicts:
+        sample = list(identity_conflicts.items())[:20]
+        raise RuntimeError(
+            "CELLAR metadata contains ECLI/CELEX identity conflicts; "
+            f"refusing to load this batch: {sample}"
+        )
     if coverage < minimum_coverage:
         raise RuntimeError(
             f"CELLAR case full-text coverage {coverage:.3f} is below "
