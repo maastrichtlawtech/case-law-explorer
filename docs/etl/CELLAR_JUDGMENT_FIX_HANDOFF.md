@@ -21,7 +21,7 @@ were repaired to base `CJ` judgments but 310 still pointed at derived works:
 Airflow must use this immutable `cellar-extractor` revision:
 
 ```text
-a0d686dc854a434fe7fb4829c3d353dc37c6ab58
+d6024cf6f2773a885906f71116b5431eadefd8dc
 ```
 
 Upstream PR: <https://github.com/maastrichtlawtech/cellar-extractor/pull/15>

@@ -6,7 +6,7 @@
 # https://raw.githubusercontent.com/apache/airflow/constraints-<version>/constraints-3.11.txt
 
 # caselaw source extractors
-cellar_extractor @ git+https://github.com/davidwickerhf/cellar-extractor.git@a0d686dc854a434fe7fb4829c3d353dc37c6ab58
+cellar_extractor @ git+https://github.com/davidwickerhf/cellar-extractor.git@d6024cf6f2773a885906f71116b5431eadefd8dc
 # Includes bounded conversion concurrency, transient 5xx retries with backoff,
 # and language-placeholder filtering.
 echr_extractor==1.3.5
