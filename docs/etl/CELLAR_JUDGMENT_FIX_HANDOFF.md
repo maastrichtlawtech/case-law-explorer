@@ -16,17 +16,19 @@ Kamil's 604-case check exposed the failure. In the 2026-09-15 HF snapshot, 294
 were repaired to base `CJ` judgments but 310 still pointed at derived works:
 282 `_SUM`, 27 `_RES`, and 1 `_INF`.
 
-## Fixed package revision
+## Fixed package release
 
-Airflow must use this immutable `cellar-extractor` revision:
+Airflow must use `cellar-extractor` 2.0.4 or later (`airflow/requirements.txt`):
 
 ```text
-d6024cf6f2773a885906f71116b5431eadefd8dc
+cellar_extractor>=2.0.4
 ```
 
-Upstream PR: <https://github.com/maastrichtlawtech/cellar-extractor/pull/15>
+Upstream PR: <https://github.com/maastrichtlawtech/cellar-extractor/pull/15>, merged and
+released as [2.0.4](https://pypi.org/project/cellar-extractor/2.0.4/). Until then the
+requirement pinned the PR's head commit, `d6024cf`, from a fork.
 
-The revision:
+The release:
 
 - enumerates the date-windowed InfoCuria document catalogue alongside CELLAR
   SPARQL, adding official orders and judgments missing from the CELLAR graph;
@@ -45,12 +47,11 @@ The revision:
 - has 144 passing unit tests (53 integration tests skipped unless explicitly
   enabled).
 
-`airflow/requirements.txt` pins the revision through an immutable Git URL, and
-the Airflow image installs `git` for that build. A GitHub source archive is not
-usable because `setuptools-scm` needs repository metadata to determine the
-package version. Do not change the pin back to PyPI `2.0.3`; that release
-contains the earlier manifestation fix but not catalogue reconciliation. Move
-back to PyPI only after an upstream release containing PR #15 is verified.
+The 2.0.4 wheel on PyPI was checked against the PR #15 merge commit (`792a41d`):
+every module is identical. Do not allow `2.0.3` or older; it contains the
+earlier manifestation fix but not catalogue reconciliation. The requirement
+previously used an immutable Git URL, which needed `git` in the Airflow image;
+the released package does not.
 
 ## Airflow safeguards in this branch
 
