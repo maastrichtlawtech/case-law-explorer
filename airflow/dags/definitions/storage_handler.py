@@ -17,22 +17,17 @@ DIR_ROOT = dirname(dirname(dirname(abspath(__file__))))
 DIR_DATA = join(DIR_ROOT, "data")
 DIR_LOGS = join(DIR_ROOT, "logs")
 DIR_DATA_RAW = join(DIR_DATA, "raw")
-DIR_DATA_RECHTSPRAAK = join(DIR_DATA, "Rechtspraak")
 DIR_DATA_PROCESSED = join(DIR_DATA, "processed")
 DIR_DATA_FULL_TEXT = join(DIR_DATA, "full_text")
 
 # data file names
-DIR_RECHTSPRAAK = join(DIR_DATA, "Rechtspraak", "OpenDataUitspraken")
-DIR_ECHR = join(DIR_DATA, "echr")
-CELLAR_DIR = join(DIR_DATA, "cellar")
 CSV_RS_CASES = "RS_cases.csv"  # metadata of RS cases
 CSV_CELLAR_CASES = "cellar_csv_data.csv"  # Metadata of CELLAR cases
 TXT_CELLAR_EDGES = "cellar_edges.txt"
 TXT_CELLAR_NODES = "cellar_nodes.txt"
 TXT_ECHR_EDGES = "ECHR_edges.txt"
 TXT_ECHR_NODES = "ECHR_nodes.txt"
-CSV_RS_INDEX = "RS_index.csv"  # eclis, decision dates and relations of RS cases and opinions
-CSV_DDB_ECLIS_FAILED = "DDB_eclis_failed.csv"
+CSV_LOAD_FAILED = "load_failed_rows.csv"  # rows that failed to upsert into Postgres
 CSV_ECHR_CASES = "ECHR_metadata.csv"
 CSV_ECHR_CASES_NODES = "ECHR_nodes.csv"
 CSV_ECHR_CASES_EDGES = "ECHR_edges.csv"

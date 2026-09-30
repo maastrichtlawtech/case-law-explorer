@@ -51,6 +51,12 @@ x-airflow-common:
   # and uncomment the "build" line below, Then run `docker-compose build` to build the images.
   # image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.10.5}
   build: ./airflow
+  # Loads .env's plain KEY=VALUE pairs (RS_START_DATE, CELLAR_START_DATE,
+  # ECHR_START_DATE, DATA_PATH, etc.) directly into every Airflow container's
+  # process environment, so DAGs' Variable.get(..., default_var=os.getenv(...))
+  # fallbacks resolve without needing a separate `airflow variables set` step.
+  env_file:
+    - .env
   environment:
     &airflow-common-env
     AIRFLOW__CORE__EXECUTOR: CeleryExecutor
@@ -61,6 +67,13 @@ x-airflow-common:
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__API__AUTH_BACKENDS: 'airflow.api.auth.backend.basic_auth,airflow.api.auth.backend.session'
+    # Defaults (16 celery workers, 4 gunicorn workers) are sized for a
+    # multi-user production install; this is a single-node local setup where
+    # DAGs mostly run one at a time, and the idle worker pool was found
+    # sitting in swap alongside a large merge task, contributing to host
+    # memory pressure that triggered OOM kills of unrelated processes.
+    AIRFLOW__CELERY__WORKER_CONCURRENCY: '2'
+    AIRFLOW__WEBSERVER__WORKERS: '2'
     # yamllint disable rule:line-length
     # Use simple http server on scheduler for health checks
     # See https://airflow.apache.org/docs/apache-airflow/stable/administration-and-deployment/logging-monitoring/check-health.html#scheduler-health-check-server
@@ -102,6 +115,28 @@ services:
       start_period: 5s
     restart: always
 
+  # Local target for the pg_cle Airflow connection (issue #42) -- separate
+  # from the `postgres` service above, which is Airflow's own metadata DB.
+  # Not part of airflow-common-depends-on: the DAGs that use it fail their
+  # own tasks if it's unreachable, same as any other external connection.
+  cle-postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: cle
+      POSTGRES_PASSWORD: cle
+      POSTGRES_DB: cle_v2
+    volumes:
+      - cle-postgres-db-volume:/var/lib/postgresql/data
+      - ./db/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "cle"]
+      interval: 10s
+      retries: 5
+      start_period: 5s
+    restart: always
+
   redis:
     # Redis is limited to 7.2-bookworm due to licencing change
     # https://redis.io/blog/redis-adopts-dual-source-available-licensing/
@@ -120,7 +155,7 @@ services:
     <<: *airflow-common
     command: webserver
     ports:
-      - "8080:8080"
+      - "8081:8080"
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
       interval: 30s
@@ -287,3 +322,4 @@ services:
 
 volumes:
   postgres-db-volume:
+  cle-postgres-db-volume:
