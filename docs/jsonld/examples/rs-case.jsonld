@@ -1,0 +1,217 @@
+{
+  "@context": "cle.context.jsonld",
+  "@graph": [
+    {
+      "id": "case/ECLI:NL:HR:2024:1",
+      "type": "cle:Case",
+      "identifier": "ECLI:NL:HR:2024:1",
+      "ecli": "ECLI:NL:HR:2024:1",
+      "celexId": null,
+      "itemId": "ECLI:NL:HR:2024:1",
+      "externalRef": null,
+      "title": { "@value": "Arbeidsongeschiktheidsuitkering en passende arbeid", "@language": "nl" },
+      "dateDecision": "2024-01-12",
+      "datePublished": "2024-01-19",
+      "language": "http://lexvo.org/id/iso639-1/nl",
+      "importance": 2,
+      "isLandmark": true,
+      "sourceDataset": [ "dataset/RECHTSPRAAK", "dataset/LIDO" ],
+      "court": "court/HR",
+      "documentType": "concept/documenttype/Uitspraak",
+      "procedureType": "concept/proceduretype/Cassatie",
+      "instanceRef": "concept/instance/HogeRaad",
+      "subject": [ "domain/RS-1001", "domain/RS-2050" ],
+      "citesCount": 3,
+      "citedByCount": 41,
+      "countsUpdatedAt": "2026-04-01T02:15:00Z",
+      "createdAt": "2025-11-03T09:12:44Z",
+      "updatedAt": "2026-04-01T02:15:00Z",
+
+      "hasDocument": [ {
+        "id": "case/ECLI:NL:HR:2024:1/document/RECHTSPRAAK",
+        "type": "cle:RechtspraakDocument",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "sourceDataset": "dataset/RECHTSPRAAK",
+        "instanceText": "Hoge Raad",
+        "documentTypeText": "Uitspraak",
+        "publicationUrl": "https://uitspraken.rechtspraak.nl/#!/details?id=ECLI:NL:HR:2024:1",
+        "title": { "@value": "Arbeidsongeschiktheidsuitkering en passende arbeid", "@language": "nl" },
+        "language": "http://lexvo.org/id/iso639-1/nl",
+        "zaaknummer": "22/04123",
+        "hearingLocation": "Den Haag",
+        "opendataStatus": "public",
+        "accessRights": "http://rightsstatements.org/vocab/InC/1.0/",
+        "replacesIdentifier": null,
+        "creator": "https://www.rechtspraak.nl/Organisatie-en-contact/Organisatie/Hoge-Raad-der-Nederlanden",
+        "jurisdictionCountry": "NL",
+        "dateIssued": "2024-01-12",
+        "hasExternalAuthority": [ {
+            "id": "case/ECLI:NL:HR:2024:1/authority/1",
+            "type": "cle:ExternalAuthority",
+            "authority": "CRvB",
+            "kind": "other"
+          } ]
+      } ],
+
+      "hasText": [ {
+        "id": "case/ECLI:NL:HR:2024:1/text/nl/RECHTSPRAAK",
+        "type": "cle:TextVariant",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "language": "http://lexvo.org/id/iso639-1/nl",
+        "sourceDataset": "dataset/RECHTSPRAAK",
+        "textFormat": "text/html",
+        "isStub": false,
+        "fullText": { "@value": "(full judgment text omitted)", "@language": "nl" },
+        "summaryText": { "@value": "De Hoge Raad oordeelt dat ...", "@language": "nl" },
+        "embeddingModel": "multilingual-e5-base",
+        "createdAt": "2025-11-03T09:12:44Z",
+        "updatedAt": "2026-03-30T11:02:10Z"
+      } ],
+
+      "hasSummary": [ {
+        "id": "case/ECLI:NL:HR:2024:1/summary/42",
+        "type": "cle:SummaryVersion",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "language": "http://lexvo.org/id/iso639-1/nl",
+        "summaryText": { "@value": "De Hoge Raad oordeelt dat ...", "@language": "nl" },
+        "segmentScope": "full",
+        "versionNumber": 2,
+        "isCurrent": true,
+        "generationSource": "LLM",
+        "summarizationModel": "gpt-4o-mini-2024-07-18",
+        "embeddingModel": "multilingual-e5-base",
+        "parentVersion": "case/ECLI:NL:HR:2024:1/summary/41",
+        "createdAt": "2026-03-30T11:02:10Z"
+      } ],
+
+      "hasSegment": [ {
+        "id": "case/ECLI:NL:HR:2024:1/segment/99887",
+        "type": "cle:Segment",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "language": "http://lexvo.org/id/iso639-1/nl",
+        "segmentType": "overweging",
+        "segmentIndex": 12,
+        "segmentHash": "b41d8a0f7e1c",
+        "fullText": { "@value": "(omitted)", "@language": "nl" },
+        "extractorVersion": "rs-2026.03",
+        "createdAt": "2026-03-30T11:02:10Z"
+      } ],
+
+      "hasCitation": [ {
+        "id": "citation/5501",
+        "type": "cle:Citation",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "targetCase": "case/ECLI:NL:HR:2022:1397",
+        "targetEcliRaw": "ECLI:NL:HR:2022:1397",
+        "targetCelexRaw": null,
+        "relationType": "cites",
+        "weight": 2,
+        "sourceDataset": "dataset/RECHTSPRAAK",
+        "isCrossJurisdiction": false,
+        "contextSegment": "case/ECLI:NL:HR:2024:1/segment/99887",
+        "extractedAt": "2026-02-14T03:00:00Z",
+        "extractorVersion": "citation-extractor-1.4.0"
+      } ],
+      "cites": "case/ECLI:NL:HR:2022:1397",
+
+      "hasLawReference": [ {
+        "id": "lawref/3311",
+        "type": "cle:CaseLawReference",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "targetLegislation": "http://wetten.overheid.nl/id/BWBR0001840",
+        "targetProvision": "provision/lido-12345",
+        "rawScheme": "bwb",
+        "rawResource": "BWBR0001840",
+        "rawSubdivision": "7",
+        "rawReference": "Artikel 7:629 BW",
+        "rawLabelId": 12345,
+        "versionDate": "2023-07-01",
+        "referenceRole": "cited",
+        "sourceDataset": "dataset/RECHTSPRAAK",
+        "createdAt": "2026-02-14T03:00:00Z"
+      } ],
+
+      "hasPartyRole": [ {
+        "id": "case/ECLI:NL:HR:2024:1/party/2210/verweerder/1",
+        "type": "cle:CasePartyRole",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "party": "party/2210",
+        "role": "verweerder",
+        "ordinal": 1
+      } ],
+
+      "hasJudgeRole": [ {
+        "id": "case/ECLI:NL:HR:2024:1/judge/4711/raadsheer/1",
+        "type": "cle:CaseJudgeRole",
+        "sourceCase": "case/ECLI:NL:HR:2024:1",
+        "judge": "judge/4711",
+        "role": "raadsheer"
+      } ]
+    },
+
+    {
+      "id": "court/HR",
+      "type": "cle:Court",
+      "courtCode": "HR",
+      "prefLabel": { "nl": "Hoge Raad der Nederlanden", "en": "Supreme Court of the Netherlands" },
+      "level": "supreme",
+      "inJurisdiction": "jurisdiction/NL"
+    },
+    {
+      "id": "jurisdiction/NL",
+      "type": "cle:Jurisdiction",
+      "isoCode": "NL",
+      "prefLabel": { "nl": "Nederland", "en": "Netherlands" },
+      "level": "country"
+    },
+    {
+      "id": "judge/4711",
+      "type": "cle:Judge",
+      "fullName": "J. de Vries",
+      "aliases": [ "J. de Vries-Vos" ],
+      "court": "court/HR"
+    },
+    {
+      "id": "party/2210",
+      "type": "cle:Party",
+      "canonicalName": "UWV",
+      "aliases": [ "Uitvoeringsinstituut Werknemersverzekeringen" ],
+      "partyRoleClass": "public_body",
+      "countryIso": "NL"
+    },
+    {
+      "id": "domain/RS-1001",
+      "type": "cle:Domain",
+      "scheme": "rechtspraak",
+      "prefLabel": { "nl": "Arbeidsrecht", "en": "Labour law" },
+      "exactMatch": "http://eurovoc.europa.eu/5152"
+    },
+    {
+      "id": "domain/RS-2050",
+      "type": "cle:Domain",
+      "scheme": "rechtspraak",
+      "prefLabel": { "nl": "Socialezekerheidsrecht" }
+    },
+    {
+      "id": "concept/documenttype/Uitspraak",
+      "type": "skos:Concept",
+      "inScheme": "scheme/documenttype",
+      "notation": "Uitspraak",
+      "prefLabel": { "nl": "Uitspraak", "en": "Judgment" }
+    },
+    {
+      "id": "concept/proceduretype/Cassatie",
+      "type": "skos:Concept",
+      "inScheme": "scheme/proceduretype",
+      "notation": "Cassatie",
+      "prefLabel": { "nl": "Cassatie", "en": "Appeal in cassation" }
+    },
+    {
+      "id": "concept/instance/HogeRaad",
+      "type": "skos:Concept",
+      "inScheme": "scheme/instance",
+      "notation": "HogeRaad",
+      "prefLabel": { "nl": "Hoge Raad", "en": "Supreme Court" }
+    }
+  ]
+}

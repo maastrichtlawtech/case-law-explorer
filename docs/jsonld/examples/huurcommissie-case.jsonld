@@ -1,0 +1,56 @@
+{
+  "@context": "cle.context.jsonld",
+  "@graph": [
+    {
+      "id": "case/HUURCOMMISSIE:Z2024-000123",
+      "type": "cle:Case",
+      "identifier": "HUURCOMMISSIE:Z2024-000123",
+      "externalRef": "HUURCOMMISSIE:Z2024-000123",
+      "caseNumber": "Z2024-000123",
+      "dateDecision": "2024-06-11",
+      "datePublished": "2024-06-25",
+      "language": "http://lexvo.org/id/iso639-1/nl",
+      "sourceDataset": [ "dataset/HUURCOMMISSIE" ],
+      "court": "court/HUURCOMMISSIE",
+
+      "hasDocument": [ {
+        "id": "case/HUURCOMMISSIE:Z2024-000123/document/HUURCOMMISSIE",
+        "type": "cle:HuurcommissieDocument",
+        "sourceCase": "case/HUURCOMMISSIE:Z2024-000123",
+        "sourceDataset": "dataset/HUURCOMMISSIE",
+        "caseNumber": "Z2024-000123",
+        "objectedTitle": "Bezwaar tegen puntentoekenning",
+        "decision": "gegrond",
+        "residenceType": "onzelfstandige woonruimte",
+        "residencePoints": 142,
+        "lawArticle": "7:249 BW",
+        "amountBeforeVerdict": 612.35,
+        "amountAfterVerdict": 548.90,
+        "temporarilyDecreasedRent": false,
+        "legesConviction": true,
+        "pdfUrl": "https://huurcommissie.nl/uitspraak/Z2024-000123.pdf",
+
+        "redacted": true,
+        "redactedFields": [ "submitter", "city", "postal_code", "residence_address" ],
+        "accessRights": "http://rightsstatements.org/vocab/InC/1.0/",
+        "license": "https://creativecommons.org/licenses/by-nc/4.0/"
+      } ]
+    },
+
+    {
+      "id": "court/HUURCOMMISSIE",
+      "type": "cle:Court",
+      "courtCode": "HUURCOMMISSIE",
+      "prefLabel": { "nl": "Huurcommissie", "en": "Rent Assessment Committee" },
+      "level": "tribunal",
+      "inJurisdiction": "jurisdiction/NL"
+    },
+    {
+      "id": "jurisdiction/NL",
+      "type": "cle:Jurisdiction",
+      "isoCode": "NL",
+      "prefLabel": { "nl": "Nederland", "en": "Netherlands" },
+      "level": "country"
+    }
+  ]
+}

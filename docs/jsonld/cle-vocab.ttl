@@ -1,0 +1,334 @@
+@prefix cle:   <https://w3id.org/cle/ontology#> .
+@prefix eli:   <http://data.europa.eu/eli/ontology#> .
+@prefix skos:  <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix foaf:  <http://xmlns.com/foaf/0.1/> .
+@prefix org:   <http://www.w3.org/ns/org#> .
+@prefix prov:  <http://www.w3.org/ns/prov#> .
+@prefix schema: <https://schema.org/> .
+@prefix dcat:  <http://www.w3.org/ns/dcat#> .
+@prefix spdx:  <http://spdx.org/rdf/terms#> .
+@prefix time:  <http://www.w3.org/2006/time#> .
+@prefix rdf:   <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+@prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix owl:   <http://www.w3.org/2002/07/owl#> .
+@prefix xsd:   <http://www.w3.org/2001/XMLSchema#> .
+
+<https://w3id.org/cle/ontology>
+    a owl:Ontology ;
+    rdfs:label "CLE legal knowledge-graph vocabulary"@en ;
+    rdfs:comment "Thin extension over ELI, SKOS, Dublin Core, PROV-O and schema.org used to publish the cle_v2 case-law and legislation database as JSON-LD / RDF."@en ;
+    dcterms:license <https://creativecommons.org/licenses/by/4.0/> ;
+    owl:versionInfo "0.1.0" ;
+    rdfs:seeAlso <https://w3id.org/cle/spec/mapping> .
+
+############################################################
+# Agent / organisation classes
+############################################################
+
+cle:Jurisdiction
+    a owl:Class ;
+    rdfs:subClassOf schema:AdministrativeArea ;
+    rdfs:label "Jurisdiction"@en ;
+    rdfs:comment "A country or legal order (cle_v2.jurisdiction). Identified by ISO 3166-1 alpha-2 code."@en .
+
+cle:Court
+    a owl:Class ;
+    rdfs:subClassOf org:Organization, schema:GovernmentOrganization ;
+    rdfs:label "Court"@en ;
+    rdfs:comment "A court, tribunal body or disciplinary board (cle_v2.court)."@en .
+
+cle:CourtFormation
+    a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Court formation"@en ;
+    rdfs:comment "A composition of a court, e.g. a chamber or grand chamber (cle_v2.court_formation)."@en .
+
+cle:Judge
+    a owl:Class ;
+    rdfs:subClassOf foaf:Person, schema:Person ;
+    rdfs:label "Judge"@en ;
+    rdfs:comment "A judge or advocate general (cle_v2.judge)."@en .
+
+cle:Party
+    a owl:Class ;
+    rdfs:subClassOf foaf:Agent, schema:Organization ;
+    rdfs:label "Party"@en ;
+    rdfs:comment "A litigant or entity appearing in proceedings (cle_v2.party)."@en .
+
+############################################################
+# Case law classes
+############################################################
+
+cle:Case
+    a owl:Class ;
+    rdfs:subClassOf schema:LegalCase ;
+    rdfs:label "Case"@en ;
+    rdfs:comment "A judicial decision / case abstract (cle_v2.cases). The hub node: every source-specific document row attaches here."@en .
+
+cle:CaseDocument
+    a owl:Class ;
+    rdfs:subClassOf schema:CreativeWork ;
+    rdfs:label "Case document"@en ;
+    rdfs:comment "Source-specific case metadata, one row per case per source (cle_v2.rs_document, echr_document, cjeu_document, tribunal documents)."@en .
+
+cle:RechtspraakDocument   a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:EchrDocument          a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:CjeuDocument          a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:CjeuNationalDocument  a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:DisciplinaryDocument  a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:GeschillencommissieDocument a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:GipDocument           a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:HuurcommissieDocument a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:KifidDocument         a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:SkgzDocument          a owl:Class ; rdfs:subClassOf cle:CaseDocument .
+cle:AdvocateGeneralOpinion
+    a owl:Class ;
+    rdfs:subClassOf cle:CaseDocument ;
+    rdfs:label "Advocate General opinion"@en ;
+    rdfs:comment "An AG opinion attached to a CJEU case (cle_v2.cjeu_ag_opinion)."@en .
+
+cle:TextVariant
+    a owl:Class ;
+    rdfs:subClassOf schema:CreativeWork ;
+    rdfs:label "Text variant"@en ;
+    rdfs:comment "One language/source rendering of the case body (cle_v2.case_text, echr_document_secondary_text). Carries the translatable full text."@en .
+
+cle:SummaryVersion
+    a owl:Class ;
+    rdfs:subClassOf schema:CreativeWork ;
+    rdfs:label "Summary version"@en ;
+    rdfs:comment "A versioned, language-scoped summary (cle_v2.case_summary_version)."@en .
+
+cle:Segment
+    a owl:Class ;
+    rdfs:label "Segment"@en ;
+    rdfs:comment "A labelled section of a case (cle_v2.case_segment). Embedding vector excluded from the graph."@en .
+
+cle:EchrExtractorAnalysis
+    a owl:Class ;
+    rdfs:label "ECHR extractor analysis"@en ;
+    rdfs:comment "Structured section extraction for an ECHR document (cle_v2.echr_extractor_segments)."@en .
+
+cle:ApplicationNumber
+    a owl:Class ;
+    rdfs:label "Application number"@en ;
+    rdfs:comment "An ECHR application number with its provenance (cle_v2.echr_document_appno)."@en .
+
+cle:EchrArticleApplication
+    a owl:Class ;
+    rdfs:label "ECHR article application"@en ;
+    rdfs:comment "An Article applied / violated / not violated in an ECHR judgment (cle_v2.echr_document_article)."@en .
+
+############################################################
+# Legislation classes
+############################################################
+
+cle:Legislation
+    a owl:Class ;
+    rdfs:subClassOf eli:Legislation, skos:Concept ;
+    rdfs:label "Legislation"@en ;
+    rdfs:comment "An act or regulation (cle_v2.legislation). European acts may carry a data.europa.eu ELI IRI."@en .
+
+cle:LegalProvision
+    a owl:Class ;
+    rdfs:subClassOf eli:LegalResourceSubdivision ;
+    rdfs:label "Legal provision"@en ;
+    rdfs:comment "An article / subdivision of legislation (cle_v2.legal_provision)."@en .
+
+cle:LegislationAlias
+    a owl:Class ;
+    rdfs:label "Legislation alias"@en ;
+    rdfs:comment "An alternative name for legislation, with its source (cle_v2.legislation_alias)."@en .
+
+cle:Domain
+    a owl:Class ;
+    rdfs:subClassOf skos:Concept ;
+    rdfs:label "Legal domain"@en ;
+    rdfs:comment "A subject classification concept (cle_v2.domain). Externally identified via cle:domain.uri when present (e.g. EuroVoc)."@en .
+
+cle:DocumentType  a owl:Class ; rdfs:subClassOf skos:Concept .
+cle:ProcedureType a owl:Class ; rdfs:subClassOf skos:Concept .
+cle:Instance      a owl:Class ; rdfs:subClassOf skos:Concept .
+cle:Language      a owl:Class ; rdfs:subClassOf skos:Concept ;
+    rdfs:comment "Language concepts. Reuse Lexvo IRIs (http://lexvo.org/id/iso639-1/{iso}) as the canonical identity; the cle_v2.language row only supplies the label."@en .
+
+############################################################
+# Relation / reification classes
+############################################################
+
+cle:Citation
+    a owl:Class ;
+    rdfs:label "Citation"@en ;
+    rdfs:comment "Reified case-to-case citation with weight, relation type and extraction provenance (cle_v2.case_citation)."@en .
+
+cle:CaseLawReference
+    a owl:Class ;
+    rdfs:label "Case-law reference"@en ;
+    rdfs:comment "Reified reference from a case to legislation or a provision (cle_v2.case_law_reference)."@en .
+
+cle:CasePartyRole
+    a owl:Class ;
+    rdfs:label "Case party role"@en ;
+    rdfs:comment "Reified (case, party, role, ordinal) assertion (cle_v2.case_party)."@en .
+
+cle:CaseJudgeRole
+    a owl:Class ;
+    rdfs:label "Case judge role"@en ;
+    rdfs:comment "Reified (case, judge, role) assertion (cle_v2.case_judge)."@en .
+
+cle:EntityMention
+    a owl:Class ;
+    rdfs:label "Entity mention"@en ;
+    rdfs:comment "A named entity detected in a case, with span and optional external URI (cle_v2.case_entity)."@en .
+
+cle:LegislationAliasNode a owl:Class ; owl:equivalentClass cle:LegislationAlias .
+
+cle:ExternalAuthority
+    a owl:Class ;
+    rdfs:label "External authority"@en ;
+    rdfs:comment "A legal resource cited by a Rechtspraak decision (cle_v2.rs_document_external_authority)."@en .
+
+cle:FormalRelation
+    a owl:Class ;
+    rdfs:label "Formal relation"@en ;
+    rdfs:comment "A procedural relation such as appeal (cle_v2.rs_document_formal_relation)."@en .
+
+cle:Publication
+    a owl:Class ;
+    rdfs:label "Publication"@en ;
+    rdfs:comment "A journal/annotation citation of a decision (cle_v2.rs_document_publication)."@en .
+
+cle:CaseLink
+    a owl:Class ;
+    rdfs:label "Case link"@en ;
+    rdfs:comment "A resolved cross-reference between cases or to a provision (cle_v2.lido_link)."@en .
+
+############################################################
+# Network analysis classes
+############################################################
+
+cle:NetworkSnapshot
+    a owl:Class ;
+    rdfs:label "Network snapshot"@en ;
+    rdfs:comment "A dated build of the citation graph (cle_v2.network_snapshot)."@en .
+
+cle:NetworkMetric
+    a owl:Class ;
+    rdfs:label "Network metric"@en ;
+    rdfs:comment "Centrality measures of one case within one snapshot (cle_v2.case_network_metric)."@en .
+
+cle:CaseCluster
+    a owl:Class ;
+    rdfs:label "Case cluster"@en ;
+    rdfs:comment "A community of cases within a snapshot (cle_v2.case_cluster)."@en .
+
+############################################################
+# Object properties
+############################################################
+
+cle:court            a owl:ObjectProperty ; rdfs:range cle:Court .
+cle:inJurisdiction   a owl:ObjectProperty ; rdfs:range cle:Jurisdiction .
+cle:parentCourt      a owl:ObjectProperty ; rdfs:subPropertyOf org:subOrganizationOf ; rdfs:range cle:Court .
+cle:documentType     a owl:ObjectProperty ; rdfs:range skos:Concept .
+cle:procedureType    a owl:ObjectProperty ; rdfs:range skos:Concept .
+cle:instance         a owl:ObjectProperty ; rdfs:range cle:Instance .
+cle:formation        a owl:ObjectProperty ; rdfs:range cle:CourtFormation .
+cle:hasDocument      a owl:ObjectProperty ; rdfs:range cle:CaseDocument .
+cle:hasTextVariant   a owl:ObjectProperty ; rdfs:range cle:TextVariant .
+cle:hasSummaryVersion a owl:ObjectProperty ; rdfs:range cle:SummaryVersion .
+cle:hasSegment       a owl:ObjectProperty ; rdfs:range cle:Segment .
+cle:hasCitation      a owl:ObjectProperty ; rdfs:range cle:Citation .
+cle:hasCaseLawReference a owl:ObjectProperty ; rdfs:range cle:CaseLawReference .
+cle:hasPartyRole     a owl:ObjectProperty ; rdfs:range cle:CasePartyRole .
+cle:hasJudgeRole     a owl:ObjectProperty ; rdfs:range cle:CaseJudgeRole .
+cle:hasEntityMention a owl:ObjectProperty ; rdfs:range cle:EntityMention .
+cle:hasAlias         a owl:ObjectProperty ; rdfs:range cle:LegislationAlias .
+cle:hasExternalAuthority a owl:ObjectProperty ; rdfs:range cle:ExternalAuthority .
+cle:hasFormalRelation a owl:ObjectProperty ; rdfs:range cle:FormalRelation .
+cle:hasPublication   a owl:ObjectProperty ; rdfs:range cle:Publication .
+cle:hasApplicationNumber a owl:ObjectProperty ; rdfs:range cle:ApplicationNumber .
+cle:hasArticleApplication a owl:ObjectProperty ; rdfs:range cle:EchrArticleApplication .
+cle:hasExtractorAnalysis a owl:ObjectProperty ; rdfs:range cle:EchrExtractorAnalysis .
+cle:sourceCase       a owl:ObjectProperty ; rdfs:range cle:Case .
+cle:targetCase       a owl:ObjectProperty ; rdfs:range cle:Case .
+cle:cites            a owl:ObjectProperty ; rdfs:subPropertyOf dcterms:references ; rdfs:range cle:Case ;
+                     rdfs:comment "Convenience edge derived from cle:Citation; the reification node remains authoritative."@en .
+cle:citedBy          a owl:ObjectProperty ; owl:inverseOf cle:cites .
+cle:contextSegment   a owl:ObjectProperty ; rdfs:range cle:Segment .
+cle:inLegislation    a owl:ObjectProperty ; rdfs:range cle:Legislation .
+cle:parentProvision  a owl:ObjectProperty ; rdfs:subPropertyOf dcterms:isPartOf ; rdfs:range cle:LegalProvision .
+cle:targetLegislation a owl:ObjectProperty ; rdfs:range cle:Legislation .
+cle:targetProvision  a owl:ObjectProperty ; rdfs:range cle:LegalProvision .
+cle:parentCase       a owl:ObjectProperty ; rdfs:range cle:Case .
+cle:inSnapshot       a owl:ObjectProperty ; rdfs:range cle:NetworkSnapshot .
+cle:metricForCase    a owl:ObjectProperty ; rdfs:range cle:Case .
+cle:inCluster        a owl:ObjectProperty ; rdfs:range cle:CaseCluster .
+cle:clusterMember    a owl:ObjectProperty ; rdfs:range cle:Case .
+cle:aliasOf          a owl:ObjectProperty ; rdfs:range cle:Legislation .
+cle:party            a owl:ObjectProperty ; rdfs:range cle:Party .
+cle:judge            a owl:ObjectProperty ; rdfs:range cle:Judge .
+
+############################################################
+# Datatype properties (selection; all cle: properties are datatype props
+# unless declared above)
+############################################################
+
+cle:ecli             a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:identifier ; rdfs:range xsd:string .
+cle:celexId          a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:identifier .
+cle:itemId           a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:identifier .
+cle:externalRef      a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:identifier .
+cle:lidoId           a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:identifier .
+cle:jcId             a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:identifier .
+cle:identifierScheme a owl:DatatypeProperty .
+cle:sourceDataset    a owl:ObjectProperty ; rdfs:range dcat:Dataset ;
+    rdfs:comment "Links a case, document, text variant or reified relation to the catalogued corpus (dcat:Dataset) it came from."@en .
+cle:sourceCode       a owl:DatatypeProperty ;
+    rdfs:comment "Raw source token exactly as stored in cle_v2 (e.g. CELLAR_ITEM, ECHR_OPEN_DATA, HUDOC_SECONDARY). The coarse corpus goes in cle:sourceDataset."@en .
+cle:dateDecision     a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:date ; rdfs:range xsd:date .
+cle:dateIssued       a owl:DatatypeProperty ; rdfs:subPropertyOf dcterms:issued ; rdfs:range xsd:date .
+cle:enactedDate      a owl:DatatypeProperty ; rdfs:subPropertyOf eli:date_document ; rdfs:range xsd:date .
+cle:versionDate      a owl:DatatypeProperty ; rdfs:range xsd:date .
+cle:snapshotDate     a owl:DatatypeProperty ; rdfs:range xsd:date .
+cle:effectiveFrom    a owl:DatatypeProperty ; rdfs:subPropertyOf time:hasBeginning ; rdfs:range xsd:date .
+cle:effectiveTo      a owl:DatatypeProperty ; rdfs:subPropertyOf time:hasEnd ; rdfs:range xsd:date .
+cle:fullText         a owl:DatatypeProperty ; rdfs:range rdf:langString .
+cle:summaryText      a owl:DatatypeProperty ; rdfs:range rdf:langString .
+cle:provisionText    a owl:DatatypeProperty ; rdfs:range rdf:langString .
+cle:redacted         a owl:DatatypeProperty ; rdfs:range xsd:boolean .
+cle:redactedFields   a owl:DatatypeProperty .
+cle:importance       a owl:DatatypeProperty ; rdfs:range xsd:integer .
+cle:weight           a owl:DatatypeProperty ; rdfs:range xsd:integer .
+cle:confidence       a owl:DatatypeProperty ; rdfs:range xsd:double .
+cle:embeddingsLiveIn a owl:DatatypeProperty ;
+    rdfs:comment "Marker: embedding vectors are intentionally kept in PostgreSQL (pgvector), not serialised into the graph. Value is the PostgreSQL table.column reference."@en .
+cle:entityType       a owl:DatatypeProperty .
+cle:instanceText     a owl:DatatypeProperty ; rdfs:comment "Free-text instance label from rs_document.instance; the normalised concept goes in cle:instance."@en .
+cle:documentTypeText a owl:DatatypeProperty .
+cle:procedureTypeText a owl:DatatypeProperty .
+cle:kind             a owl:DatatypeProperty .
+cle:level            a owl:DatatypeProperty .
+cle:scheme           a owl:DatatypeProperty .
+cle:authority        a owl:DatatypeProperty .
+cle:locator          a owl:DatatypeProperty .
+cle:annotator        a owl:DatatypeProperty .
+cle:sourceEcli       a owl:DatatypeProperty .
+cle:sourceUri        a owl:DatatypeProperty .
+cle:targetUri        a owl:DatatypeProperty .
+cle:caseSummary      a owl:DatatypeProperty ; rdfs:range rdf:langString .
+cle:relatedCaseNumber a owl:DatatypeProperty .
+cle:categoryAll      a owl:DatatypeProperty .
+cle:tag              a owl:DatatypeProperty .
+cle:domainText       a owl:DatatypeProperty .
+cle:legalProvisionText a owl:DatatypeProperty .
+cle:vindplaats       a owl:DatatypeProperty .
+cle:zittingsplaats   a owl:DatatypeProperty .
+cle:opendataStatus   a owl:DatatypeProperty .
+cle:extractorVersion a owl:DatatypeProperty .
+cle:embeddingModel   a owl:DatatypeProperty .
+cle:summarizationModel a owl:DatatypeProperty .
+cle:generationSource a owl:DatatypeProperty .
+cle:segmentScope     a owl:DatatypeProperty .
+cle:segmentHash      a owl:DatatypeProperty .
+cle:countryIso       a owl:DatatypeProperty .
+cle:submitterName    a owl:DatatypeProperty ; rdfs:comment "Never populated: present only so SHACL can forbid it."@en .

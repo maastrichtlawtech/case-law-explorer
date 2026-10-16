@@ -1,0 +1,135 @@
+{
+  "@context": "cle.context.jsonld",
+  "@graph": [
+    {
+      "id": "case/ECLI:EU:C:2024:123",
+      "type": "cle:Case",
+      "identifier": "ECLI:EU:C:2024:123",
+      "ecli": "ECLI:EU:C:2024:123",
+      "celexId": "62022CJ0123",
+      "title": { "@value": "TÜV Rheinland — begrip ‚overeenkomst' in de zin van de privacyverordening", "@language": "nl" },
+      "dateDecision": "2024-02-15",
+      "language": "http://lexvo.org/id/iso639-1/nl",
+      "sourceDataset": [ "dataset/CELLAR" ],
+      "court": "court/CJEU",
+      "procedureType": "concept/proceduretype/Prejudicieel",
+      "instanceRef": "concept/instance/HofVanJustitie",
+      "subject": [ "domain/EU-1000" ],
+      "isLandmark": true,
+
+      "hasDocument": [ {
+        "id": "case/ECLI:EU:C:2024:123/document/CELLAR",
+        "type": "cle:CjeuDocument",
+        "sourceCase": "case/ECLI:EU:C:2024:123",
+        "sourceDataset": "dataset/CELLAR",
+        "celexId": "62022CJ0123",
+        "ecli": "ECLI:EU:C:2024:123",
+        "sector": "6",
+        "formation": "formation/GRAND_CHAMBER",
+        "procType": "Reference for a preliminary ruling",
+        "procedureResult": "Judgment",
+        "dateLodged": "2022-02-18",
+        "cellarUri": "http://publications.europa.eu/resource/cellar/abc123",
+        "workUri": "http://publications.europa.eu/resource/celex/62022CJ0123",
+        "dossierUri": "http://publications.europa.eu/resource/cellar/dossier-xyz",
+        "journalRefs": "ECLI:EU:C:2024:123",
+        "erecueilRef": "ECR I-0001",
+        "localIdentifier": "62022CJ0123",
+        "citationsExtraInfo": null
+      } ],
+
+      "hasText": [ {
+        "id": "case/ECLI:EU:C:2024:123/text/nl/CELLAR_ITEM",
+        "type": "cle:TextVariant",
+        "sourceCase": "case/ECLI:EU:C:2024:123",
+        "language": "http://lexvo.org/id/iso639-1/nl",
+        "sourceDataset": "dataset/CELLAR",
+        "sourceCode": "CELLAR_ITEM",
+        "textFormat": "application/xhtml+xml",
+        "isStub": false,
+        "fullText": { "@value": "(full judgment text omitted)", "@language": "nl" },
+        "createdAt": "2026-01-08T04:20:00Z",
+        "updatedAt": "2026-01-08T04:20:00Z"
+      } ],
+
+      "hasLawReference": [ {
+        "id": "lawref/99120",
+        "type": "cle:CaseLawReference",
+        "sourceCase": "case/ECLI:EU:C:2024:123",
+        "targetLegislation": "http://data.europa.eu/eli/reg/2016/679/oj",
+        "rawScheme": "celex",
+        "rawResource": "32016R0679",
+        "rawSubdivision": "Art. 4(7)",
+        "rawReference": "Regulation (EU) 2016/679, Article 4(7)",
+        "referenceRole": "cited",
+        "sourceDataset": "dataset/CELLAR",
+        "createdAt": "2026-01-08T04:20:00Z"
+      } ]
+    },
+
+    {
+      "id": "case/ECLI:EU:C:2023:999",
+      "type": "cle:Case",
+      "identifier": "ECLI:EU:C:2023:999",
+      "ecli": "ECLI:EU:C:2023:999",
+      "title": { "@value": "Advocate General opinion in TÜV Rheinland", "@language": "en" },
+      "dateDecision": "2023-09-14",
+      "language": "http://lexvo.org/id/iso639-1/en",
+      "sourceDataset": [ "dataset/CELLAR" ],
+      "court": "court/CJEU"
+    },
+    {
+      "id": "case/ECLI:EU:C:2024:123/opinion/1",
+      "type": "cle:AdvocateGeneralOpinion",
+      "sourceCase": "case/ECLI:EU:C:2024:123",
+      "parentCase": "case/ECLI:EU:C:2023:999",
+      "advocateGeneral": "G. Pitruzzella",
+      "opinionUri": "http://publications.europa.eu/resource/cellar/opinion-123",
+      "deliveredDate": "2023-09-14",
+      "sourceDataset": "dataset/CELLAR"
+    },
+    {
+      "id": "case/ECLI:EU:C:2024:123/national/1",
+      "type": "cle:CjeuNationalDocument",
+      "sourceCase": "case/ECLI:EU:C:2024:123",
+      "sourceDataset": "dataset/CELLAR",
+      "nationalCourtUri": "https://www.rechtspraak.nl/",
+      "nationalDecisionInternalId": "NL:RBAMS:2021:1",
+      "nationalPartiesRaw": "Stichting X / Y",
+      "nationalKeywords": "persoonsgegevens",
+      "nationalJudgementReference": "ECLI:NL:RBAMS:2021:1",
+      "nationalActReferenceNational": "Uitvoeringswet AVG",
+      "nationalActReferenceEuropean": "32016R0679"
+    },
+
+    {
+      "id": "court/CJEU",
+      "type": "cle:Court",
+      "courtCode": "CJEU",
+      "prefLabel": { "en": "Court of Justice of the European Union", "nl": "Hof van Justitie van de Europese Unie" },
+      "level": "eu",
+      "inJurisdiction": "jurisdiction/EU"
+    },
+    {
+      "id": "jurisdiction/EU",
+      "type": "cle:Jurisdiction",
+      "isoCode": "EU",
+      "prefLabel": { "en": "European Union", "nl": "Europese Unie" },
+      "level": "supranational"
+    },
+    {
+      "id": "formation/GRAND_CHAMBER",
+      "type": "cle:CourtFormation",
+      "notation": "GRAND_CHAMBER",
+      "prefLabel": { "en": "Grand Chamber" },
+      "judgeCount": 15
+    },
+    {
+      "id": "domain/EU-1000",
+      "type": "cle:Domain",
+      "scheme": "eurovoc",
+      "prefLabel": { "en": "Data protection", "nl": "Gegevensbescherming" },
+      "exactMatch": "http://eurovoc.europa.eu/1668"
+    }
+  ]
+}

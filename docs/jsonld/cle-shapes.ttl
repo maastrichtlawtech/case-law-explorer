@@ -1,0 +1,278 @@
+@prefix cle:  <https://w3id.org/cle/ontology#> .
+@prefix sh:   <http://www.w3.org/ns/shacl#> .
+@prefix skos: <http://www.w3.org/2004/02/skos/core#> .
+@prefix dcterms: <http://purl.org/dc/terms/> .
+@prefix org: <http://www.w3.org/ns/org#> .
+@prefix dcat: <http://www.w3.org/ns/dcat#> .
+@prefix prov: <http://www.w3.org/ns/prov#> .
+@prefix foaf: <http://xmlns.com/foaf/0.1/> .
+@prefix rdfs: <http://www.w3.org/2000/01/rdf-schema#> .
+@prefix xsd:  <http://www.w3.org/2001/XMLSchema#> .
+@prefix rdf:  <http://www.w3.org/1999/02/22-rdf-syntax-ns#> .
+
+<https://w3id.org/cle/shapes>
+    a sh:NodeShape ;
+    rdfs:label "CLE knowledge-graph SHACL shapes"@en ;
+    rdfs:comment "Structural validation for JSON-LD produced from cle_v2. Run with any SHACL engine (pyshacl, Jena shacl, TopBraid)."@en .
+
+# ---------------------------------------------------------------------------
+# Case
+# ---------------------------------------------------------------------------
+cle:CaseShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Case ;
+    sh:ignoredProperties ( rdf:type ) ;
+    sh:property [ sh:path dcterms:identifier ; sh:minCount 1 ; sh:datatype xsd:string ;
+                  sh:message "A case MUST have at least one identifier (ECLI, CELEX, item_id, external_ref or DB id)."@en ] ;
+    sh:property [ sh:path cle:ecli ; sh:maxCount 1 ; sh:pattern "^ECLI:[A-Z]{2}:" ;
+                  sh:message "cle:ecli, when present, MUST be a valid ECLI."@en ] ;
+    sh:property [ sh:path cle:celexId ; sh:maxCount 1 ] ;
+    sh:property [ sh:path dcterms:title ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:dateDecision ; sh:maxCount 1 ; sh:datatype xsd:date ] ;
+    sh:property [ sh:path dcterms:language ; sh:maxCount 1 ; sh:nodeKind sh:IRI ;
+                  sh:message "Language MUST be a Lexvo IRI, e.g. http://lexvo.org/id/iso639-1/nl."@en ] ;
+    sh:property [ sh:path cle:sourceDataset ; sh:minCount 1 ; sh:class dcat:Dataset ] ;
+    sh:property [ sh:path cle:court ; sh:maxCount 1 ; sh:class cle:Court ] ;
+    sh:property [ sh:path dcterms:subject ; sh:class skos:Concept ] ;
+    sh:property [ sh:path cle:hasTextVariant ; sh:class cle:TextVariant ] ;
+    sh:property [ sh:path cle:hasCitation ; sh:class cle:Citation ] .
+
+# ---------------------------------------------------------------------------
+# Court / jurisdiction / judge / party / formation
+# ---------------------------------------------------------------------------
+cle:CourtShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Court ;
+    sh:property [ sh:path skos:prefLabel ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:inJurisdiction ; sh:maxCount 1 ; sh:class cle:Jurisdiction ] ;
+    sh:property [ sh:path cle:parentCourt ; sh:maxCount 1 ; sh:class cle:Court ] ;
+    sh:property [ sh:path cle:courtCode ; sh:maxCount 1 ] .
+
+cle:JurisdictionShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Jurisdiction ;
+    sh:property [ sh:path cle:isoCode ; sh:minCount 1 ; sh:maxCount 1 ; sh:pattern "^[A-Z]{2}$" ] .
+
+cle:JudgeShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Judge ;
+    sh:property [ sh:path foaf:name ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:court ; sh:maxCount 1 ; sh:class cle:Court ] .
+
+cle:PartyShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Party ;
+    sh:property [ sh:path cle:canonicalName ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:countryIso ; sh:maxCount 1 ] .
+
+cle:CourtFormationShape
+    a sh:NodeShape ;
+    sh:targetClass cle:CourtFormation ;
+    sh:property [ sh:path skos:notation ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+# ---------------------------------------------------------------------------
+# Legislation
+# ---------------------------------------------------------------------------
+cle:LegislationShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Legislation ;
+    sh:property [ sh:path dcterms:identifier ; sh:minCount 1 ] ;
+    sh:property [ sh:path dcterms:title ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:inJurisdiction ; sh:class cle:Jurisdiction ] ;
+    sh:property [ sh:path cle:hasAlias ; sh:class cle:LegislationAlias ] .
+
+cle:LegalProvisionShape
+    a sh:NodeShape ;
+    sh:targetClass cle:LegalProvision ;
+    sh:property [ sh:path cle:inLegislation ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Legislation ] ;
+    sh:property [ sh:path cle:parentProvision ; sh:class cle:LegalProvision ] ;
+    sh:property [ sh:path cle:elementType ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:articleLabel ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:provisionText ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:effectiveFrom ; sh:datatype xsd:date ] ;
+    sh:property [ sh:path cle:effectiveTo ; sh:datatype xsd:date ] .
+
+cle:LegislationAliasShape
+    a sh:NodeShape ;
+    sh:targetClass cle:LegislationAlias ;
+    sh:property [ sh:path cle:aliasText ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path skos:altLabel ; sh:minCount 1 ; sh:nodeKind sh:Literal ;
+                  sh:message "Alias text SHOULD also be exposed as skos:altLabel (langString)."@en ] .
+
+# ---------------------------------------------------------------------------
+# Reified relations
+# ---------------------------------------------------------------------------
+cle:CitationShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Citation ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:relationType ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:sourceDataset ; sh:minCount 1 ; sh:maxCount 1 ; sh:class dcat:Dataset ] ;
+    sh:property [ sh:path cle:weight ; sh:datatype xsd:integer ] ;
+    sh:or ( [ sh:path cle:targetCase ; sh:minCount 1 ]
+            [ sh:path cle:targetEcliRaw ; sh:minCount 1 ]
+            [ sh:path cle:targetCelexRaw ; sh:minCount 1 ] ) ;
+    sh:message "A citation MUST resolve to a target case, or carry an unresolved ECLI/CELEX string."@en .
+
+cle:CaseLawReferenceShape
+    a sh:NodeShape ;
+    sh:targetClass cle:CaseLawReference ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:referenceRole ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:sourceDataset ; sh:minCount 1 ; sh:maxCount 1 ; sh:class dcat:Dataset ] ;
+    sh:property [ sh:path cle:rawScheme ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:versionDate ; sh:datatype xsd:date ] .
+
+cle:CasePartyRoleShape
+    a sh:NodeShape ;
+    sh:targetClass cle:CasePartyRole ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:party ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Party ] ;
+    sh:property [ sh:path cle:role ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:ordinal ; sh:maxCount 1 ; sh:datatype xsd:integer ] .
+
+cle:CaseJudgeRoleShape
+    a sh:NodeShape ;
+    sh:targetClass cle:CaseJudgeRole ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:judge ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Judge ] ;
+    sh:property [ sh:path cle:role ; sh:maxCount 1 ] .
+
+cle:EntityMentionShape
+    a sh:NodeShape ;
+    sh:targetClass cle:EntityMention ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:entityType ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:canonicalName ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:surfaceForm ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:charStart ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path cle:charEnd ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path cle:confidence ; sh:datatype xsd:double ] ;
+    sh:property [ sh:path skos:exactMatch ; sh:nodeKind sh:IRI ] .
+
+# ---------------------------------------------------------------------------
+# Text / summary / segment
+# ---------------------------------------------------------------------------
+cle:TextVariantShape
+    a sh:NodeShape ;
+    sh:targetClass cle:TextVariant ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path dcterms:language ; sh:minCount 1 ; sh:maxCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path cle:sourceDataset ; sh:minCount 1 ; sh:maxCount 1 ; sh:class dcat:Dataset ] ;
+    sh:property [ sh:path cle:fullText ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:summaryText ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:isStub ; sh:datatype xsd:boolean ] ;
+    sh:property [ sh:path cle:embeddingModel ; sh:maxCount 1 ] .
+
+cle:SummaryVersionShape
+    a sh:NodeShape ;
+    sh:targetClass cle:SummaryVersion ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:summaryText ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:segmentScope ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:versionNumber ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path cle:isCurrent ; sh:datatype xsd:boolean ] ;
+    sh:property [ sh:path cle:generationSource ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path prov:wasRevisionOf ; sh:class cle:SummaryVersion ] .
+
+cle:SegmentShape
+    a sh:NodeShape ;
+    sh:targetClass cle:Segment ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path dcterms:language ; sh:class cle:Language ] ;
+    sh:property [ sh:path cle:segmentType ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:segmentIndex ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path cle:fullText ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path cle:segmentHash ; sh:maxCount 1 ] .
+
+# ---------------------------------------------------------------------------
+# Documents
+# ---------------------------------------------------------------------------
+cle:CaseDocumentShape
+    a sh:NodeShape ;
+    sh:targetClass cle:CaseDocument ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:sourceDataset ; sh:minCount 1 ; sh:maxCount 1 ; sh:class dcat:Dataset ] ;
+    sh:property [ sh:path cle:redacted ; sh:datatype xsd:boolean ] .
+
+cle:HuurcommissieDocumentShape
+    a sh:NodeShape ;
+    sh:targetClass cle:HuurcommissieDocument ;
+    sh:property [ sh:path cle:redacted ; sh:minCount 1 ; sh:hasValue true ;
+                  sh:message "Huurcommissie documents MUST declare redaction because the source carries personal data."@en ] ;
+    sh:property [ sh:path cle:redactedFields ; sh:minCount 1 ] ;
+    sh:property [ sh:path cle:submitterName ; sh:maxCount 0 ;
+                  sh:message "Directly identifying fields MUST NOT be emitted."@en ] .
+
+cle:AdvocateGeneralOpinionShape
+    a sh:NodeShape ;
+    sh:targetClass cle:AdvocateGeneralOpinion ;
+    sh:property [ sh:path cle:sourceCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] ;
+    sh:property [ sh:path cle:advocateGeneral ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:deliveredDate ; sh:datatype xsd:date ] ;
+
+cle:EchrExtractorAnalysisShape
+    a sh:NodeShape ;
+    sh:targetClass cle:EchrExtractorAnalysis ;
+    sh:property [ sh:path cle:numSections ; sh:datatype xsd:integer ] ;
+    sh:property [ sh:path cle:parserMode ; sh:maxCount 1 ] .
+
+cle:EchrArticleApplicationShape
+    a sh:NodeShape ;
+    sh:targetClass cle:EchrArticleApplication ;
+    sh:property [ sh:path cle:articleKind ; sh:in ( "applied" "violation" "nonviolation" ) ] ;
+    sh:property [ sh:path cle:articleCode ; sh:minCount 1 ; sh:maxCount 1 ] .
+
+cle:ApplicationNumberShape
+    a sh:NodeShape ;
+    sh:targetClass cle:ApplicationNumber ;
+    sh:property [ sh:path cle:applicationNumber ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path cle:sourceDataset ; sh:minCount 1 ; sh:maxCount 1 ; sh:class dcat:Dataset ] .
+
+# ---------------------------------------------------------------------------
+# Network analysis
+# ---------------------------------------------------------------------------
+cle:NetworkSnapshotShape
+    a sh:NodeShape ;
+    sh:targetClass cle:NetworkSnapshot ;
+    sh:property [ sh:path cle:snapshotDate ; sh:minCount 1 ; sh:maxCount 1 ; sh:datatype xsd:date ] .
+
+cle:NetworkMetricShape
+    a sh:NodeShape ;
+    sh:targetClass cle:NetworkMetric ;
+    sh:property [ sh:path cle:inSnapshot ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:NetworkSnapshot ] ;
+    sh:property [ sh:path cle:metricForCase ; sh:minCount 1 ; sh:maxCount 1 ; sh:class cle:Case ] .
+
+cle:CaseClusterShape
+    a sh:NodeShape ;
+    sh:targetClass cle:CaseCluster ;
+    sh:property [ sh:path cle:inSnapshot ; sh:maxCount 1 ; sh:class cle:NetworkSnapshot ] ;
+    sh:property [ sh:path cle:algorithm ; sh:maxCount 1 ] .
+
+# ---------------------------------------------------------------------------
+# DCAT catalog (catalog.jsonld)
+# ---------------------------------------------------------------------------
+cle:CatalogShape
+    a sh:NodeShape ;
+    sh:targetClass dcat:Catalog ;
+    sh:property [ sh:path dcterms:title ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path dcterms:publisher ; sh:minCount 1 ; sh:class org:Organization ] ;
+    sh:property [ sh:path dcat:dataset ; sh:minCount 1 ; sh:class dcat:Dataset ] .
+
+cle:DatasetShape
+    a sh:NodeShape ;
+    sh:targetClass dcat:Dataset ;
+    sh:property [ sh:path dcterms:title ; sh:minCount 1 ; sh:nodeKind sh:Literal ] ;
+    sh:property [ sh:path dcterms:identifier ; sh:minCount 1 ; sh:maxCount 1 ] ;
+    sh:property [ sh:path dcterms:publisher ; sh:minCount 1 ; sh:class org:Organization ] ;
+    sh:property [ sh:path dcterms:license ; sh:minCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path dcat:distribution ; sh:minCount 1 ; sh:class dcat:Distribution ] ;
+    sh:property [ sh:path dcterms:conformsTo ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path cle:sourceCode ; sh:minCount 1 ;
+                  sh:message "Every dataset MUST list the raw cle_v2 source token(s) it covers, so ETL can resolve cle:sourceDataset."@en ] .
+
+cle:DistributionShape
+    a sh:NodeShape ;
+    sh:targetClass dcat:Distribution ;
+    sh:property [ sh:path dcat:downloadURL ; sh:minCount 1 ; sh:nodeKind sh:IRI ] ;
+    sh:property [ sh:path dcat:mediaType ; sh:minCount 1 ; sh:nodeKind sh:IRI ] .

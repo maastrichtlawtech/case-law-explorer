@@ -1,0 +1,97 @@
+{
+  "@context": "cle.context.jsonld",
+  "@type": "cle:Case",
+  "identifier": {},
+  "ecli": {},
+  "celexId": {},
+  "itemId": {},
+  "externalRef": {},
+  "title": {},
+  "dateDecision": {},
+  "datePublished": {},
+  "language": {},
+  "importance": {},
+  "isLandmark": {},
+  "sourceDataset": {},
+  "court": {
+    "courtCode": {},
+    "prefLabel": {},
+    "inJurisdiction": { "isoCode": {}, "prefLabel": {} }
+  },
+  "documentType": { "notation": {}, "prefLabel": {} },
+  "procedureType": { "notation": {}, "prefLabel": {} },
+  "instanceRef": { "notation": {}, "prefLabel": {} },
+  "subject": { "notation": {}, "prefLabel": {}, "exactMatch": {} },
+  "hasDocument": [
+    {
+      "@type": {},
+      "sourceDataset": {},
+      "publicationUrl": {},
+      "title": {},
+      "summaryText": {}
+    }
+  ],
+  "hasText": [
+    {
+      "language": {},
+      "sourceDataset": {},
+      "fullText": {},
+      "summaryText": {},
+      "isStub": {}
+    }
+  ],
+  "hasSummary": [
+    {
+      "language": {},
+      "summaryText": {},
+      "segmentScope": {},
+      "versionNumber": {},
+      "isCurrent": {},
+      "generationSource": {},
+      "summarizationModel": {}
+    }
+  ],
+  "hasSegment": [
+    {
+      "language": {},
+      "segmentType": {},
+      "segmentIndex": {},
+      "fullText": {},
+      "segmentHash": {}
+    }
+  ],
+  "hasCitation": [
+    {
+      "sourceCase": {},
+      "targetCase": { "identifier": {}, "ecli": {}, "title": {} },
+      "targetEcliRaw": {},
+      "targetCelexRaw": {},
+      "relationType": {},
+      "weight": {},
+      "sourceDataset": {},
+      "isCrossJurisdiction": {},
+      "extractorVersion": {}
+    }
+  ],
+  "hasLawReference": [
+    {
+      "referenceRole": {},
+      "inLegislation": { "identifier": {}, "title": {} },
+      "targetProvision": { "lidoId": {}, "articleLabel": {}, "title": {} },
+      "rawScheme": {},
+      "rawResource": {},
+      "rawSubdivision": {},
+      "rawReference": {},
+      "versionDate": {},
+      "sourceDataset": {}
+    }
+  ],
+  "hasPartyRole": [
+    { "party": { "canonicalName": {}, "aliases": {} }, "role": {}, "ordinal": {} }
+  ],
+  "hasJudgeRole": [
+    { "judge": { "fullName": {}, "aliases": {} }, "role": {} }
+  ],
+  "citesCount": {},
+  "citedByCount": {}
+}

@@ -1,0 +1,98 @@
+{
+  "@context": "cle.context.jsonld",
+  "@graph": [
+    {
+      "id": "http://wetten.overheid.nl/id/BWBR0001840",
+      "type": [ "cle:Legislation", "eli:Legislation", "skos:Concept" ],
+      "identifier": "BWBR0001840",
+      "scheme": "bwb",
+      "title": { "@value": "Burgerlijk Wetboek Boek 7", "@language": "nl" },
+      "documentTypeText": "wet",
+      "enactedDate": "1991-04-11",
+      "inJurisdiction": "jurisdiction/NL",
+      "lidoId": "lido-leg-bwbr0001840",
+      "jcId": null,
+      "snapshotDate": "2026-04-01",
+      "hasAlias": [
+        { "id": "http://wetten.overheid.nl/id/BWBR0001840/alias/1",
+          "type": "cle:LegislationAlias",
+          "aliasText": "BW",
+          "aliasOf": "http://wetten.overheid.nl/id/BWBR0001840",
+          "altLabel": { "nl": "BW" },
+          "sourceDataset": "dataset/RECHTSPRAAK" },
+        { "id": "http://wetten.overheid.nl/id/BWBR0001840/alias/2",
+          "type": "cle:LegislationAlias",
+          "aliasText": "Burgerlijk Wetboek",
+          "aliasOf": "http://wetten.overheid.nl/id/BWBR0001840",
+          "altLabel": { "nl": "Burgerlijk Wetboek" },
+          "sourceDataset": "dataset/LIDO" }
+      ]
+    },
+
+    {
+      "id": "provision/lido-12344",
+      "type": [ "cle:LegalProvision", "eli:LegalResourceSubdivision" ],
+      "inLegislation": "http://wetten.overheid.nl/id/BWBR0001840",
+      "elementType": "artikel",
+      "articleLabel": "7:629",
+      "title": { "@value": "Artikel 629", "@language": "nl" },
+      "paragraph": null,
+      "provisionText": { "@value": "(article text omitted)", "@language": "nl" },
+      "lidoId": "lido-12344",
+      "jcId": "jci1.3:c:BWBR0001840&artikel=629",
+      "effectiveFrom": "2023-07-01",
+      "effectiveTo": null,
+      "snapshotDate": "2026-04-01"
+    },
+    {
+      "id": "provision/lido-12345",
+      "type": [ "cle:LegalProvision", "eli:LegalResourceSubdivision" ],
+      "inLegislation": "http://wetten.overheid.nl/id/BWBR0001840",
+      "parentProvision": "provision/lido-12344",
+      "elementType": "lid",
+      "articleLabel": "7:629 lid 1",
+      "paragraph": "1",
+      "provisionText": { "@value": "(paragraph text omitted)", "@language": "nl" },
+      "lidoId": "lido-12345",
+      "effectiveFrom": "2023-07-01",
+      "snapshotDate": "2026-04-01"
+    },
+
+    {
+      "id": "domain/RS-1001",
+      "type": "cle:Domain",
+      "scheme": "rechtspraak",
+      "prefLabel": { "nl": "Arbeidsrecht", "en": "Labour law" },
+      "exactMatch": "http://eurovoc.europa.eu/5152",
+      "isPartOf": null
+    },
+    {
+      "id": "domain/RS-1000",
+      "type": "cle:Domain",
+      "scheme": "rechtspraak",
+      "prefLabel": { "nl": "Arbeidsrecht en sociaal zekerheidsrecht" }
+    },
+
+    {
+      "id": "jurisdiction/NL",
+      "type": "cle:Jurisdiction",
+      "isoCode": "NL",
+      "prefLabel": { "nl": "Nederland", "en": "Netherlands", "de": "Niederlande" },
+      "level": "country"
+    },
+
+    {
+      "id": "scheme/language",
+      "type": "skos:ConceptScheme",
+      "prefLabel": { "en": "Languages (ISO 639-1)", "nl": "Talen (ISO 639-1)" }
+    },
+    {
+      "id": "http://lexvo.org/id/iso639-1/nl",
+      "type": [ "cle:Language", "skos:Concept" ],
+      "inScheme": "scheme/language",
+      "notation": "nl",
+      "prefLabel": { "en": "Dutch", "nl": "Nederlands" },
+      "hudocCode": "DUT"
+    }
+  ]
+}

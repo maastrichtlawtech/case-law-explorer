@@ -1,0 +1,122 @@
+{
+  "@context": "cle.context.jsonld",
+  "@graph": [
+    {
+      "id": "case/001-224455",
+      "type": "cle:Case",
+      "identifier": "001-224455",
+      "itemId": "001-224455",
+      "externalRef": "HUDOC:001-224455",
+      "title": { "@value": "CASE OF X v. THE NETHERLANDS", "@language": "en" },
+      "dateDecision": "2024-03-05",
+      "language": "http://lexvo.org/id/iso639-1/en",
+      "sourceDataset": [ "dataset/HUDOC" ],
+      "court": "court/ECHR",
+      "documentType": "concept/documenttype/JUDGMENT",
+      "importance": 2,
+
+      "hasDocument": [ {
+        "id": "document/echr/001-224455",
+        "type": "cle:EchrDocument",
+        "sourceCase": "case/001-224455",
+        "sourceDataset": "dataset/HUDOC",
+        "language": "http://lexvo.org/id/iso639-1/en",
+        "extractedApplicationNumber": "12345/19",
+        "documentName": "X v. the Netherlands",
+        "echrDocType": "JUDGMENT",
+        "echrDocTypeBranch": "STRASBOURG",
+        "judgementDate": "2024-03-05T00:00:00Z",
+        "referenceDate": "2024-03-05T00:00:00Z",
+        "judgementYear": 2024,
+        "article": "8",
+        "conclusion": "Violation of Article 8",
+        "violation": "8",
+        "nonviolation": null,
+        "respondent": "NLD",
+        "originatingBody": 3,
+        "representedBy": "J. Doe",
+        "publishedBy": "Council of Europe",
+        "rulesOfCourt": "Rule 39",
+        "applicability": "applicable",
+        "separateOpinion": "partly dissenting",
+        "issue": "Article 8-1",
+        "importance": 2,
+        "rank": 2,
+        "scl": "SCL-1",
+        "externalSources": "https://hudoc.echr.coe.int/eng?i=001-224455",
+
+        "hasApplicationNumber": [
+          { "id": "document/echr/001-224455/appno/12345:19/HUDOC",
+            "type": "cle:ApplicationNumber",
+            "applicationNumber": "12345/19",
+            "sourceDataset": "dataset/HUDOC",
+            "createdAt": "2026-02-01T05:00:00Z" },
+          { "id": "document/echr/001-224455/appno/12345:19/ECHR_OPEN_DATA",
+            "type": "cle:ApplicationNumber",
+            "applicationNumber": "12345/19",
+            "sourceDataset": "dataset/HUDOC",
+            "sourceCode": "ECHR_OPEN_DATA" }
+        ],
+
+        "hasArticleApplication": [
+          { "id": "document/echr/001-224455/article/applied/8",
+            "type": "cle:EchrArticleApplication",
+            "articleKind": "applied",
+            "articleCode": "8",
+            "protocol": null,
+            "raw": "Article 8" },
+          { "id": "document/echr/001-224455/article/violation/8",
+            "type": "cle:EchrArticleApplication",
+            "articleKind": "violation",
+            "articleCode": "8",
+            "raw": "Article 8" }
+        ],
+
+        "hasText": [ {
+          "id": "document/echr/001-224455/text/en/HUDOC_SECONDARY",
+          "type": "cle:TextVariant",
+          "sourceCase": "case/001-224455",
+          "language": "http://lexvo.org/id/iso639-1/en",
+          "sourceDataset": "dataset/HUDOC",
+          "sourceCode": "HUDOC_SECONDARY",
+          "isStub": false,
+          "fullText": { "@value": "(secondary full text omitted)", "@language": "en" },
+          "createdAt": "2026-02-01T05:00:00Z"
+        } ],
+
+        "hasExtractorAnalysis": [ {
+          "id": "document/echr/001-224455/analysis/1",
+          "type": "cle:EchrExtractorAnalysis",
+          "parserMode": "heading",
+          "numSections": 7,
+          "procedureSection": { "@value": "(procedure omitted)", "@language": "en" },
+          "factsSection": { "@value": "(facts omitted)", "@language": "en" },
+          "complaintsSection": { "@value": "(complaints omitted)", "@language": "en" },
+          "lawSection": { "@value": "(law omitted)", "@language": "en" },
+          "operativeSection": { "@value": "FOR THESE REASONS, THE COURT ...", "@language": "en" },
+          "subjectMatterSection": { "@value": "(subject matter omitted)", "@language": "en" },
+          "courtAssessmentSection": { "@value": "(assessment omitted)", "@language": "en" },
+          "separateOpinionSection": { "@value": "(separate opinion omitted)", "@language": "en" },
+          "segmentedAt": "2026-02-01T05:30:00Z",
+          "extractorVersion": "echr-segmenter-2.1.0"
+        } ]
+      } ]
+    },
+
+    {
+      "id": "court/ECHR",
+      "type": "cle:Court",
+      "courtCode": "ECHR",
+      "prefLabel": { "en": "European Court of Human Rights", "fr": "Cour européenne des droits de l'homme" },
+      "level": "international",
+      "inJurisdiction": "jurisdiction/EU-COE"
+    },
+    {
+      "id": "jurisdiction/EU-COE",
+      "type": "cle:Jurisdiction",
+      "isoCode": "EU-COE",
+      "prefLabel": { "en": "Council of Europe" },
+      "level": "supranational"
+    }
+  ]
+}
