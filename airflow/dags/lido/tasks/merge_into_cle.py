@@ -61,10 +61,39 @@ _STAGE_TABLES = {
 _CHUNK_SIZE = 100_000
 
 _MERGE_SQL = f"""
--- 1. legislation (type='wet' rows)
+-- 1. legislation (type='wet' rows). cle_v2 holds one legislation row per BWB
+--    act (production: 265k rows, none sharing an identifier, most without a
+--    lido_id), while LIDO has a 'wet' element per version of an act. Keying
+--    on lido_id alone inserted a second row per version for acts that already
+--    exist, so the latest LIDO version is attached to the act's row by BWB id
+--    and only acts cle_v2 does not have yet are inserted.
+-- 1a. existing acts take their latest LIDO version
+UPDATE {SCHEMA}.legislation l
+SET lido_id = v.lido_id, jc_id = v.jc_id, title = COALESCE(NULLIF(v.title, ''), l.title)
+FROM (
+    SELECT DISTINCT ON (bwb_id) bwb_id, lido_id, jc_id, title
+    FROM {SCHEMA}._lido_stage_law_element
+    WHERE type = 'wet' AND bwb_id <> ''
+    ORDER BY bwb_id, lido_id DESC
+) v
+WHERE l.id = (SELECT min(o.id) FROM {SCHEMA}.legislation o
+              WHERE o.scheme = 'bwb' AND o.identifier = v.bwb_id)
+  AND l.lido_id IS DISTINCT FROM v.lido_id
+  -- Databases loaded by the earlier merge hold a row per version, and there the
+  -- latest version already has its row and nothing is changed.
+  AND NOT EXISTS (SELECT 1 FROM {SCHEMA}.legislation o WHERE o.lido_id = v.lido_id);
+
+-- 1b. acts cle_v2 does not have yet
 INSERT INTO {SCHEMA}.legislation (identifier, scheme, title, lido_id, jc_id)
-SELECT bwb_id, 'bwb', title, lido_id, jc_id
-FROM {SCHEMA}._lido_stage_law_element WHERE type = 'wet'
+SELECT v.bwb_id, 'bwb', v.title, v.lido_id, v.jc_id
+FROM (
+    SELECT DISTINCT ON (bwb_id) bwb_id, lido_id, jc_id, title
+    FROM {SCHEMA}._lido_stage_law_element
+    WHERE type = 'wet' AND bwb_id <> ''
+    ORDER BY bwb_id, lido_id DESC
+) v
+WHERE NOT EXISTS (
+    SELECT 1 FROM {SCHEMA}.legislation l WHERE l.scheme = 'bwb' AND l.identifier = v.bwb_id)
 ON CONFLICT (lido_id) DO UPDATE SET title = EXCLUDED.title, identifier = EXCLUDED.identifier;
 
 -- 2. legal_provision (everything else), legislation_id resolved by bwb_id
@@ -118,7 +147,13 @@ INSERT INTO {SCHEMA}.case_law_reference (case_id, legislation_id, raw_reference,
 SELECT DISTINCT ON (c.id, leg.id) c.id, leg.id, cl.opschrift, 'cited', 'rs_lido-both'
 FROM {SCHEMA}._lido_stage_case_law cl
 JOIN {SCHEMA}.cases c ON c.ecli = cl.ecli
-JOIN {SCHEMA}.legislation leg ON leg.lido_id = cl.law_lido_id
+-- A reference names one version of an act, cle_v2 keeps one row per act.
+JOIN {SCHEMA}._lido_stage_law_element le ON le.lido_id = cl.law_lido_id AND le.type = 'wet'
+JOIN LATERAL (
+    SELECT id, identifier FROM {SCHEMA}.legislation
+    WHERE scheme = 'bwb' AND identifier = le.bwb_id
+    ORDER BY lido_id DESC NULLS LAST LIMIT 1
+) leg ON true
 WHERE NOT EXISTS (
     SELECT 1 FROM {SCHEMA}.case_law_reference x
     WHERE x.case_id = c.id
