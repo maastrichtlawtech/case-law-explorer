@@ -17,6 +17,6 @@ with DAG(
     default_args=default_args,
     description="fully implemented",
     start_date=datetime.now(),
-    schedule_interval="@monthly",
+    schedule="@monthly",
 ) as DAG:
     task1 = PythonOperator(task_id="log_cleaner", python_callable=log_clean)
