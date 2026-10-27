@@ -3,6 +3,8 @@ without a live database."""
 
 
 class FakeCursor:
+    rowcount = 1
+
     def __init__(self, conn):
         self._conn = conn
 

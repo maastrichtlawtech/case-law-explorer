@@ -147,3 +147,36 @@ An earlier SQL-runner sync applied 37,404 source replacements before it was
 stopped during `is_stub` recomputation. Treat production's CJEU text layer and
 stub flags as intermediate. The corrected full rerun and final control snapshot
 are mandatory; do not use that interrupted run as acceptance evidence.
+
+## Loader parity with production (2026-10-27)
+
+Production's CJEU data was loaded by the cjeu-migration scripts, not by this
+DAG, and the two disagreed. Re-enabling `cellar_etl` as it was would have added
+thin cases (`sources = {EURLEX}`, no court, type, judges or parties) and stored
+every CJEU and ECHR citation a second time under new dataset names. The loader
+now follows production:
+
+- `data_loading/cjeu_mapping.py` is the migration's row mapping
+  (`50_load_cjeu.py` / `62_load_new_cjeu_cases_via_runner.py`) and
+  `data_loading/cjeu_loader.py` its statements: court, document type, case
+  number, procedure, judges, parties, domains, AG opinion, national document,
+  law references and citations, all with `source_dataset = 'cellar_sparql'`.
+  `MAP_CELLAR` keeps every extractor column the mapping reads.
+- Existing cases are only enriched (NULL columns filled, `CJEU` added to
+  `sources`); nothing is overwritten. Unresolved citations whose target is a
+  case of the batch are linked (CELLAR by CELEX, Rechtspraak/ECHR by ECLI).
+- A CELEX already held by another ECLI is ambiguous: that case is loaded
+  without a CELEX, as production stores such identities, instead of being
+  rejected (a rejected row blocks the month's promotion).
+- Full text resolves its case by the record's ECLI, keeps the extractor's
+  `text_source` (`INFOCURIA_BLOB_HTML` is no longer stored as `CELLAR_ITEM`)
+  and `text_format`, and sets `case_text.document_kind` / `document_celex`
+  (migration 0008 in caselaw-coolify).
+- Edge files write `cellar_sparql` and `echr_edge`, the names already in
+  `case_citation`.
+
+Checked against production on a real extraction (1-8 September 2026, 87
+cases): every statement plans against the live schema, and title, date,
+court, language, document type and case number match the stored rows for all
+75 cases already present. The differences are CELLAR metadata added since the
+5 October snapshot (judges, chambers, directory codes, agents).

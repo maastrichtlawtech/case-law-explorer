@@ -1,16 +1,11 @@
 import logging
 from datetime import date
 
+from data_loading import cjeu_loader
 from data_loading.language_codes import normalize_language_code
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
-    CELLAR_CITATIONS_EXTRA_INFO,
-    CELLAR_CREATION_OF_WORK,
-    CELLAR_DATE_OF_DOCUMENT,
-    CELLAR_JOURNAL_ARTICLES,
-    CELLAR_SECTOR,
-    CELLAR_TYPE_PROCEDURE,
     ECHR_APPLICABILITY,
     ECHR_APPLICANTS,
     ECHR_BRANCH,
@@ -60,17 +55,6 @@ def _split_set(value):
     if not value:
         return None
     return [v for v in value.split(SET_SEP) if v]
-
-
-def _earliest_iso_date(value):
-    """Reduce a semicolon-separated timestamp list to one PostgreSQL date."""
-    dates = []
-    for item in str(value or "").split(";"):
-        try:
-            dates.append(date.fromisoformat(item.strip()[:10]))
-        except ValueError:
-            continue
-    return min(dates) if dates else None
 
 
 class _BaseRowProcessor:
@@ -305,40 +289,23 @@ class PostgresRSProcessor(_BaseRowProcessor):
 
 
 class PostgresCelexProcessor(_BaseRowProcessor):
-    """Cellar/CJEU rows -> cle_v2.cases + cle_v2.cjeu_document. Full text loaded separately (case_text_loader.py)."""
+    """Cellar/CJEU rows -> every cle_v2 table a CJEU case spans.
+
+    Uses the migration's mapping (data_loading/cjeu_mapping.py), so cases loaded
+    here match the ones already in production: CJEU court and document type,
+    case number, judges, parties, domains, AG opinion, law references and
+    cellar_sparql citations. Full text is loaded separately (case_text_loader.py).
+    """
 
     key_field = CELLAR_CELEX
     conflict_col = "celex_id"
     detail_table = "cjeu_document"
 
+    def upload_row(self, row: dict) -> int:
+        return self.upload_rows([row])
+
     def upload_rows(self, rows: list) -> int:
-        # CJEU and Rechtspraak overlap for some Dutch sector-8 decisions.
-        # Row-wise identity-aware upserts can merge those on ECLI; a bulk
-        # ON CONFLICT (celex_id) cannot also arbitrate an ECLI conflict.
-        return sum(self.upload_row(row) for row in rows)
-
-    def _case_row(self, row):
-        return {
-            "celex_id": row[CELLAR_CELEX],
-            "ecli": row.get(ECLI) or None,
-            # no dedicated title field extracted for Cellar cases today
-            "date_decision": row.get(CELLAR_DATE_OF_DOCUMENT) or None,
-            "source": "EURLEX",
-        }
-
-    def _detail_row(self, row, case_id):
-        return {
-            "case_id": case_id,
-            "celex_id": row.get(CELLAR_CELEX),
-            "ecli": row.get(ECLI) or None,
-            "sector": row.get(CELLAR_SECTOR),
-            "proc_type": row.get(CELLAR_TYPE_PROCEDURE),
-            # best available proxy for date_lodged; CELLAR extraction doesn't
-            # capture a distinct "lodged" date today
-            "date_lodged": _earliest_iso_date(row.get(CELLAR_CREATION_OF_WORK)),
-            "journal_refs": row.get(CELLAR_JOURNAL_ARTICLES),
-            "citations_extra_info": row.get(CELLAR_CITATIONS_EXTRA_INFO),
-        }
+        return cjeu_loader.load_rows(self.client, rows, self._log_failure)
 
 
 class PostgresItemIdProcessor(_BaseRowProcessor):

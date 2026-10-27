@@ -11,9 +11,13 @@ import json
 import logging
 import os
 
+from data_loading.cjeu_mapping import document_kind
 from data_loading.language_codes import normalize_language_code
 from data_transformation.utils import format_cellar_celex
 from definitions.storage_handler import JSON_FULL_TEXT_CELLAR, JSON_FULL_TEXT_ECHR
+
+# case_text.source values cellar-extractor's text_source maps onto unchanged.
+CELLAR_TEXT_SOURCES = {"CELLAR_ITEM", "INFOCURIA_BLOB_HTML", "INFOCURIA_OJ_NOTICE"}
 
 
 def load_fulltext(client, files_location_paths: list) -> None:
@@ -45,10 +49,24 @@ def load_fulltext(client, files_location_paths: list) -> None:
                         f"{raw_celex!r}; rerun extraction with the pinned "
                         "cellar-extractor revision"
                     )
-                case_id = client.resolve_case_id(celex_id=celex)
+                # The record names the decision it belongs to. Resolve by that
+                # ECLI: a CELEX can sit under a different case in cle_v2 (an
+                # ambiguous identity loaded without CELEX), and resolving by it
+                # would file this text under that other case. Artifacts from
+                # before the extractor emitted ECLIs fall back to the CELEX.
+                ecli = str(item.get("ecli") or "").strip().upper()
+                if ecli:
+                    case_id = client.resolve_case_id(ecli=ecli)
+                else:
+                    case_id = client.resolve_case_id(celex_id=celex)
                 if case_id is None:
-                    logging.info(f"No case found for celex {celex}, skipping full text")
+                    logging.info(f"No case found for {ecli or celex}, skipping full text")
                     continue
+                fulltext = item.get("full_text") or item.get("text")
+                has_text = bool(str(fulltext or "").strip())
+                source = str(item.get("text_source") or "").strip()
+                if source not in CELLAR_TEXT_SOURCES:
+                    source = "CELLAR_ITEM"
                 client.upsert_case_text(
                     case_id=case_id,
                     # cellar-extractor 2.x emits one record per available
@@ -59,8 +77,19 @@ def load_fulltext(client, files_location_paths: list) -> None:
                     language=normalize_language_code(
                         item.get("text_language") or item.get("language")
                     ),
-                    source="CELLAR_ITEM",
-                    fulltext=item.get("full_text") or item.get("text"),
+                    # cellar-extractor also emits InfoCuria bodies; storing
+                    # them as CELLAR_ITEM would rank them above CELLAR's own.
+                    source=source,
+                    fulltext=fulltext,
+                    text_format=item.get("text_format") or None,
+                    missing_reasons=None if has_text else (item.get("missing_reasons") or None),
+                    is_stub=not has_text,
+                    # The record is the canonical work itself (checked above),
+                    # so its CELEX says which document it is.
+                    document_kind=(
+                        "oj_notice" if source == "INFOCURIA_OJ_NOTICE" else document_kind(celex)
+                    ),
+                    document_celex=celex,
                 )
                 loaded += 1
 

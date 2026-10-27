@@ -143,17 +143,28 @@ class PostgresCLEClient:
         summary_source: str | None = None,
         missing_reasons: str | None = None,
         is_stub: bool = False,
+        document_kind: str | None = None,
+        document_celex: str | None = None,
+        text_format: str | None = None,
     ) -> None:
-        """Replaces upload_fulltext()/S3 (fulltext_bucket_saving.py): full text lands directly in case_text."""
+        """Replaces upload_fulltext()/S3 (fulltext_bucket_saving.py): full text lands directly in case_text.
+
+        document_kind/document_celex say which document the text is (migration
+        0008); when given they replace the stored label, otherwise it is kept.
+        """
         sql = f"""
             INSERT INTO {SCHEMA}.case_text
                 (case_id, language, source, fulltext, summary, summary_source,
-                 missing_reasons, is_stub)
+                 missing_reasons, is_stub, document_kind, document_celex, text_format)
             VALUES
                 (%(case_id)s, %(language)s, %(source)s,
                  NULLIF(BTRIM(%(fulltext)s), ''), %(summary)s, %(summary_source)s,
-                 %(missing_reasons)s, %(is_stub)s)
+                 %(missing_reasons)s, %(is_stub)s, %(document_kind)s, %(document_celex)s,
+                 %(text_format)s)
             ON CONFLICT (case_id, language, source) DO UPDATE SET
+                document_kind = COALESCE(EXCLUDED.document_kind, {SCHEMA}.case_text.document_kind),
+                document_celex = COALESCE(EXCLUDED.document_celex, {SCHEMA}.case_text.document_celex),
+                text_format = COALESCE(EXCLUDED.text_format, {SCHEMA}.case_text.text_format),
                 fulltext = COALESCE(
                     NULLIF(BTRIM(EXCLUDED.fulltext), ''),
                     {SCHEMA}.case_text.fulltext
@@ -187,6 +198,9 @@ class PostgresCLEClient:
                 "summary_source": summary_source,
                 "missing_reasons": missing_reasons,
                 "is_stub": is_stub,
+                "document_kind": document_kind,
+                "document_celex": document_celex,
+                "text_format": text_format,
             },
         )
 
@@ -543,6 +557,33 @@ class PostgresCLEClient:
                 "source_dataset": source_dataset,
             },
         )
+
+    def execute_arrays(self, sql: str, params: list) -> int:
+        """Run one positional-parameter statement (typically unnest() over
+        parallel arrays); returns the number of rows it touched."""
+        conn = self._get_conn()
+        try:
+            with conn.cursor() as cur:
+                cur.execute(sql, params)
+                rowcount = cur.rowcount
+            if self._tx_depth == 0:
+                conn.commit()
+            return rowcount
+        except Exception:
+            if self._tx_depth == 0:
+                conn.rollback()
+            logging.exception("pg_cle write failed for statement: %s", sql[:120])
+            raise
+
+    def fetch_rows(self, sql: str, params: list) -> list[tuple]:
+        """Read-only positional-parameter query."""
+        conn = self._get_conn()
+        with conn.cursor() as cur:
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+        if self._tx_depth == 0:
+            conn.commit()
+        return rows
 
     def _execute(self, sql: str, params: dict) -> None:
         conn = self._get_conn()
