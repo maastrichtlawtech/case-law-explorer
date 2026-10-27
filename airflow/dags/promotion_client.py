@@ -157,9 +157,20 @@ def _wait_for(batch_id, accepted_states, cfg):
         time.sleep(cfg["poll_seconds"])
 
 
+def lido_promotion_enabled():
+    return os.getenv("ETL_PROMOTION_LIDO_ENABLED", "false").strip().lower() in {"1", "true", "yes"}
+
+
 def promote_source_batches(source_dag_id, **_context):
     if source_dag_id not in SOURCE_DAG_IDS:
         raise ValueError(f"Unsupported source DAG: {source_dag_id}")
+    if source_dag_id == "lido_sqlite_build" and not lido_promotion_enabled():
+        # The LIDO merge writes case_law_reference rows under other provenance
+        # names than production's legacy rs_lido-both rows, which would store
+        # most references twice (case-law-explorer#72). Promote LIDO only once
+        # that is resolved and ETL_PROMOTION_LIDO_ENABLED is set.
+        logging.info("LIDO promotion is disabled (ETL_PROMOTION_LIDO_ENABLED); skipping")
+        return []
     cfg = client_settings()
     query = urllib.parse.urlencode({"dag_id": source_dag_id})
     listing = promoter_json(f"/v1/batches?{query}", cfg=cfg)

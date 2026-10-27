@@ -116,3 +116,17 @@ def test_promote_source_calls_and_waits_for_each_batch():
 
     assert result == ["batch-1"]
     assert request.call_args_list[1].kwargs["method"] == "POST"
+
+
+def test_lido_promotion_is_skipped_unless_enabled(monkeypatch):
+    monkeypatch.delenv("ETL_PROMOTION_LIDO_ENABLED", raising=False)
+    with patch.object(promotion_client, "promoter_json") as promoter_json:
+        assert promotion_client.promote_source_batches("lido_sqlite_build") == []
+    promoter_json.assert_not_called()
+
+
+def test_lido_promotion_runs_when_enabled(monkeypatch):
+    monkeypatch.setenv("ETL_PROMOTION_LIDO_ENABLED", "true")
+    with patch.object(promotion_client, "promoter_json", return_value={"batches": []}) as promoter_json:
+        assert promotion_client.promote_source_batches("lido_sqlite_build") == []
+    promoter_json.assert_called_once()
