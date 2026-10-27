@@ -23,6 +23,9 @@ from definitions.terminology.attribute_names import (
 
 from .fakes import FakeHook
 
+RS_ENRICHMENT_STATEMENTS = 5  # jurisdiction, courts, procedures, document types, cases
+ECHR_LOOKUP_STATEMENTS = 2  # ECTHR court (+ jurisdiction), document types
+
 
 @pytest.fixture
 def hook(monkeypatch):
@@ -159,8 +162,9 @@ def test_rs_processor_upload_rows_writes_citations_per_row_in_batch(client, hook
 
     conn = client._get_conn()
     assert result == 2
-    # bulk cases + bulk rs_document + bulk case_text + 1 citation (row 2 has none)
-    assert len(conn.executed) == 4
+    # bulk cases + bulk rs_document + bulk case_text + 1 citation (row 2 has
+    # none), then the cases enrichment (case_enrichment.enrich_rs)
+    assert len(conn.executed) == 4 + RS_ENRICHMENT_STATEMENTS
     _, citation_params = conn.executed[3]
     assert citation_params["target_ecli_raw"] == "ECLI:NL:HR:2024:200"
 
@@ -261,12 +265,16 @@ def test_item_id_processor_groups_language_variants_by_ecli(client):
     assert processor.upload_rows(rows) == 2
     conn = client._get_conn()
     assert conn.commit_count == 1
-    assert len(conn.executed) == 3  # one case, two document variants
-    _, case_params = conn.executed[0]
+    # lookups, one case, two document variants, the case enrichment
+    assert len(conn.executed) == ECHR_LOOKUP_STATEMENTS + 4
+    _, case_params = conn.executed[ECHR_LOOKUP_STATEMENTS]
     assert case_params["item_id"] == "001-eng"
     assert case_params["ecli"] == "ECLI:CE:ECHR:2026:1"
-    detail_case_ids = {params["case_id"] for _, params in conn.executed[1:]}
+    detail_case_ids = {params["case_id"] for _, params in conn.executed[ECHR_LOOKUP_STATEMENTS + 1:-1]}
     assert len(detail_case_ids) == 1
+    enrichment_sql, enrichment_params = conn.executed[-1]
+    assert "UPDATE cle_v2.cases k SET" in enrichment_sql
+    assert enrichment_params[0] == "judgment"
 
 
 def test_item_id_processor_groups_ecli_less_variants_by_appno_and_reference_date(client):
@@ -288,8 +296,8 @@ def test_item_id_processor_groups_ecli_less_variants_by_appno_and_reference_date
 
     assert processor.upload_rows(rows) == 2
     conn = client._get_conn()
-    assert len(conn.executed) == 3
-    _, case_params = conn.executed[0]
+    assert len(conn.executed) == ECHR_LOOKUP_STATEMENTS + 4
+    _, case_params = conn.executed[ECHR_LOOKUP_STATEMENTS]
     assert case_params["item_id"] == "001-eng"
     assert case_params["ecli"] is None
 
@@ -309,9 +317,11 @@ def test_rs_processor_upload_rows_uses_three_bulk_statements(client):
 
     conn = client._get_conn()
     assert result == 3
-    # one bulk statement per table (cases, rs_document, case_text), one commit
-    assert len(conn.executed) == 3
-    assert conn.commit_count == 1
+    # one bulk statement per table (cases, rs_document, case_text), then the
+    # cases enrichment in its own transaction
+    assert len(conn.executed) == 3 + RS_ENRICHMENT_STATEMENTS
+    assert conn.commit_count == 2
+    assert "UPDATE cle_v2.cases k SET" in conn.executed[-1][0]
 
 
 def test_upload_rows_collapses_duplicate_keys_to_last_occurrence(client):
