@@ -92,24 +92,39 @@ JOIN LATERAL (
 ON CONFLICT (legislation_id, alias) DO NOTHING;
 
 -- 4. cases enrichment (skip-if-missing: never inserts, only fills gaps on rows
---    rechtspraak_etl already loaded)
+--    rechtspraak_etl already loaded). Only rows with a gap are touched: an
+--    UPDATE of every matched case rewrote millions of unchanged rows.
 UPDATE {SCHEMA}.cases c
-SET title = COALESCE(c.title, s.title),
+SET title = COALESCE(c.title, NULLIF(s.title, '')),
     date_decision = COALESCE(c.date_decision, NULLIF(s.date_decision, '')::date)
 FROM {SCHEMA}._lido_stage_cases s
-WHERE c.ecli = s.ecli;
+WHERE c.ecli = s.ecli
+  AND ((c.title IS NULL AND NULLIF(s.title, '') IS NOT NULL)
+       OR (c.date_decision IS NULL AND NULLIF(s.date_decision, '') IS NOT NULL));
 
--- 5a. case_law_reference, legislation-target
+-- 5. case_law_reference. Production holds LIDO's references from the legacy
+--    ETL as one row per case and target labelled rs_lido-both (LIDO's ref and
+--    linkt links together, 4.2M rows), plus 125k legacy rs_lido_linkt rows.
+--    Writing one row per LIDO link type under new names would store most
+--    references two or three times, so: one row per case and target, labelled
+--    rs_lido-both, and only where no LIDO-sourced reference to that target
+--    exists yet under any of these names. Legacy rows identify their target
+--    by BWB id and article (raw_resource, raw_subdivision) and carry a
+--    provision_id for only about 80 percent, so a target matches on provision_id or on
+--    BWB id + article label (provision) / on legislation_id or BWB id (law).
+
+-- 5a. legislation-target
 INSERT INTO {SCHEMA}.case_law_reference (case_id, legislation_id, raw_reference, role, source_dataset)
-SELECT c.id, leg.id, cl.opschrift, 'cited',
-       CASE cl.source
-           WHEN 'lido-ref' THEN 'rs_lido_ref'
-           WHEN 'lido-linkt' THEN 'rs_lido_linkt'
-           ELSE 'rs_lido_custom'
-       END
+SELECT DISTINCT ON (c.id, leg.id) c.id, leg.id, cl.opschrift, 'cited', 'rs_lido-both'
 FROM {SCHEMA}._lido_stage_case_law cl
 JOIN {SCHEMA}.cases c ON c.ecli = cl.ecli
 JOIN {SCHEMA}.legislation leg ON leg.lido_id = cl.law_lido_id
+WHERE NOT EXISTS (
+    SELECT 1 FROM {SCHEMA}.case_law_reference x
+    WHERE x.case_id = c.id
+      AND x.source_dataset IN ('rs_lido-both', 'rs_lido_linkt', 'rs_lido_ref', 'rs_lido_custom')
+      AND (x.legislation_id = leg.id OR x.raw_resource = leg.identifier))
+ORDER BY c.id, leg.id, cl.opschrift NULLS LAST
 -- The predicate names the partial index this arbiter is meant to hit. See the
 -- note on upsert_citation in data_loading/clients/postgres.py: db/schema.sql
 -- declares case_law_reference_uk_legislation unqualified, the Coolify bundle's
@@ -119,17 +134,20 @@ ON CONFLICT (case_id, legislation_id, role, source_dataset)
     WHERE provision_id IS NULL AND legislation_id IS NOT NULL AND raw_resource IS NULL
 DO NOTHING;
 
--- 5b. case_law_reference, provision-target
+-- 5b. provision-target
 INSERT INTO {SCHEMA}.case_law_reference (case_id, provision_id, raw_reference, role, source_dataset)
-SELECT c.id, lp.id, cl.opschrift, 'cited',
-       CASE cl.source
-           WHEN 'lido-ref' THEN 'rs_lido_ref'
-           WHEN 'lido-linkt' THEN 'rs_lido_linkt'
-           ELSE 'rs_lido_custom'
-       END
+SELECT DISTINCT ON (c.id, lp.id) c.id, lp.id, cl.opschrift, 'cited', 'rs_lido-both'
 FROM {SCHEMA}._lido_stage_case_law cl
 JOIN {SCHEMA}.cases c ON c.ecli = cl.ecli
 JOIN {SCHEMA}.legal_provision lp ON lp.lido_id = cl.law_lido_id
+LEFT JOIN {SCHEMA}.legislation leg ON leg.id = lp.legislation_id
+WHERE NOT EXISTS (
+    SELECT 1 FROM {SCHEMA}.case_law_reference x
+    WHERE x.case_id = c.id
+      AND x.source_dataset IN ('rs_lido-both', 'rs_lido_linkt', 'rs_lido_ref', 'rs_lido_custom')
+      AND (x.provision_id = lp.id
+           OR (x.raw_resource = leg.identifier AND x.raw_subdivision = lp.article_label)))
+ORDER BY c.id, lp.id, cl.opschrift NULLS LAST
 ON CONFLICT (case_id, provision_id, role, source_dataset)
     WHERE provision_id IS NOT NULL AND raw_resource IS NULL
 DO NOTHING;
