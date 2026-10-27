@@ -1,5 +1,3 @@
-from datetime import date
-
 import pytest
 from data_loading.clients import postgres as postgres_module
 from data_loading.clients.postgres import PostgresCLEClient
@@ -11,7 +9,6 @@ from data_loading.row_processors.postgres import (
 )
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
-    CELLAR_CREATION_OF_WORK,
     ECHR_DOCUMENT_ID,
     ECHR_APPLICANTS,
     ECHR_DOCUMENT_TYPE,
@@ -168,56 +165,34 @@ def test_rs_processor_upload_rows_writes_citations_per_row_in_batch(client, hook
     assert citation_params["target_ecli_raw"] == "ECLI:NL:HR:2024:200"
 
 
-# --- Cellar processor: 2 statements (case + cjeu_document) -------------------
+# --- Cellar processor: delegates to data_loading/cjeu_loader.py -------------
 
 
-def test_celex_processor_upload_row_commits_once(client):
+def test_celex_processor_upload_row_writes_one_case_in_one_transaction(client):
     processor = PostgresCelexProcessor(path="unused", client=client)
-    row = {CELLAR_CELEX: "62024CJ0001"}
+    row = {CELLAR_CELEX: "62024CJ0001", ECLI: "ECLI:EU:C:2024:1"}
 
     result = processor.upload_row(row)
 
     conn = client._get_conn()
     assert result == 1
-    assert conn.commit_count == 1
-    assert len(conn.executed) == 2
-
-
-def test_celex_processor_propagates_ecli_to_case(client):
-    processor = PostgresCelexProcessor(path="unused", client=client)
-    case_row = processor._case_row(
-        {CELLAR_CELEX: "62024CJ0001", ECLI: "ECLI:EU:C:2024:1"}
-    )
-    assert case_row["ecli"] == "ECLI:EU:C:2024:1"
-
-
-def test_celex_processor_reduces_creation_timestamps_to_earliest_date(client):
-    processor = PostgresCelexProcessor(path="unused", client=client)
-    detail = processor._detail_row(
-        {
-            CELLAR_CELEX: "62026CJ0001",
-            CELLAR_CREATION_OF_WORK: (
-                "2026-08-25T13:14:18.334+02:00;" "2026-07-03T15:32:35.648+02:00;" "not-a-date"
-            ),
-        },
-        case_id=7,
-    )
-
-    assert detail["date_lodged"] == date(2026, 7, 3)
+    assert conn.commit_count == 2  # CELEX ownership read, then the write
+    statements = [sql for sql, _ in conn.executed]
+    assert any("INSERT INTO cle_v2.cases" in sql for sql in statements)
+    assert "INSERT INTO cle_v2.cjeu_document" in statements[-1]
 
 
 def test_celex_processor_upload_row_rolls_back_on_failure(client, redirect_failure_log):
     processor = PostgresCelexProcessor(path="unused", client=client)
-    row = {CELLAR_CELEX: "62024CJ0002"}
+    row = {CELLAR_CELEX: "62024CJ0002", ECLI: "ECLI:EU:C:2024:2"}
 
     conn = client._get_conn()
-    conn.fail_next_execute = True
+    conn.executed.clear()
+    conn.fail_next_execute = True  # the CELEX ownership read
 
-    result = processor.upload_row(row)
-
-    assert result == 0
+    with pytest.raises(RuntimeError):
+        processor.upload_row(row)
     assert conn.commit_count == 0
-    assert conn.rollback_count == 1
 
 
 # --- ECHR processor: 2 statements (case + echr_document) ---------------------

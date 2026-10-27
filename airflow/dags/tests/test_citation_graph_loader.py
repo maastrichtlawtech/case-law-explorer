@@ -29,12 +29,13 @@ def test_echr_edges_resolve_ecli_and_item_id_identifiers(tmp_path):
     )
     client = RecordingClient()
 
-    loaded = _load_edge_file(client, str(path), "echr", "ECHR")
+    loaded = _load_edge_file(client, str(path), "echr", "echr_edge")
 
     assert loaded == 3
     assert [row["source_case_id"] for row in client.rows] == [10, 11, 10]
     assert [row["target_case_id"] for row in client.rows] == [20, 21, None]
     assert client.rows[2]["target_ecli_raw"] == "001-unknown"
+    assert {row["source_dataset"] for row in client.rows} == {"echr_edge"}
     assert path.exists()
 
 
@@ -43,9 +44,26 @@ def test_cellar_edges_still_resolve_celex(tmp_path):
     path.write_text("62026CJ0001,62025CJ0002\n", encoding="utf-8")
     client = RecordingClient()
 
-    loaded = _load_edge_file(client, str(path), "celex", "EURLEX")
+    loaded = _load_edge_file(client, str(path), "celex", "cellar_sparql")
 
     assert loaded == 1
     assert client.rows[0]["source_case_id"] == 30
     assert client.rows[0]["target_case_id"] == 31
+    assert client.rows[0]["target_celex_raw"] == "62025CJ0002"
+    assert client.rows[0]["source_dataset"] == "cellar_sparql"
     assert path.exists()
+
+
+def test_load_citation_graph_filters_by_source_key_and_writes_production_names(tmp_path, monkeypatch):
+    from data_loading import citation_graph_loader
+
+    seen = []
+    monkeypatch.setattr(
+        citation_graph_loader,
+        "_load_edge_file",
+        lambda client, path, target_key, dataset: seen.append(dataset) or 0,
+    )
+
+    citation_graph_loader.load_citation_graph(object(), sources=["EURLEX"], edge_dir=str(tmp_path))
+
+    assert seen == ["cellar_sparql"]

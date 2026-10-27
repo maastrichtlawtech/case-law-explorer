@@ -1,3 +1,4 @@
+from data_loading.cjeu_mapping import MAPPED_COLUMNS as CJEU_MAPPED_COLUMNS
 from definitions.terminology.attribute_names import *
 
 # maps to rename original field names of raw data to terminology defined in definitions.py
@@ -81,6 +82,10 @@ MAP_CELLAR = {
     "affecting_string": CELLAR_AFFECTING_STRING,  # strings with more detail about case affecting
     "citations_extra_info": CELLAR_CITATIONS_EXTRA_INFO,  # citations with exact paragraphs cited
 }
+
+# The CJEU loader maps rows with the migration's mapping, which reads more
+# extractor columns than are named above; keep those under their own names.
+MAP_CELLAR.update({c: c for c in CJEU_MAPPED_COLUMNS if c not in MAP_CELLAR and c != "ecli"})
 
 MAP_RS_OPINION = MAP_RS.copy()
 MAP_RS_OPINION[ECLI_DECISION] = ECLI_DECISION  # not in original data, added through script

@@ -20,8 +20,11 @@ from definitions.storage_handler import (
     get_path_raw,
 )
 
-CELLAR_EDGE_FILES = [(TXT_CELLAR_EDGES, "celex", "EURLEX")]
-ECHR_EDGE_FILES = [(TXT_ECHR_EDGES, "echr", "ECHR")]
+# (edge file, identifier kind, source key accepted by load_citation_graph,
+#  case_citation.source_dataset). The dataset names are the ones the rows
+# already in cle_v2 carry; writing new ones would store every edge twice.
+CELLAR_EDGE_FILES = [(TXT_CELLAR_EDGES, "celex", "EURLEX", "cellar_sparql")]
+ECHR_EDGE_FILES = [(TXT_ECHR_EDGES, "echr", "ECHR", "echr_edge")]
 
 
 def _resolve_case_id(client, identifier: str, target_key: str):
@@ -55,11 +58,9 @@ def _load_edge_file(client, path: str, target_key: str, source_dataset: str) -> 
             client.upsert_citation(
                 source_case_id=source_case_id,
                 target_case_id=target_case_id,
-                target_celex_raw=(
-                    target_id
-                    if target_key == "celex" and target_case_id is None
-                    else None
-                ),
+                # CELLAR rows keep the raw CELEX even once resolved, like the
+                # cellar_sparql rows from the migration and cjeu_loader.py.
+                target_celex_raw=target_id if target_key == "celex" else None,
                 target_ecli_raw=(
                     target_id
                     if target_key == "echr" and target_case_id is None
@@ -77,8 +78,8 @@ def load_citation_graph(client, sources=None, edge_dir=None) -> None:
     """Load edge files into case_citation. sources limits which datasets'
     edge files are read ('EURLEX', 'ECHR'); None means all. edge_dir is
     where the files live; defaults to the global raw dir."""
-    for filename, target_key, source_dataset in CELLAR_EDGE_FILES + ECHR_EDGE_FILES:
-        if sources is not None and source_dataset not in sources:
+    for filename, target_key, source_key, source_dataset in CELLAR_EDGE_FILES + ECHR_EDGE_FILES:
+        if sources is not None and source_key not in sources:
             continue
         path = os.path.join(edge_dir, filename) if edge_dir else get_path_raw(filename)
         loaded = _load_edge_file(client, path, target_key, source_dataset)
