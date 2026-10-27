@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 
-from data_loading import cjeu_loader
+from data_loading import case_enrichment, cjeu_loader
 from data_loading.language_codes import normalize_language_code
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
 from definitions.terminology.attribute_names import (
@@ -200,8 +200,20 @@ class PostgresRSProcessor(_BaseRowProcessor):
             "ecli": row[ECLI],
             "title": row.get(RS_TITLE),
             "date_decision": row.get(RS_DATE) or None,
-            "source": row.get(SOURCE) or "Rechtspraak",
+            # Production labels Rechtspraak cases RS; see case_enrichment.py.
+            "source": "RS",
         }
+
+    def upload_rows(self, rows: list) -> int:
+        loaded = super().upload_rows(rows)
+        pairs = [(row.get(ECLI), row.get(RS_CREATOR)) for row in rows if row.get(ECLI)]
+        try:
+            with self.client.transaction():
+                case_enrichment.enrich_rs(self.client, pairs)
+        except Exception as error:
+            for ecli, _ in pairs:
+                self._log_failure(ecli, f"case enrichment failed: {error}")
+        return loaded
 
     def _detail_row(self, row, case_id):
         return {
@@ -355,7 +367,8 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
             "ecli": row.get(ECLI) or None,
             "title": row.get(ECHR_TITLE),
             "date_decision": row.get(ECHR_JUDGMENT_DATE) or None,
-            "source": "HUDOC",
+            # Production labels HUDOC cases ECHR; see case_enrichment.py.
+            "source": "ECHR",
         }
 
     def _detail_row(self, row, case_id):
@@ -401,10 +414,13 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
             groups.setdefault(self._group_key(row), []).append(row)
 
         loaded = 0
+        lookups_ready = False
         for group_rows in groups.values():
             canonical = min(group_rows, key=self._canonical_rank)
             try:
                 with self.client.transaction():
+                    if not lookups_ready:
+                        case_enrichment.ensure_echr_lookups(self.client)
                     case_id = self.client.upsert_case(**self._case_row(canonical))
                     for row in group_rows:
                         self.client.upsert(
@@ -412,6 +428,14 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
                             conflict_cols=self.detail_conflict_cols,
                             values=self._detail_row(row, case_id),
                         )
+                    case_enrichment.enrich_echr(
+                        self.client,
+                        case_id,
+                        doctype=canonical.get(ECHR_DOCUMENT_TYPE),
+                        appno=canonical.get(ECHR_PARTICIPANTS) or canonical.get(ECHR_APPLICANTS),
+                        importance=canonical.get(ECHR_IMPORTANCE),
+                    )
+                lookups_ready = True
                 loaded += len(group_rows)
             except Exception as error:
                 for row in group_rows:
