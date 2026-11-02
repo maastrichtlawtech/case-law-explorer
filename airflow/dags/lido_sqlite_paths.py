@@ -1,5 +1,5 @@
 """
-Shared lido.db/lido-export.ttl.gz path resolution for lido_sqlite_build.py and
+Shared lido.db/lido-export.nt.gz path resolution for lido_sqlite_build.py and
 rechtspraak_etl.py/rechtspraak_extraction.py.
 
 Kept in its own module, separate from lido_sqlite_build.py's DAG definition:
@@ -15,6 +15,6 @@ from etl_factory import get_data_path
 
 
 def get_lido_sqlite_paths(data_path: str | None = None) -> tuple[Path, Path]:
-    """(ttl_gz_path, db_path) under data/lido_sqlite/, shared with rechtspraak_etl."""
+    """(export_path, db_path) under data/lido_sqlite/, shared with rechtspraak_etl."""
     data_dir = Path(data_path or get_data_path()) / "lido_sqlite"
-    return data_dir / "lido-export.ttl.gz", data_dir / "lido.db"
+    return data_dir / "lido-export.nt.gz", data_dir / "lido.db"
