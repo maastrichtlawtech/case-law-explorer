@@ -26,6 +26,7 @@ Uses its own data directory (data/lido_sqlite/), kept from when a second DAG
 shared the bind-mounted data/ tree and could otherwise race this one.
 """
 
+import os
 from datetime import datetime
 
 from airflow.operators.python import PythonOperator
@@ -57,9 +58,14 @@ def _download_lido_export():
 
 def _build_lido_sqlite_db():
     export_path, db_path = get_lido_sqlite_paths()
+    # Build from empty: resolving links again into an existing lido.db appends
+    # a second copy of every case_law row. A bad build leaves lido.db in place.
+    new_db_path = db_path.with_name(db_path.name + ".new")
+    new_db_path.unlink(missing_ok=True)
     # N-Triples is a subset of Turtle, so the package's Turtle pipeline reads it.
-    parse_into_db(export_path, db_path)
-    verify_build_freshness(db_path)
+    parse_into_db(export_path, new_db_path)
+    verify_build_freshness(new_db_path)
+    os.replace(new_db_path, db_path)
 
 
 def _build_law_aliases():
