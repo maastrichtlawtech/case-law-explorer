@@ -26,6 +26,7 @@ from definitions.storage_handler import (
     get_path_raw,
 )
 from dotenv import find_dotenv, load_dotenv
+from etl_factory import NoSourceData
 from helpers.csv_manipulator import drop_columns
 
 env_file = find_dotenv()
@@ -225,8 +226,7 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
 
     if isinstance(metadata, bool):
         # package returns False if no data was found
-        logging.warning("Cellar extractor returned boolean value - no data found")
-        return paths
+        raise NoSourceData("Cellar extractor returned no metadata; refusing an empty load")
 
     logging.info("Updating local storage ...")
 

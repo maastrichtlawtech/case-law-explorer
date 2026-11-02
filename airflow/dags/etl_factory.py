@@ -19,6 +19,17 @@ from airflow.utils.task_group import TaskGroup
 
 DEFAULT_ARGS = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=2)}
 
+# Written to processed/<chunk>/ when a trailing chunk legitimately has no
+# documents yet. The promoter treats that month as absent instead of failing
+# on its missing artifacts (caselaw-coolify etl/promoter.py reads this name).
+NO_SOURCE_DATA_MARKER = "no_source_data.marker"
+# Longer empty trailing chunks look like a broken source, not an early month.
+EMPTY_FINAL_CHUNK_MAX_DAYS = 14
+
+
+class NoSourceData(Exception):
+    """The source returned no documents for the requested chunk."""
+
 
 def get_var(name, default=None):
     """Airflow Variable with an environment-variable fallback (docker-compose
@@ -133,13 +144,30 @@ def run_monthly_window(var_prefix, etl_callable, **context):
             date(current.year, current.month, monthrange(current.year, current.month)[1]),
             end,
         )
-        etl_callable(
-            start_date=datetime.combine(current, datetime.min.time()),
-            end_date=datetime.combine(chunk_end, datetime.min.time()),
-            _data_path=get_data_path(),
-            force_refresh=force_refresh,
-            is_final_chunk=chunk_end == end,
+        marker = os.path.join(
+            get_data_path(), "processed", current.isoformat(), NO_SOURCE_DATA_MARKER
         )
+        if os.path.exists(marker):
+            os.remove(marker)
+        try:
+            etl_callable(
+                start_date=datetime.combine(current, datetime.min.time()),
+                end_date=datetime.combine(chunk_end, datetime.min.time()),
+                _data_path=get_data_path(),
+                force_refresh=force_refresh,
+                is_final_chunk=chunk_end == end,
+            )
+        except NoSourceData:
+            # A run early in a month often ends on a chunk with nothing
+            # published yet. Earlier chunks prove the source works, so only
+            # that short trailing chunk may be empty.
+            chunk_days = (chunk_end - current).days + 1
+            if current == start or chunk_end != end or chunk_days > EMPTY_FINAL_CHUNK_MAX_DAYS:
+                raise
+            logging.warning("No %s data for %s to %s yet", var_prefix, current, chunk_end)
+            os.makedirs(os.path.dirname(marker), exist_ok=True)
+            with open(marker, "w") as handle:
+                handle.write(f"{current} to {chunk_end}\n")
         current = chunk_end + timedelta(days=1)
 
 
