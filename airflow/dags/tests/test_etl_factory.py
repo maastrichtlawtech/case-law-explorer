@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import etl_factory
+import pytest
 
 
 def test_controller_window_takes_precedence():
@@ -119,3 +120,52 @@ def test_successful_run_registers_exact_controller_window():
     }
     assert request.headers["X-etl-promoter-token"] == "test-token"
     assert result["batch_id"].endswith("1")
+
+
+def _run_window_with_empty(tmp_path, monkeypatch, empty_from, data_interval_end):
+    monkeypatch.setattr(etl_factory, "get_data_path", lambda: str(tmp_path))
+
+    def etl(**kwargs):
+        if kwargs["start_date"].date() >= empty_from:
+            raise etl_factory.NoSourceData("no data")
+
+    etl_factory.run_monthly_window(
+        "ECHR",
+        etl,
+        dag_run=SimpleNamespace(run_id="scheduled__1", run_type="scheduled", conf={}),
+        data_interval_end=data_interval_end,
+    )
+
+
+def _marker(tmp_path, chunk):
+    return tmp_path / "processed" / chunk / etl_factory.NO_SOURCE_DATA_MARKER
+
+
+def test_empty_short_final_chunk_is_marked_not_failed(tmp_path, monkeypatch):
+    _run_window_with_empty(tmp_path, monkeypatch, date(2026, 11, 1), datetime(2026, 11, 2, 4))
+
+    assert _marker(tmp_path, "2026-11-01").is_file()
+    assert not _marker(tmp_path, "2026-10-01").exists()
+
+
+def test_marker_is_cleared_once_the_chunk_has_data(tmp_path, monkeypatch):
+    marker = _marker(tmp_path, "2026-11-01")
+    marker.parent.mkdir(parents=True)
+    marker.write_text("stale")
+
+    _run_window_with_empty(tmp_path, monkeypatch, date(2099, 1, 1), datetime(2026, 11, 9, 4))
+
+    assert not marker.exists()
+
+
+@pytest.mark.parametrize(
+    "empty_from, interval_end",
+    [
+        (date(2026, 10, 1), datetime(2026, 11, 2, 4)),  # an earlier chunk is empty
+        (date(2026, 11, 1), datetime(2026, 11, 16, 4)),  # long final chunk: 15 days
+        (date(2026, 9, 1), datetime(2026, 11, 2, 4)),  # everything is empty
+    ],
+)
+def test_other_empty_chunks_still_fail(tmp_path, monkeypatch, empty_from, interval_end):
+    with pytest.raises(etl_factory.NoSourceData):
+        _run_window_with_empty(tmp_path, monkeypatch, empty_from, interval_end)

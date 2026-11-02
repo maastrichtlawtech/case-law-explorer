@@ -24,6 +24,7 @@ from definitions.storage_handler import (
     get_path_raw,
 )
 from dotenv import find_dotenv, load_dotenv
+from etl_factory import NoSourceData
 
 env_file = find_dotenv()
 load_dotenv(env_file, override=True)
@@ -341,7 +342,7 @@ def echr_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
                 f"the required {minimum_coverage:.3f}; refusing to load this batch"
             )
     else:
-        raise RuntimeError("ECHR extractor returned no metadata; refusing an empty load")
+        raise NoSourceData("ECHR extractor returned no metadata; refusing an empty load")
 
     end = time.time()
     logging.info("--- DONE ---")
