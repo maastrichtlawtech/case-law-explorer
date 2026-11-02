@@ -138,7 +138,7 @@ def _run_window_with_empty(tmp_path, monkeypatch, empty_from, data_interval_end)
 
 
 def _marker(tmp_path, chunk):
-    return tmp_path / "processed" / chunk / etl_factory.NO_SOURCE_DATA_MARKER
+    return tmp_path / "processed" / chunk / etl_factory.NO_SOURCE_DATA_MARKER.format("ECHR")
 
 
 def test_empty_short_final_chunk_is_marked_not_failed(tmp_path, monkeypatch):
@@ -169,3 +169,13 @@ def test_marker_is_cleared_once_the_chunk_has_data(tmp_path, monkeypatch):
 def test_other_empty_chunks_still_fail(tmp_path, monkeypatch, empty_from, interval_end):
     with pytest.raises(etl_factory.NoSourceData):
         _run_window_with_empty(tmp_path, monkeypatch, empty_from, interval_end)
+
+
+def test_marker_of_another_source_is_left_alone(tmp_path, monkeypatch):
+    other = tmp_path / "processed" / "2026-11-01" / etl_factory.NO_SOURCE_DATA_MARKER.format("CELLAR")
+    other.parent.mkdir(parents=True)
+    other.write_text("cellar")
+
+    _run_window_with_empty(tmp_path, monkeypatch, date(2099, 1, 1), datetime(2026, 11, 9, 4))
+
+    assert other.exists()
