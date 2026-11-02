@@ -22,7 +22,8 @@ DEFAULT_ARGS = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=
 # Written to processed/<chunk>/ when a trailing chunk legitimately has no
 # documents yet. The promoter treats that month as absent instead of failing
 # on its missing artifacts (caselaw-coolify etl/promoter.py reads this name).
-NO_SOURCE_DATA_MARKER = "no_source_data.marker"
+# Sources share the folder, so the name carries the source's prefix.
+NO_SOURCE_DATA_MARKER = "no_source_data.{}.marker"
 # Longer empty trailing chunks look like a broken source, not an early month.
 EMPTY_FINAL_CHUNK_MAX_DAYS = 14
 
@@ -145,7 +146,7 @@ def run_monthly_window(var_prefix, etl_callable, **context):
             end,
         )
         marker = os.path.join(
-            get_data_path(), "processed", current.isoformat(), NO_SOURCE_DATA_MARKER
+            get_data_path(), "processed", current.isoformat(), NO_SOURCE_DATA_MARKER.format(var_prefix)
         )
         if os.path.exists(marker):
             os.remove(marker)
