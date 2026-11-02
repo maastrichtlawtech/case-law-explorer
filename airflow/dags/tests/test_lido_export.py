@@ -74,6 +74,16 @@ def test_download_resumes_after_a_dropped_connection(tmp_path, monkeypatch):
     assert (tmp_path / "lido.nt.gz").read_bytes() == body
 
 
+def test_complete_partial_file_is_accepted(tmp_path, monkeypatch):
+    body = gzip.compress(b"<s> <p> <o> .\n" * 1000)
+    (tmp_path / "lido.nt.gz.part").write_bytes(body)
+    monkeypatch.setattr(lido_export.requests, "get", lambda *a, **k: FakeResponse(b"", status_code=416))
+
+    lido_export.download_export(tmp_path / "lido.nt.gz", min_bytes=1)
+
+    assert (tmp_path / "lido.nt.gz").read_bytes() == body
+
+
 def _db(tmp_path, *dates):
     path = tmp_path / "lido.db"
     connection = sqlite3.connect(path)

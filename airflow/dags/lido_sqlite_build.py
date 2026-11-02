@@ -27,7 +27,7 @@ shared the bind-mounted data/ tree and could otherwise race this one.
 """
 
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from airflow.operators.python import PythonOperator
 from etl_factory import DEFAULT_ARGS, get_var, register_promotion
@@ -56,22 +56,31 @@ def _download_lido_export():
     download_export(export_path, get_var("LIDO_EXPORT_URL", DEFAULT_EXPORT_URL))
 
 
+def _new_db_path(db_path):
+    return db_path.with_name(db_path.name + ".new")
+
+
 def _build_lido_sqlite_db():
     export_path, db_path = get_lido_sqlite_paths()
     # Build from empty: resolving links again into an existing lido.db appends
-    # a second copy of every case_law row. A bad build leaves lido.db in place.
-    new_db_path = db_path.with_name(db_path.name + ".new")
+    # a second copy of every case_law row.
+    new_db_path = _new_db_path(db_path)
     new_db_path.unlink(missing_ok=True)
     # N-Triples is a subset of Turtle, so the package's Turtle pipeline reads it.
     parse_into_db(export_path, new_db_path)
     verify_build_freshness(new_db_path)
-    os.replace(new_db_path, db_path)
 
 
 def _build_law_aliases():
     _, db_path = get_lido_sqlite_paths()
-    bwb_zip_path = db_path.parent / "BWBIdList.xml.zip"
-    build_law_aliases(db_path, bwb_zip_path)
+    new_db_path = _new_db_path(db_path)
+    if not new_db_path.exists():
+        # sqlite3 would otherwise create an empty database and swap it in.
+        raise FileNotFoundError(f"{new_db_path} is missing; re-run build_lido_sqlite_db")
+    build_law_aliases(new_db_path, db_path.parent / "BWBIdList.xml.zip")
+    # Only a finished build replaces lido.db, which rechtspraak_etl keeps
+    # reading. Until then an outage or failed task leaves the old one in place.
+    os.replace(new_db_path, db_path)
 
 
 def _merge_into_cle():
@@ -83,6 +92,10 @@ with dag:
     download_task = PythonOperator(
         task_id="download_lido_export",
         python_callable=_download_lido_export,
+        # Each try already retries for an hour; together about ten hours, and a
+        # later failure still leaves lido.db and the previous export untouched.
+        retries=4,
+        retry_delay=timedelta(hours=1),
     )
     build_task = PythonOperator(
         task_id="build_lido_sqlite_db",
@@ -91,6 +104,9 @@ with dag:
     build_aliases_task = PythonOperator(
         task_id="build_law_aliases",
         python_callable=_build_law_aliases,
+        # Downloads BWBIdList from another overheid.nl host, without retries.
+        retries=4,
+        retry_delay=timedelta(minutes=30),
     )
     merge_task = PythonOperator(
         task_id="merge_lido_db_into_cle",

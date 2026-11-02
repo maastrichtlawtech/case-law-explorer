@@ -34,6 +34,9 @@ def _fetch(url, part_path):
     offset = part_path.stat().st_size if part_path.exists() else 0
     headers = {"Range": f"bytes={offset}-"} if offset else {}
     with requests.get(url, stream=True, timeout=60, headers=headers) as response:
+        if response.status_code == 416:
+            # The previous attempt had already received everything.
+            return offset
         response.raise_for_status()
         resumed = response.status_code == 206
         if not resumed:
