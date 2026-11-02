@@ -24,8 +24,9 @@ GZIP_MAGIC = b"\x1f\x8b"
 MIN_EXPORT_BYTES = 1_000_000_000
 # The export is monthly, and decisions are published some weeks after the date.
 MAX_NEWEST_DECISION_AGE_DAYS = 75
-DOWNLOAD_ATTEMPTS = 5
-RETRY_DELAY_SECONDS = 60
+# The host has TLS outages lasting at least ten minutes, so ride out about an hour.
+DOWNLOAD_ATTEMPTS = 13
+RETRY_DELAY_SECONDS = 300
 
 
 def _fetch(url, part_path):
