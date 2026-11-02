@@ -26,14 +26,15 @@ Uses its own data directory (data/lido_sqlite/), kept from when a second DAG
 shared the bind-mounted data/ tree and could otherwise race this one.
 """
 
+import os
 from datetime import datetime
 
 from airflow.operators.python import PythonOperator
-from etl_factory import DEFAULT_ARGS, register_promotion
+from etl_factory import DEFAULT_ARGS, get_var, register_promotion
 from lido.tasks.merge_into_cle import merge_lido_db_into_cle_v2
+from lido_export import DEFAULT_EXPORT_URL, download_export, verify_build_freshness
 from lido_sqlite_paths import get_lido_sqlite_paths
 from src.bwbidlist import build_law_aliases
-from src.download import download
 from src.parse import parse_into_db
 
 from airflow import DAG
@@ -51,13 +52,20 @@ dag = DAG(
 
 
 def _download_lido_export():
-    ttl_gz_path, _ = get_lido_sqlite_paths()
-    download(ttl_gz_path)
+    export_path, _ = get_lido_sqlite_paths()
+    download_export(export_path, get_var("LIDO_EXPORT_URL", DEFAULT_EXPORT_URL))
 
 
 def _build_lido_sqlite_db():
-    ttl_gz_path, db_path = get_lido_sqlite_paths()
-    parse_into_db(ttl_gz_path, db_path)
+    export_path, db_path = get_lido_sqlite_paths()
+    # Build from empty: resolving links again into an existing lido.db appends
+    # a second copy of every case_law row. A bad build leaves lido.db in place.
+    new_db_path = db_path.with_name(db_path.name + ".new")
+    new_db_path.unlink(missing_ok=True)
+    # N-Triples is a subset of Turtle, so the package's Turtle pipeline reads it.
+    parse_into_db(export_path, new_db_path)
+    verify_build_freshness(new_db_path)
+    os.replace(new_db_path, db_path)
 
 
 def _build_law_aliases():
