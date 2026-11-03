@@ -19,7 +19,8 @@ class FakeResponse:
         return False
 
     def raise_for_status(self):
-        pass
+        if self.status_code >= 400:
+            raise lido_export.requests.HTTPError(str(self.status_code))
 
     def iter_content(self, chunk_size):
         yield self.body
@@ -71,6 +72,26 @@ def test_download_resumes_after_a_dropped_connection(tmp_path, monkeypatch):
     lido_export.download_export(tmp_path / "lido.nt.gz", min_bytes=1)
 
     assert requested == [None, "bytes=10-"]
+    assert (tmp_path / "lido.nt.gz").read_bytes() == body
+
+
+def test_failing_resume_restarts_the_download(tmp_path, monkeypatch):
+    body = gzip.compress(b"<s> <p> <o> .\n" * 1000)
+    (tmp_path / "lido.nt.gz.part").write_bytes(body[:10])
+    requested = []
+
+    def get(url, headers, **_):
+        requested.append(headers.get("Range"))
+        if headers:
+            return FakeResponse(b"<html>504 Gateway Time-out</html>", status_code=504)
+        return FakeResponse(body)
+
+    monkeypatch.setattr(lido_export.requests, "get", get)
+    monkeypatch.setattr(lido_export, "RETRY_DELAY_SECONDS", 0)
+
+    lido_export.download_export(tmp_path / "lido.nt.gz", min_bytes=1)
+
+    assert requested == ["bytes=10-", None]
     assert (tmp_path / "lido.nt.gz").read_bytes() == body
 
 
