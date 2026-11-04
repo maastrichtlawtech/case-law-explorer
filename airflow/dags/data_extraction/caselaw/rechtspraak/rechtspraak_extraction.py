@@ -357,6 +357,7 @@ def rechtspraak_extract(
 
     os.makedirs(output_dir, exist_ok=True)
     metadata_df_list = []
+    base_df_list = []
     # Extract per day in the range
     for current_date, next_date in _daily_ranges(starting_date, ending_date):
         logging.info(
@@ -373,6 +374,8 @@ def rechtspraak_extract(
         base_file_day = os.path.join(output_dir, f"base_{current_date.date()}.csv")
         if base_extraction is not None:
             base_extraction.to_csv(base_file_day, index=False)
+            if not base_extraction.empty:
+                base_df_list.append(base_extraction)
         # SQLite first (built from the monthly LIDO export by lido_sqlite_build),
         # live per-ECLI API only as a fallback for ECLIs missing from it
         # entirely -- e.g. very recent cases published since the last refresh.
@@ -396,18 +399,15 @@ def rechtspraak_extract(
     else:
         metadata_df = pd.DataFrame()
         metadata_df.to_csv(metadata_file, index=False)
-    # Concatenate all base extractions
-    base_files = [
-        os.path.join(output_dir, f)
-        for f in os.listdir(output_dir)
-        if f.startswith("base_") and f.endswith(".csv")
-    ]
-    if base_files:
-        base_df = pd.concat([pd.read_csv(f) for f in base_files], ignore_index=True)
-        base_df.to_csv(base_file, index=False)
+    # Concatenate this run's base extractions. Listing base_*.csv in the
+    # directory also picked up base_extraction_rechtspraak.csv from an earlier
+    # run, and that file is a bare newline when its window was empty, which
+    # pandas cannot read.
+    if base_df_list:
+        base_df = pd.concat(base_df_list, ignore_index=True)
     else:
         base_df = pd.DataFrame()
-        base_df.to_csv(base_file, index=False)
+    base_df.to_csv(base_file, index=False)
 
     # Carry the title across from the base extraction.
     #
