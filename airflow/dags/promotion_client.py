@@ -95,8 +95,29 @@ def _timestamp(value):
     return parsed.astimezone(timezone.utc)
 
 
+def _supersedes(later, earlier):
+    """Whether ``later`` replaces all data ``earlier`` would promote.
+
+    LIDO batches carry no window: each one is a full rebuild of the database.
+    """
+    if not earlier.get("window_start") or not earlier.get("window_end"):
+        return True
+    if not later.get("window_start") or not later.get("window_end"):
+        return False
+    return (
+        later["window_start"] <= earlier["window_start"]
+        and later["window_end"] >= earlier["window_end"]
+    )
+
+
 def select_batches_for_run(batches, minimum_age_hours, now=None):
-    """Select ordered, mature batches after the latest successful promotion."""
+    """Select ordered, mature batches after the latest successful promotion.
+
+    A batch that failed at promotion (usually because a later run rewrote its
+    artifacts) cannot be promoted again as is. It is dropped when a later
+    batch covers its whole window, and otherwise returned so the caller can
+    have it verified again.
+    """
     now = now or datetime.now(timezone.utc)
     promoted_times = [
         _timestamp(batch.get("created_at"))
@@ -109,21 +130,64 @@ def select_batches_for_run(batches, minimum_age_hours, now=None):
     failures = []
     minimum_age = timedelta(hours=minimum_age_hours)
 
+    candidates = []
     for batch in sorted(batches, key=lambda item: item.get("created_at") or ""):
         created_at = _timestamp(batch.get("created_at"))
         if batch.get("status") == "promoted" or not created_at:
             continue
         if cutoff is not None and created_at <= cutoff:
             continue
-        if batch.get("status") == "failed":
-            if batch.get("failed_stage") == "promotion":
-                pending.append(batch)
-            else:
-                failures.append(batch)
+        candidates.append(batch)
+
+    # Batches are promoted in creation order: once one is not ready, the
+    # later ones wait for it.
+    waiting_on = None
+    for index, batch in enumerate(candidates):
+        status = batch.get("status")
+        if status == "failed" and batch.get("failed_stage") != "promotion":
+            failures.append(batch)
             continue
-        mature_at = _timestamp(batch.get("verified_at")) or created_at
-        if batch.get("status") == "promoting" or now - mature_at >= minimum_age:
+        if waiting_on:
+            continue
+        if status == "failed":
+            replacement = next(
+                (
+                    later
+                    for later in candidates[index + 1 :]
+                    if not (
+                        later.get("status") == "failed" and later.get("failed_stage") != "promotion"
+                    )
+                    and _supersedes(later, batch)
+                ),
+                None,
+            )
+            if replacement:
+                logging.info(
+                    "Skipping failed batch %s: superseded by %s",
+                    batch.get("batch_id"),
+                    replacement.get("batch_id"),
+                )
+                continue
             pending.append(batch)
+            waiting_on = batch
+            continue
+        if status == "promoting":
+            pending.append(batch)
+            continue
+        # A batch verified again after a failed promotion keeps its old
+        # created_at, so maturity is measured from verification only.
+        verified_at = _timestamp(batch.get("verified_at"))
+        if status != "verified" or not verified_at or now - verified_at < minimum_age:
+            logging.info(
+                "Batch %s is %s and not yet %s hours past verification; "
+                "later batches wait for it",
+                batch.get("batch_id"),
+                status,
+                minimum_age_hours,
+            )
+            waiting_on = batch
+            continue
+        pending.append(batch)
 
     if failures:
         details = "; ".join(
@@ -174,9 +238,7 @@ def promote_source_batches(source_dag_id, **_context):
     cfg = client_settings()
     query = urllib.parse.urlencode({"dag_id": source_dag_id})
     listing = promoter_json(f"/v1/batches?{query}", cfg=cfg)
-    pending = select_batches_for_run(
-        listing.get("batches", []), cfg["minimum_age_hours"]
-    )
+    pending = select_batches_for_run(listing.get("batches", []), cfg["minimum_age_hours"])
     if not pending:
         logging.info(
             "No verified %s batches are at least %s hours old",
@@ -189,9 +251,29 @@ def promote_source_batches(source_dag_id, **_context):
     for summary in pending:
         batch_id = summary["batch_id"]
         status = summary.get("status")
-        if status == "verifying":
-            status = _wait_for(batch_id, {"verified", "promoted"}, cfg)["status"]
-        if status in {"verified", "failed"}:
+        if status == "failed":
+            # The promoter only promotes verified batches. Register the run
+            # again so it is verified against its current artifacts; it is
+            # promoted once it has matured, and later batches wait for it.
+            promoter_json(
+                "/v1/batches",
+                method="POST",
+                payload={
+                    "dag_id": summary.get("dag_id") or source_dag_id,
+                    "run_id": summary["run_id"],
+                    "window_start": summary.get("window_start"),
+                    "window_end": summary.get("window_end"),
+                    "requested_by": summary.get("requested_by") or "airflow",
+                },
+                cfg=cfg,
+            )
+            raise RuntimeError(
+                f"Promotion batch {batch_id} failed at promotion "
+                f"({summary.get('error') or 'unknown error'}); it is being "
+                f"verified again and will be promoted once it is "
+                f"{cfg['minimum_age_hours']} hours old"
+            )
+        if status == "verified":
             promoter_json(
                 f"/v1/batches/{urllib.parse.quote(batch_id, safe='')}/promote",
                 method="POST",
