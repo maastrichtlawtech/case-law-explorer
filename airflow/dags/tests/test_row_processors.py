@@ -1,4 +1,5 @@
 import pytest
+
 from data_loading.clients import postgres as postgres_module
 from data_loading.clients.postgres import PostgresCLEClient
 from data_loading.row_processors import postgres as row_processors_module
@@ -9,8 +10,8 @@ from data_loading.row_processors.postgres import (
 )
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
-    ECHR_DOCUMENT_ID,
     ECHR_APPLICANTS,
+    ECHR_DOCUMENT_ID,
     ECHR_DOCUMENT_TYPE,
     ECHR_LANGUAGE,
     ECHR_REFERENCE_DATE,
@@ -216,11 +217,82 @@ def test_rs_processor_writes_one_law_reference_per_legislation(client):
 
     conn = client._get_conn()
     assert result == 1
-    assert len(conn.executed) == 5  # case + rs_document + case_text + 2 law refs
-    law_ref_params = [params for _, params in conn.executed[3:5]]
+    # case + rs_document + case_text + one act lookup (cached per BWB id) + 2 law refs
+    assert len(conn.executed) == 6
+    assert "FROM cle_v2.legislation" in conn.executed[3][0]
+    law_ref_params = [params for _, params in conn.executed[4:6]]
     assert {p["raw_reference"] for p in law_ref_params} == {"art. 6:162 BW", "art. 3:1 Awb"}
     assert all(p["raw_resource"] == "BWBR0005289" for p in law_ref_params)
     assert all(p["source_dataset"] == "rs_lido_sqlite" for p in law_ref_params)
+    # The fake finds no act: unresolved rows, under uk_raw with its predicate.
+    for sql, params in conn.executed[4:6]:
+        assert "legislation_id" not in params
+        assert "WHERE provision_id IS NULL AND legislation_id IS NULL" in sql
+
+
+LIDO_URL = "http://linkeddata.overheid.nl/terms/bwb/id/{}/1710393/2013-01-01/2013-01-01"
+
+
+def test_rs_law_reference_takes_the_bwb_id_from_each_lido_url(client):
+    """Illustrative LiDO URLs (made-up label ids), not real case data."""
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {
+        RS_LEGISLATIONS: "; ".join(
+            [LIDO_URL.format("BWBR0005290"), LIDO_URL.format("BWBR0005537"), "art. 8 EVRM"]
+        ),
+        RS_BWB_ID: "",
+    }
+
+    rows = processor._law_reference_rows(row, case_id=1)
+
+    assert [r["raw_resource"] for r in rows] == ["BWBR0005290", "BWBR0005537"]
+    assert all(r["resolve_legislation"] is True for r in rows)
+
+
+def test_rs_law_reference_url_wins_over_the_case_bwb_id(client):
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {RS_LEGISLATIONS: LIDO_URL.format("BWBR0005290"), RS_BWB_ID: "BWBR0001854"}
+
+    rows = processor._law_reference_rows(row, case_id=1)
+
+    assert [r["raw_resource"] for r in rows] == ["BWBR0005290"]
+
+
+def test_rs_law_reference_resolved_row_carries_legislation_id(client, monkeypatch):
+    monkeypatch.setattr(
+        client, "bwb_legislation_id", lambda bwb: 77 if bwb == "BWBR0005290" else None
+    )
+
+    client.upsert_law_reference(
+        case_id=5,
+        raw_reference="x",
+        raw_resource="BWBR0005290",
+        source_dataset="rs_lido_sqlite",
+        resolve_legislation=True,
+    )
+    client.upsert_law_reference(
+        case_id=5,
+        raw_reference="y",
+        raw_resource="BWBR0009999",
+        source_dataset="rs_lido_sqlite",
+        resolve_legislation=True,
+    )
+
+    conn = client._get_conn()
+    (resolved_sql, resolved), (unresolved_sql, unresolved) = conn.executed
+    assert resolved["legislation_id"] == 77
+    assert "WHERE NOT EXISTS" in resolved_sql and "ON CONFLICT DO NOTHING" in resolved_sql
+    assert "legislation_id" not in unresolved
+    assert "legislation_id IS NULL AND raw_resource IS NOT NULL" in unresolved_sql
+
+
+def test_rs_law_reference_not_resolved_unless_asked(client, monkeypatch):
+    monkeypatch.setattr(client, "bwb_legislation_id", lambda bwb: 77)
+
+    client.upsert_law_reference(case_id=5, raw_reference="x", raw_resource="BWBR0005290")
+
+    conn = client._get_conn()
+    assert "legislation_id" not in conn.executed[0][1]
 
 
 def test_rs_processor_upload_rows_writes_citations_per_row_in_batch(client, hook):

@@ -15,9 +15,10 @@ import types
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+
 import etl_factory
 import linking_tasks
-import pytest
 from tests.linking_db import DSN, add_case, execute, needs_db, scratch_db  # noqa: F401
 
 LINK_ENV = (
@@ -31,6 +32,7 @@ LINK_ENV = (
     "LINK_CELLAR_UUID_CACHE",
     "LINK_CELLAR_UUID_CELEX_CACHE",
     "CASE_IDENTIFIER_ENABLED",
+    "LEGISLATION_EXTERNAL_ENABLED",
 )
 
 

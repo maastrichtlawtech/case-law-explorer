@@ -84,6 +84,31 @@ register ``processed/modified/<date>/`` (corpus CSV and
 ``links/<source_dataset>.jsonl``) first; then this module can write the same
 layout there.
 
+Legislation outside the BWB register (roadmap R3.1, R3.7)
+---------------------------------------------------------
+With LEGISLATION_EXTERNAL_ENABLED set (default off, independent of
+LINK_EXTRACTION_ENABLED), build_monthly_task_group adds an
+``extract_legislation`` task after ``run_window`` (after ``extract_links`` when
+that is on too). For every month folder it writes and loads:
+
+    cellar  processed/<month>/links/legislation_external.jsonl   role 'legislation'
+            (data_extraction.legislation.catalog: the curated acts and the
+            CELEX acts of sectors 1-3 the month's cases refer to; loaded by
+            legislation_loader.load_acts_artifact)
+    echr    processed/<month>/links/echr_article.jsonl           role 'law_references'
+            (data_extraction.legislation.echr_articles: echr_document_article
+            -> ECHR provisions; loaded by
+            legislation_loader.load_law_reference_artifact)
+
+and ``processed/<month>/links/_legislation_counts.<PREFIX>.json``. Rechtspraak
+has no file here (its R3.5 change is in the corpus loader). The promoter must
+replay the legislation file before the law-reference file of the same month
+(the law-reference loader inserts a missing curated act itself, so the order
+matters only for titles of CELEX acts, which have none). Backfill:
+
+    python -m linking_tasks legislation-backfill --dsn-env CLE_DSN --source echr \
+        --from-id 1 --to-id 500000 --out /data/legislation/echr-1-500000 [--load]
+
 Deployment
 ----------
 The link artifacts, the link loader and row_processors (rs_lido_sqlite
@@ -134,6 +159,8 @@ log = logging.getLogger(__name__)
 
 SCHEMA = "cle_v2"
 MASTER_FLAG = "LINK_EXTRACTION_ENABLED"
+LEGISLATION_FLAG = "LEGISLATION_EXTERNAL_ENABLED"
+LEGISLATION_COUNTS_FILE = "_legislation_counts.{}.json"
 CELLAR_UUID_CACHE_ENV = "LINK_CELLAR_UUID_CACHE"
 CELLAR_UUID_CELEX_CACHE_ENV = "LINK_CELLAR_UUID_CELEX_CACHE"
 LINKS_DIR = "links"
@@ -155,6 +182,11 @@ def env_flag(name: str, default: bool) -> bool:
 def enabled() -> bool:
     """LINK_EXTRACTION_ENABLED is set to a true value (default off)."""
     return env_flag(MASTER_FLAG, False)
+
+
+def legislation_enabled() -> bool:
+    """LEGISLATION_EXTERNAL_ENABLED is set to a true value (default off)."""
+    return env_flag(LEGISLATION_FLAG, False)
 
 
 # rs_text ECLI scope. Weekly runs scan new cases, which since the July 2026
@@ -547,6 +579,150 @@ def run_window_links(var_prefix, **context):
 
 
 # ---------------------------------------------------------------------------
+# legislation outside the BWB register (R3.1, R3.7)
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class LegislationOutput:
+    name: str  # file stem in links/
+    role: str  # promoter role
+    extractor: str  # module in data_extraction.legislation
+    loader: str  # function in data_loading.legislation_loader
+
+
+LEGISLATION_OUTPUTS: Dict[str, Tuple[LegislationOutput, ...]] = {
+    "rechtspraak": (),
+    "cellar": (
+        LegislationOutput("legislation_external", "legislation", "catalog", "load_acts_artifact"),
+    ),
+    "echr": (
+        LegislationOutput(
+            "echr_article", "law_references", "echr_articles", "load_law_reference_artifact"
+        ),
+    ),
+}
+
+
+def has_legislation(var_prefix: str) -> bool:
+    """Does the DAG with this prefix write legislation files?"""
+    source = SOURCE_BY_PREFIX.get(var_prefix)
+    return bool(source and LEGISLATION_OUTPUTS.get(source.name))
+
+
+def legislation_artifact_paths(source: Source, month_folder: str) -> List[Tuple[str, str]]:
+    """(path relative to DATA_PATH, role) of the legislation files a weekly run
+    writes for one month, in load order; every one exists after the task,
+    possibly empty. What the promoter must replay."""
+    return [
+        (f"processed/{month_folder}/{LINKS_DIR}/{o.name}.jsonl", o.role)
+        for o in LEGISLATION_OUTPUTS[source.name]
+    ]
+
+
+def extract_legislation(conn, source: Source, out_dir, case_ids=None, id_range=None) -> dict:
+    """Write out_dir/<name>.jsonl for every legislation output of source;
+    {name: stats}. Each extractor writes .tmp and renames, so a file is
+    complete or absent."""
+    os.makedirs(out_dir, exist_ok=True)
+    results = {}
+    for output in LEGISLATION_OUTPUTS[source.name]:
+        module = importlib.import_module(f"data_extraction.legislation.{output.extractor}")
+        written, stats = module.extract(
+            conn,
+            case_ids=case_ids,
+            id_range=id_range,
+            out_path=os.path.join(out_dir, f"{output.name}.jsonl"),
+        )
+        results[output.name] = {"records": written, "stats": dict(stats)}
+    return results
+
+
+def load_legislation(conn, source: Source, out_dir) -> Dict[str, dict]:
+    from data_loading import legislation_loader
+
+    loaded = {}
+    for output in LEGISLATION_OUTPUTS[source.name]:
+        load = getattr(legislation_loader, output.loader)
+        loaded[output.name] = load(conn, os.path.join(out_dir, f"{output.name}.jsonl"))
+    return loaded
+
+
+def run_legislation_month(conn, source: Source, data_path, month_folder) -> Optional[dict]:
+    """Extract and load the legislation files of one month. None when the
+    chunk has no source data or the source writes no legislation files."""
+    if not LEGISLATION_OUTPUTS.get(source.name):
+        return None
+    processed_dir = os.path.join(data_path, "processed", month_folder)
+    if os.path.exists(os.path.join(processed_dir, NO_SOURCE_DATA_MARKER.format(source.prefix))):
+        log.info("legislation: %s %s has no source data", source.name, month_folder)
+        return None
+    csv_path = os.path.join(processed_dir, source.processed_csv)
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"processed artifact missing for legislation: {csv_path}")
+    keys = read_processed_keys(csv_path, source.key_column)
+    case_ids = case_ids_for_keys(conn, source, keys)
+    out_dir = os.path.join(processed_dir, LINKS_DIR)
+    outputs = extract_legislation(conn, source, out_dir, case_ids=case_ids)
+    for name, load in load_legislation(conn, source, out_dir).items():
+        outputs[name]["load"] = load
+    counts = {
+        "source": source.name,
+        "month": month_folder,
+        "case_keys": len(keys),
+        "case_ids": len(case_ids),
+        "outputs": outputs,
+    }
+    _write_counts(os.path.join(out_dir, LEGISLATION_COUNTS_FILE.format(source.prefix)), counts)
+    for name, values in outputs.items():
+        log.info(
+            "legislation %s %s %s: %s records, load %s",
+            source.name,
+            month_folder,
+            name,
+            values["records"],
+            values.get("load"),
+        )
+    return counts
+
+
+def run_window_legislation(var_prefix, **context):
+    """Airflow callable: legislation files for every month chunk of the run's
+    window. A no-op unless LEGISLATION_EXTERNAL_ENABLED."""
+    if not legislation_enabled():
+        log.info("legislation: %s is off; nothing to do", LEGISLATION_FLAG)
+        return None
+    from data_loading.clients.postgres import PostgresCLEClient
+    from etl_factory import get_data_path, iter_month_chunks, resolve_run_window
+
+    source = SOURCE_BY_PREFIX[var_prefix]
+    start, end, _ = resolve_run_window(var_prefix, context)
+    data_path = get_data_path()
+    summary = {}
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        for chunk_start, _chunk_end in iter_month_chunks(start, end):
+            folder = chunk_start.isoformat()
+            counts = run_legislation_month(conn, source, data_path, folder)
+            summary[folder] = (
+                None if counts is None else {n: v["records"] for n, v in counts["outputs"].items()}
+            )
+    return summary
+
+
+def legislation_backfill(conn, source: Source, from_id, to_id, out_dir, load=False) -> dict:
+    """Extract (and optionally load) source's legislation files over cases.id
+    from_id..to_id (inclusive, either may be None) into out_dir."""
+    outputs = extract_legislation(conn, source, out_dir, id_range=(from_id, to_id))
+    if load:
+        for name, result in load_legislation(conn, source, out_dir).items():
+            outputs[name]["load"] = result
+    counts = {"source": source.name, "from_id": from_id, "to_id": to_id, "outputs": outputs}
+    _write_counts(os.path.join(out_dir, LEGISLATION_COUNTS_FILE.format(source.prefix)), counts)
+    return counts
+
+
+# ---------------------------------------------------------------------------
 # backfill CLI
 # ---------------------------------------------------------------------------
 
@@ -596,6 +772,18 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         default=None,
         help="rs_text ECLIs: cross-court only (backfill default) or all",
     )
+    leg = commands.add_parser(
+        "legislation-backfill",
+        help="extract (and load) EU/CoE/UN acts and ECHR article references over a cases.id range",
+    )
+    leg.add_argument("--dsn-env", required=True, help="environment variable holding the DSN")
+    leg.add_argument(
+        "--source", required=True, choices=sorted(n for n, o in LEGISLATION_OUTPUTS.items() if o)
+    )
+    leg.add_argument("--from-id", type=int, default=None, help="first cases.id (inclusive)")
+    leg.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
+    leg.add_argument("--out", required=True, help="directory for the legislation files")
+    leg.add_argument("--load", action="store_true", help="also load the files into the DSN")
     args = parser.parse_args(argv)
     dsn = os.environ.get(args.dsn_env)
     if not dsn:
@@ -607,15 +795,20 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     try:
         if not args.load:
             conn.set_session(readonly=True)
-        counts = backfill(
-            conn,
-            SOURCES[args.source],
-            args.from_id,
-            args.to_id,
-            args.out,
-            load=args.load,
-            ecli_scope=args.ecli_scope,
-        )
+        if args.command == "legislation-backfill":
+            counts = legislation_backfill(
+                conn, SOURCES[args.source], args.from_id, args.to_id, args.out, load=args.load
+            )
+        else:
+            counts = backfill(
+                conn,
+                SOURCES[args.source],
+                args.from_id,
+                args.to_id,
+                args.out,
+                load=args.load,
+                ecli_scope=args.ecli_scope,
+            )
     finally:
         conn.close()
     print(json.dumps(_json_safe(counts), indent=2, sort_keys=True))

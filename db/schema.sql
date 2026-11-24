@@ -529,9 +529,12 @@ CREATE INDEX "case_law_reference_idx_legislation" ON "cle_v2"."case_law_referenc
 CREATE INDEX "case_law_reference_idx_provision" ON "cle_v2"."case_law_reference" ("provision_id");
 CREATE INDEX "case_law_reference_idx_raw" ON "cle_v2"."case_law_reference" ("raw_scheme","raw_resource");
 CREATE INDEX "case_law_reference_idx_raw_label" ON "cle_v2"."case_law_reference" ("raw_label_id");
-CREATE UNIQUE INDEX "case_law_reference_uk_legislation" ON "cle_v2"."case_law_reference" ("case_id","legislation_id","role","source_dataset");
-CREATE UNIQUE INDEX "case_law_reference_uk_provision" ON "cle_v2"."case_law_reference" ("case_id","provision_id","role","source_dataset");
-CREATE UNIQUE INDEX "case_law_reference_uk_raw" ON "cle_v2"."case_law_reference" ("case_id","raw_scheme","raw_resource",COALESCE(raw_subdivision, ''::text),"role","source_dataset");
+-- Partial, as in caselaw-coolify 0001 (one key per resolution state): plain
+-- indexes here made a provision row collide with another provision of the
+-- same act under _uk_legislation, which the deployed database allows.
+CREATE UNIQUE INDEX "case_law_reference_uk_legislation" ON "cle_v2"."case_law_reference" ("case_id","legislation_id","role","source_dataset") WHERE "provision_id" IS NULL AND "legislation_id" IS NOT NULL AND "raw_resource" IS NULL;
+CREATE UNIQUE INDEX "case_law_reference_uk_provision" ON "cle_v2"."case_law_reference" ("case_id","provision_id","role","source_dataset") WHERE "provision_id" IS NOT NULL AND "raw_resource" IS NULL;
+CREATE UNIQUE INDEX "case_law_reference_uk_raw" ON "cle_v2"."case_law_reference" ("case_id","raw_scheme","raw_resource",COALESCE(raw_subdivision, ''::text),"role","source_dataset") WHERE "provision_id" IS NULL AND "legislation_id" IS NULL AND "raw_resource" IS NOT NULL;
 CREATE INDEX "case_network_metric_idx_case" ON "cle_v2"."case_network_metric" ("case_id");
 CREATE INDEX "case_party_idx_party" ON "cle_v2"."case_party" ("party_id");
 CREATE INDEX "case_segment_idx_case_id" ON "cle_v2"."case_segment" ("case_id");
@@ -1247,3 +1250,66 @@ CREATE INDEX IF NOT EXISTS "case_citation_idx_target_ref" ON "cle_v2"."case_cita
 
 CREATE INDEX IF NOT EXISTS "case_citation_idx_source_dataset" ON "cle_v2"."case_citation"
     ("source_dataset");
+
+-- ---- 0011_case_law_reference_bwb_resolved.sql ----
+-- rs_lido_sqlite law references whose BWB id names exactly one act carry its
+-- legislation_id (roadmap R3.5); such rows fall under none of the three unique
+-- indexes above. Covers no existing row. Separate file in the migrations
+-- (SHARE lock on case_law_reference for one scan).
+
+-- (migration only) SET LOCAL lock_timeout = '5s';
+-- (migration only) SET LOCAL maintenance_work_mem = '128MB';
+
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_bwb_resolved"
+    ON "cle_v2"."case_law_reference"
+    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
+    WHERE "source_dataset" = 'rs_lido_sqlite'
+      AND "provision_id" IS NULL
+      AND "legislation_id" IS NOT NULL
+      AND "raw_resource" IS NOT NULL;
+
+-- ---- 0011_legislation_external_keys.sql ----
+-- EU, Council of Europe and UN acts in legislation (roadmap R3.1, R3.7):
+-- jurisdiction lookup rows, nullable provenance columns (legislation,
+-- legal_provision, case_law_reference.extractor_version), and partial unique
+-- indexes that cover only the new rows (schemes celex / coe_treaty /
+-- un_treaty; provisions with a source_dataset). Loaders restate the
+-- predicates in ON CONFLICT.
+
+-- (migration only) SET LOCAL lock_timeout = '5s';
+
+INSERT INTO "cle_v2"."jurisdiction" ("iso_code", "name", "type") VALUES
+    ('EU', 'European Union', 'supranational'),
+    ('CE', 'Council of Europe', 'international'),
+    ('UN', 'United Nations', 'international')
+ON CONFLICT ("iso_code") DO NOTHING;
+
+ALTER TABLE "cle_v2"."legislation"
+    ADD COLUMN IF NOT EXISTS "source_dataset" text,
+    ADD COLUMN IF NOT EXISTS "extractor_version" text,
+    ADD COLUMN IF NOT EXISTS "eli" text,
+    ADD COLUMN IF NOT EXISTS "enacted_year" smallint;
+
+ALTER TABLE "cle_v2"."legal_provision"
+    ADD COLUMN IF NOT EXISTS "source_dataset" text,
+    ADD COLUMN IF NOT EXISTS "extractor_version" text;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "legislation_uk_external"
+    ON "cle_v2"."legislation" ("scheme", "identifier")
+    WHERE "scheme" IN ('celex', 'coe_treaty', 'un_treaty');
+
+CREATE INDEX IF NOT EXISTS "legislation_idx_source_dataset"
+    ON "cle_v2"."legislation" ("source_dataset")
+    WHERE "source_dataset" IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "legal_provision_uk_external"
+    ON "cle_v2"."legal_provision"
+    ("legislation_id", "element_type", "article_label", COALESCE("paragraph", ''))
+    WHERE "source_dataset" IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS "legal_provision_idx_source_dataset"
+    ON "cle_v2"."legal_provision" ("source_dataset")
+    WHERE "source_dataset" IS NOT NULL;
+
+ALTER TABLE "cle_v2"."case_law_reference"
+    ADD COLUMN IF NOT EXISTS "extractor_version" text;
