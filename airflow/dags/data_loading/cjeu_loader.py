@@ -17,7 +17,7 @@ Every statement is idempotent, so the promoter can replay a batch.
 import logging
 from collections import defaultdict
 
-from data_loading import identifier_loader
+from data_loading import identifier_loader, law_reference_loader
 from data_loading.cjeu_mapping import NATIONAL_TARGETS, celex_well_formed, extractor_row, map_row
 from data_loading.clients.postgres import SCHEMA
 from data_loading.link_loader import link_dataset_sql
@@ -207,6 +207,70 @@ FROM unnest(%s::text[], %s::text[], %s::text[]) AS v(ecli, res, role)
 JOIN {S}.cases k ON k.ecli = v.ecli
 ON CONFLICT DO NOTHING"""
 
+# With LAW_REFERENCE_EXTRACTION_ENABLED (roadmap R3.2): the same rows, with
+# legislation_id resolved at insert from the CELEX and the identifiers it is
+# also tried as (eu_law.cellar_target; '|'-joined in ``cands``, in order),
+# directly in legislation (scheme 'celex') and then through curated
+# legislation_alias rows, as law_reference_loader does; provision_id for a
+# treaty-article CELEX ('12016P047' -> article 47). raw_subdivision stays NULL
+# as on the rows loaded before, so the natural key is unchanged. A row already
+# stored for the same case, CELEX and role (resolved or not) is left alone:
+# resolving the rows loaded before is an update (roadmap Phase 6), and a
+# re-load must not add a resolved twin next to them. Resolved rows fall under
+# case_law_reference_uk_resolved_ref (caselaw-coolify 0014), unresolved ones
+# under case_law_reference_uk_raw.
+SQL_LAWREF_RESOLVED = f"""
+INSERT INTO {S}.case_law_reference (case_id, legislation_id, provision_id, raw_scheme,
+                                    raw_resource, role, source_dataset)
+SELECT DISTINCT ON (k.id, v.res, v.role) k.id, l.id, p.id, 'celex', v.res, v.role, 'cellar_sparql'
+FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::text[])
+     AS v(ecli, res, role, cands, article)
+JOIN {S}.cases k ON k.ecli = v.ecli
+CROSS JOIN LATERAL (SELECT string_to_array(v.cands, '|') AS c) cc
+LEFT JOIN LATERAL (
+    SELECT x.id FROM (
+        SELECT lg.id, array_position(cc.c, lg.identifier) AS pos, 0 AS via
+          FROM {S}.legislation lg
+         WHERE lg.scheme = 'celex' AND lg.identifier = ANY(cc.c)
+        UNION ALL
+        SELECT a.legislation_id, array_position(cc.c, a.alias), 1
+          FROM {S}.legislation_alias a
+          JOIN {S}.legislation lg ON lg.id = a.legislation_id
+         WHERE a.source = 'curated' AND a.alias = ANY(cc.c)
+    ) x ORDER BY x.via, x.pos, x.id LIMIT 1
+) l ON true
+LEFT JOIN LATERAL (
+    SELECT lp.id FROM {S}.legal_provision lp
+     WHERE lp.legislation_id = l.id AND lp.element_type = 'article'
+       AND lower(lp.article_label) = lower(v.article)
+     ORDER BY lp.id LIMIT 1
+) p ON v.article IS NOT NULL
+WHERE NOT EXISTS (
+    SELECT 1 FROM {S}.case_law_reference x
+     WHERE x.case_id = k.id AND x.raw_scheme = 'celex' AND x.raw_resource = v.res
+       AND x.raw_subdivision IS NULL AND x.role = v.role
+       AND x.source_dataset = 'cellar_sparql')
+ORDER BY k.id, v.res, v.role
+ON CONFLICT DO NOTHING"""
+
+
+def lawref_rows(rows):
+    """(ecli, CELEX, role) -> (ecli, CELEX, role, candidates, article) for
+    SQL_LAWREF_RESOLVED."""
+    from data_extraction.linking import eu_law
+
+    out = []
+    for ecli, res, role in rows:
+        target = eu_law.cellar_target(res)
+        if target is None:
+            cands, article = [eu_law.clean_celex(res) or res], None
+        else:
+            cands = [target.identifier, *target.alternatives]
+            article = target.article
+        out.append((ecli, res, role, "|".join(dict.fromkeys(cands)), article))
+    return out
+
+
 # Target resolved by CELEX; target_celex_raw is always kept, as the migration
 # did. A resolved edge is skipped while its unresolved twin still exists: the
 # link step below turns that row resolved instead.
@@ -356,7 +420,15 @@ def write(client, mappings) -> dict:
         rows = [(m.ecli, n, rc, r) for m in new for n, rc, r in sorted(m.parties)]
         run("case_party", SQL_CASE_PARTY, _tuples(rows, 4), bool(rows))
         rows = [(m.ecli, t, r) for m in new for t, r in sorted(m.lawrefs)]
-        run("case_law_reference", SQL_LAWREF, _tuples(rows, 3), bool(rows))
+        if law_reference_loader.enabled():
+            run(
+                "case_law_reference",
+                SQL_LAWREF_RESOLVED,
+                _tuples(lawref_rows(rows), 5),
+                bool(rows),
+            )
+        else:
+            run("case_law_reference", SQL_LAWREF, _tuples(rows, 3), bool(rows))
         rows = [(m.ecli, t, r) for m in new for t, r in sorted(m.citations)]
         run("case_citation", SQL_CITE_OUT, _tuples(rows, 3), bool(rows))
         summaries = [m.summary for m in new if m.summary]

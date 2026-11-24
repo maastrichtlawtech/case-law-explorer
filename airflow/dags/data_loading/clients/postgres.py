@@ -555,7 +555,7 @@ class PostgresCLEClient:
         skipped when the case already has the reference, resolved or not (a
         reloaded case keeps its earlier unresolved row and gets no twin), and
         ON CONFLICT DO NOTHING lets case_law_reference_uk_bwb_resolved
-        (migration 0011) act as the key where it exists. Existing rows are
+        (migration 0014) act as the key where it exists. Existing rows are
         never updated (setting legislation_id on them is R6.4)."""
         params = {
             "case_id": case_id,

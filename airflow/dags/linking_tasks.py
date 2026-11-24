@@ -98,7 +98,10 @@ that is on too). For every month folder it writes and loads:
     echr    processed/<month>/links/echr_article.jsonl           role 'law_references'
             (data_extraction.legislation.echr_articles: echr_document_article
             -> ECHR provisions; loaded by
-            legislation_loader.load_law_reference_artifact)
+            legislation_loader.load_law_reference_artifact, which
+            law_reference_loader.load_artifact calls for echr_article files,
+            so the promoter can replay every 'law_references' file, this one
+            and those of R3.2-R3.4 below, through law_reference_loader)
 
 and ``processed/<month>/links/_legislation_counts.<PREFIX>.json``. Rechtspraak
 has no file here (its R3.5 change is in the corpus loader). The promoter must
@@ -115,6 +118,36 @@ The link artifacts, the link loader and row_processors (rs_lido_sqlite
 citations, is_cross_jurisdiction) run in Airflow and, on replay, in the
 etl-promoter. Deploy both from the same ref, or a replay into production can
 load an artifact with code that reads it differently.
+
+Law references (roadmap R3.2-R3.4)
+----------------------------------
+With LAW_REFERENCE_EXTRACTION_ENABLED set (default off, independent of
+LINK_EXTRACTION_ENABLED), build_monthly_task_group adds an
+``extract_law_references`` task after ``run_window`` (after
+``extract_links`` and ``extract_legislation`` when those are on too). For
+every month folder it runs the source's
+law-reference extractor for the month's cases:
+
+    rechtspraak  rs_eu_law        rs_text_eu_law
+    echr         echr_eu_law      echr_text_eu_law
+    cellar       cellar_law_refs  cellar_law_ref
+
+writes ``processed/<month>/law_references/<source_dataset>.jsonl`` (empty when
+nothing was found or the extractor is off; see law_artifact_paths, the list
+the promoter registers with role 'law_references'), loads it with
+data_loading.law_reference_loader into case_law_reference (insert-only) and
+writes the counts to ``processed/<month>/law_references/_counts.<PREFIX>.json``.
+Per-extractor flags LAW_RS_TEXT, LAW_ECHR_TEXT, LAW_CELLAR_REFS default on
+when the master is on. The same flag makes cjeu_loader resolve legislation_id
+on the Cellar CDM law references it inserts (see cjeu_loader
+SQL_LAWREF_RESOLVED), so it must be set alike in Airflow and in the
+etl-promoter, which replays cjeu_loader.
+
+Backfill: ``python -m linking_tasks backfill-law --dsn-env VAR --source
+rechtspraak --from-id N --to-id M --out DIR [--load]`` (read-only without
+--load), or each extractor's own CLI (``python -m
+data_extraction.linking.rs_eu_law --dsn-env VAR --from-id N --to-id M --out
+FILE [--load]``).
 
 Backfill (cjeu-migration)
 -------------------------
@@ -276,6 +309,29 @@ SOURCES: Dict[str, Source] = {
     )
 }
 SOURCE_BY_PREFIX: Dict[str, Source] = {s.prefix: s for s in SOURCES.values()}
+
+# Law references (R3.2-R3.4): own master flag, own artifact folder and loader.
+LAW_MASTER_FLAG = "LAW_REFERENCE_EXTRACTION_ENABLED"  # = law_reference_loader.FLAG
+LAW_DIR = "law_references"
+LAW_EXTRACTORS: Dict[str, Extractor] = {
+    "rechtspraak": Extractor("rs_eu_law", "LAW_RS_TEXT", ("rs_text_eu_law",)),
+    "echr": Extractor("echr_eu_law", "LAW_ECHR_TEXT", ("echr_text_eu_law",)),
+    "cellar": Extractor("cellar_law_refs", "LAW_CELLAR_REFS", ("cellar_law_ref",)),
+}
+
+
+def law_enabled() -> bool:
+    """LAW_REFERENCE_EXTRACTION_ENABLED is set to a true value (default off)."""
+    return env_flag(LAW_MASTER_FLAG, False)
+
+
+def law_artifact_paths(source: Source, month_folder: str) -> List[str]:
+    """Paths (relative to DATA_PATH) of the law-reference files a weekly run
+    writes for one month; every one exists after the task, possibly empty.
+    The promoter registers these with role 'law_references' and replays them
+    with data_loading.law_reference_loader."""
+    extractor = LAW_EXTRACTORS[source.name]
+    return [f"processed/{month_folder}/{LAW_DIR}/{d}.jsonl" for d in extractor.datasets]
 
 
 def artifact_paths(source: Source, month_folder: str) -> List[str]:
@@ -723,6 +779,118 @@ def legislation_backfill(conn, source: Source, from_id, to_id, out_dir, load=Fal
 
 
 # ---------------------------------------------------------------------------
+# law references (R3.2-R3.4)
+# ---------------------------------------------------------------------------
+
+
+def extract_law_references(conn, source: Source, out_dir, case_ids=None, id_range=None):
+    """Run source's law-reference extractor into out_dir/<dataset>.jsonl
+    (written empty when the extractor is off or there are no cases).
+    Returns (status, {dataset: {"records": n}})."""
+    extractor = LAW_EXTRACTORS[source.name]
+    os.makedirs(out_dir, exist_ok=True)
+    (dataset,) = extractor.datasets
+    path = os.path.join(out_dir, f"{dataset}.jsonl")
+    if not env_flag(extractor.flag, True):
+        log.warning("law references: skipping %s (%s is off)", extractor.name, extractor.flag)
+        status, result = {"status": "skipped", "reason": f"{extractor.flag} is off"}, None
+    elif case_ids is not None and not case_ids:
+        status, result = {"status": "no_cases"}, None
+    else:
+        module = importlib.import_module(extractor.module)
+        result = module.extract(conn, case_ids=case_ids, id_range=id_range, out_path=path)
+        status = {"status": "ran", "extract": result}
+    if result is None:
+        from data_extraction.linking.artifact import ArtifactWriter
+
+        with ArtifactWriter(path):
+            pass
+    return status, {dataset: {"records": (result or {}).get("records", 0)}}
+
+
+def load_law_references(conn, source: Source, out_dir) -> Dict[str, dict]:
+    from data_loading import law_reference_loader
+
+    loaded = {}
+    for dataset in LAW_EXTRACTORS[source.name].datasets:
+        result = law_reference_loader.load_artifact(conn, os.path.join(out_dir, f"{dataset}.jsonl"))
+        loaded[dataset] = result.get(dataset, {})
+    return loaded
+
+
+def run_month_law(conn, source: Source, data_path, month_folder) -> Optional[dict]:
+    """Extract and load the law references of one month's batch; None when the
+    chunk is marked as having no source data."""
+    processed_dir = os.path.join(data_path, "processed", month_folder)
+    if os.path.exists(os.path.join(processed_dir, NO_SOURCE_DATA_MARKER.format(source.prefix))):
+        log.info("law references: %s %s has no source data", source.name, month_folder)
+        return None
+    csv_path = os.path.join(processed_dir, source.processed_csv)
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"processed artifact missing for law references: {csv_path}")
+    keys = read_processed_keys(csv_path, source.key_column)
+    case_ids = case_ids_for_keys(conn, source, keys)
+    out_dir = os.path.join(processed_dir, LAW_DIR)
+    status, datasets = extract_law_references(conn, source, out_dir, case_ids=case_ids)
+    for dataset, load in load_law_references(conn, source, out_dir).items():
+        datasets[dataset]["load"] = load
+    counts = {
+        "source": source.name,
+        "month": month_folder,
+        "case_keys": len(keys),
+        "case_ids": len(case_ids),
+        "extractor": status,
+        "datasets": datasets,
+    }
+    _write_counts(os.path.join(out_dir, COUNTS_FILE.format(source.prefix)), counts)
+    _log_counts(f"law references {source.name} {month_folder}", counts)
+    return counts
+
+
+def run_window_law_references(var_prefix, **context):
+    """Airflow callable: law references for every month chunk of the run's
+    window. A no-op unless LAW_REFERENCE_EXTRACTION_ENABLED."""
+    if not law_enabled():
+        log.info("law references: %s is off; nothing to do", LAW_MASTER_FLAG)
+        return None
+    from data_loading.clients.postgres import PostgresCLEClient
+    from etl_factory import get_data_path, iter_month_chunks, resolve_run_window
+
+    source = SOURCE_BY_PREFIX[var_prefix]
+    start, end, _ = resolve_run_window(var_prefix, context)
+    data_path = get_data_path()
+    summary = {}
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        for chunk_start, _chunk_end in iter_month_chunks(start, end):
+            folder = chunk_start.isoformat()
+            counts = run_month_law(conn, source, data_path, folder)
+            summary[folder] = (
+                None if counts is None else {d: v["records"] for d, v in counts["datasets"].items()}
+            )
+    return summary
+
+
+def backfill_law(conn, source: Source, from_id, to_id, out_dir, load=False) -> dict:
+    """Extract (and optionally load) the law references of source over
+    cases.id from_id..to_id (inclusive, either may be None) into out_dir."""
+    status, datasets = extract_law_references(conn, source, out_dir, id_range=(from_id, to_id))
+    if load:
+        for dataset, result in load_law_references(conn, source, out_dir).items():
+            datasets[dataset]["load"] = result
+    counts = {
+        "source": source.name,
+        "from_id": from_id,
+        "to_id": to_id,
+        "extractor": status,
+        "datasets": datasets,
+    }
+    _write_counts(os.path.join(out_dir, COUNTS_FILE.format(source.prefix)), counts)
+    _log_counts(f"law references {source.name} {from_id}..{to_id}", counts)
+    return counts
+
+
+# ---------------------------------------------------------------------------
 # backfill CLI
 # ---------------------------------------------------------------------------
 
@@ -784,6 +952,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     leg.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
     leg.add_argument("--out", required=True, help="directory for the legislation files")
     leg.add_argument("--load", action="store_true", help="also load the files into the DSN")
+    law = commands.add_parser(
+        "backfill-law", help="extract (and load) law references over a cases.id range"
+    )
+    law.add_argument("--dsn-env", required=True, help="environment variable holding the DSN")
+    law.add_argument("--source", required=True, choices=sorted(SOURCES))
+    law.add_argument("--from-id", type=int, default=None, help="first cases.id (inclusive)")
+    law.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
+    law.add_argument("--out", required=True, help="directory for <source_dataset>.jsonl")
+    law.add_argument("--load", action="store_true", help="also load the file into the DSN")
     args = parser.parse_args(argv)
     dsn = os.environ.get(args.dsn_env)
     if not dsn:
@@ -797,6 +974,10 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
             conn.set_session(readonly=True)
         if args.command == "legislation-backfill":
             counts = legislation_backfill(
+                conn, SOURCES[args.source], args.from_id, args.to_id, args.out, load=args.load
+            )
+        elif args.command == "backfill-law":
+            counts = backfill_law(
                 conn, SOURCES[args.source], args.from_id, args.to_id, args.out, load=args.load
             )
         else:

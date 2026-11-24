@@ -258,14 +258,19 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
     in the group: it extracts and loads the cross-dataset links of the months
     ``run_window`` loaded. As the group's last task it runs before anything
     the DAG chains after the group (register_promotion), and a failure there
-    retries only the link step, not the source extraction. With the flag off
-    the group is exactly the single ``run_window`` task.
+    retries only the link step, not the source extraction.
 
-    With links=True and LEGISLATION_EXTERNAL_ENABLED set, for the DAGs that
-    write legislation files (cellar, echr; linking_tasks.LEGISLATION_OUTPUTS),
-    an ``extract_legislation`` task (linking_tasks.run_window_legislation)
-    follows ``run_window`` (``extract_links`` when that is added too), so it
-    also runs before register_promotion. Off (the default), nothing is added.
+    Further steps follow, each behind its own flag (all default off) and in
+    this order, each after the one before it that is present:
+
+      * ``extract_legislation`` (linking_tasks.run_window_legislation) with
+        LEGISLATION_EXTERNAL_ENABLED, for the DAGs that write legislation
+        files (cellar, echr; linking_tasks.LEGISLATION_OUTPUTS);
+      * ``extract_law_references`` (linking_tasks.run_window_law_references)
+        with LAW_REFERENCE_EXTRACTION_ENABLED.
+
+    The group's last task runs before register_promotion. With every flag off
+    the group is exactly the single ``run_window`` task.
     """
     with TaskGroup(f"{task_prefix}_tasks", tooltip=f"{task_prefix} tasks", dag=dag) as task_group:
         run_window = PythonOperator(
@@ -274,6 +279,7 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
             op_kwargs={"var_prefix": var_prefix, "etl_callable": etl_callable},
             dag=dag,
         )
+        last = run_window
         if links and linking_tasks.enabled():
             extract_links = PythonOperator(
                 task_id="extract_links",
@@ -281,7 +287,8 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            run_window >> extract_links
+            last >> extract_links
+            last = extract_links
         if (
             links
             and linking_tasks.legislation_enabled()
@@ -293,9 +300,16 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            # After the links when both run (the group's last task stays
-            # before register_promotion either way).
-            last = extract_links if links and linking_tasks.enabled() else run_window
             last >> extract_legislation
+            last = extract_legislation
+        if links and linking_tasks.law_enabled():
+            extract_law_references = PythonOperator(
+                task_id="extract_law_references",
+                python_callable=linking_tasks.run_window_law_references,
+                op_kwargs={"var_prefix": var_prefix},
+                dag=dag,
+            )
+            last >> extract_law_references
+            last = extract_law_references
 
     return task_group

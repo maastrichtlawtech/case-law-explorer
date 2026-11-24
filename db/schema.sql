@@ -529,9 +529,10 @@ CREATE INDEX "case_law_reference_idx_legislation" ON "cle_v2"."case_law_referenc
 CREATE INDEX "case_law_reference_idx_provision" ON "cle_v2"."case_law_reference" ("provision_id");
 CREATE INDEX "case_law_reference_idx_raw" ON "cle_v2"."case_law_reference" ("raw_scheme","raw_resource");
 CREATE INDEX "case_law_reference_idx_raw_label" ON "cle_v2"."case_law_reference" ("raw_label_id");
--- Partial, as in caselaw-coolify 0001 (one key per resolution state): plain
--- indexes here made a provision row collide with another provision of the
--- same act under _uk_legislation, which the deployed database allows.
+-- Partial, as in caselaw-coolify 0001 (one key per resolution state), so local
+-- loads see the same arbiters as db-dev and production: plain indexes here
+-- made a provision row collide with another provision of the same act under
+-- _uk_legislation, which the deployed database allows.
 CREATE UNIQUE INDEX "case_law_reference_uk_legislation" ON "cle_v2"."case_law_reference" ("case_id","legislation_id","role","source_dataset") WHERE "provision_id" IS NULL AND "legislation_id" IS NOT NULL AND "raw_resource" IS NULL;
 CREATE UNIQUE INDEX "case_law_reference_uk_provision" ON "cle_v2"."case_law_reference" ("case_id","provision_id","role","source_dataset") WHERE "provision_id" IS NOT NULL AND "raw_resource" IS NULL;
 CREATE UNIQUE INDEX "case_law_reference_uk_raw" ON "cle_v2"."case_law_reference" ("case_id","raw_scheme","raw_resource",COALESCE(raw_subdivision, ''::text),"role","source_dataset") WHERE "provision_id" IS NULL AND "legislation_id" IS NULL AND "raw_resource" IS NOT NULL;
@@ -669,8 +670,10 @@ CREATE VIEW "cle_v2"."rs_v_document_with_text" AS (SELECT d.case_id, d.date_deci
 
 -- =============================================================================
 -- Mirrored from MaastrichtU-BISS/caselaw-coolify db/migrations (the deployed
--- schema): 0008_case_text_document_kind, 0009_cross_dataset_links and
--- 0010_case_citation_link_indexes. Keep in step with those files.
+-- schema): 0008_case_text_document_kind, 0009_cross_dataset_links,
+-- 0010_case_citation_link_indexes, 0011_legislation_external_keys,
+-- 0012_case_law_reference_provenance and 0014_case_law_reference_indexes. Keep
+-- in step with those files.
 -- =============================================================================
 
 -- ---- 0008_case_text_document_kind.sql ----
@@ -1251,30 +1254,52 @@ CREATE INDEX IF NOT EXISTS "case_citation_idx_target_ref" ON "cle_v2"."case_cita
 CREATE INDEX IF NOT EXISTS "case_citation_idx_source_dataset" ON "cle_v2"."case_citation"
     ("source_dataset");
 
--- ---- 0013_case_law_reference_bwb_resolved.sql ----
--- rs_lido_sqlite law references whose BWB id names exactly one act carry its
--- legislation_id (roadmap R3.5); such rows fall under none of the three unique
--- indexes above. Covers no existing row. Separate file in the migrations
--- (SHARE lock on case_law_reference for one scan).
-
--- (migration only) SET LOCAL lock_timeout = '5s';
--- (migration only) SET LOCAL maintenance_work_mem = '128MB';
-
-CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_bwb_resolved"
-    ON "cle_v2"."case_law_reference"
-    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
-    WHERE "source_dataset" = 'rs_lido_sqlite'
-      AND "provision_id" IS NULL
-      AND "legislation_id" IS NOT NULL
-      AND "raw_resource" IS NOT NULL;
-
 -- ---- 0011_legislation_external_keys.sql ----
--- EU, Council of Europe and UN acts in legislation (roadmap R3.1, R3.7):
--- jurisdiction lookup rows, nullable provenance columns (legislation,
--- legal_provision, case_law_reference.extractor_version), and partial unique
--- indexes that cover only the new rows (schemes celex / coe_treaty /
--- un_treaty; provisions with a source_dataset). Loaders restate the
--- predicates in ON CONFLICT.
+-- EU, Council of Europe and UN acts in legislation (roadmap R3.1, R3.7).
+--
+-- Design: cjeu-migration docs/CROSS_DATASET_ROADMAP.md, Phase 3. Strictly
+-- additive:
+--
+--   * jurisdiction gets the lookup rows the new acts point at (EU and CE are
+--     already there in production, seeded by the migration's 10_lookups.sql;
+--     UN is new). ON CONFLICT DO NOTHING, so existing rows are untouched.
+--   * legislation, legal_provision and case_law_reference gain nullable
+--     columns (no default, so no row is rewritten): where a row came from
+--     (source_dataset, extractor_version; case_law_reference already has
+--     source_dataset), and on legislation the ELI and the year a CELEX number
+--     gives (enacted_year; enacted_date stays for real dates).
+--   * Partial unique indexes that cover only the new rows, so existing rows
+--     cannot violate them:
+--       legislation_uk_external      (scheme, identifier) for the new schemes
+--                                    'celex', 'coe_treaty', 'un_treaty'. The
+--                                    265k BWB rows (scheme 'bwb') are outside
+--                                    the predicate; legislation has no unique
+--                                    key on (scheme, identifier) for them.
+--       legal_provision_uk_external  one provision per act, element type,
+--                                    article and paragraph, for rows with a
+--                                    source_dataset (all existing rows have
+--                                    none).
+--     Loaders restate these predicates in ON CONFLICT, which also works
+--     against the plain indexes of case-law-explorer db/schema.sql.
+--
+-- Sizes and locks: legislation holds about 265k rows and legal_provision at
+-- most ~887k (legacy rs_law_element had 887,208 rows, split between the two).
+-- ALTER TABLE ... ADD COLUMN without a default only changes the catalog, but
+-- takes ACCESS EXCLUSIVE on legislation and legal_provision until the end of
+-- this file (the migrator runs each file in one transaction). The index
+-- builds read each table once while that lock is held; at these sizes that is
+-- about a second, during which API reads of legislation / legal_provision
+-- wait. Last, case_law_reference (about 8.2M rows) gains a nullable
+-- extractor_version column for the new law-reference datasets: catalog only,
+-- no scan, so its ACCESS EXCLUSIVE lock is held for the few milliseconds from
+-- that statement to the end of the file (taken last for that reason, as 0009
+-- does with case_citation). Its index for R3.5 is in
+-- 0014_case_law_reference_indexes.sql.
+--
+-- Before applying: SELECT scheme, count(*), count(DISTINCT identifier) FROM
+-- legislation GROUP BY scheme; must show no rows for the new schemes (the
+-- unique index would fail on duplicates there; none are expected, the
+-- migration loaded only 'bwb').
 
 -- (migration only) SET LOCAL lock_timeout = '5s';
 
@@ -1285,13 +1310,13 @@ INSERT INTO "cle_v2"."jurisdiction" ("iso_code", "name", "type") VALUES
 ON CONFLICT ("iso_code") DO NOTHING;
 
 ALTER TABLE "cle_v2"."legislation"
-    ADD COLUMN IF NOT EXISTS "source_dataset" text,
+    ADD COLUMN IF NOT EXISTS "source_dataset" text,     -- curated_external | cellar_celex | ...; NULL for BWB/LIDO rows
     ADD COLUMN IF NOT EXISTS "extractor_version" text,
-    ADD COLUMN IF NOT EXISTS "eli" text,
-    ADD COLUMN IF NOT EXISTS "enacted_year" smallint;
+    ADD COLUMN IF NOT EXISTS "eli" text,                -- European Legislation Identifier, where known
+    ADD COLUMN IF NOT EXISTS "enacted_year" smallint;   -- year from the identifier (CELEX), when no date is known
 
 ALTER TABLE "cle_v2"."legal_provision"
-    ADD COLUMN IF NOT EXISTS "source_dataset" text,
+    ADD COLUMN IF NOT EXISTS "source_dataset" text,     -- echr_article | ...; NULL for BWB/LIDO rows
     ADD COLUMN IF NOT EXISTS "extractor_version" text;
 
 CREATE UNIQUE INDEX IF NOT EXISTS "legislation_uk_external"
@@ -1311,5 +1336,96 @@ CREATE INDEX IF NOT EXISTS "legal_provision_idx_source_dataset"
     ON "cle_v2"."legal_provision" ("source_dataset")
     WHERE "source_dataset" IS NOT NULL;
 
+-- Last: the only statement that locks case_law_reference.
 ALTER TABLE "cle_v2"."case_law_reference"
-    ADD COLUMN IF NOT EXISTS "extractor_version" text;
+    ADD COLUMN IF NOT EXISTS "extractor_version" text;   -- set by the new law-reference loaders (echr_article, ...)
+
+-- ---- 0012_case_law_reference_provenance.sql ----
+-- Provenance columns on case_law_reference for the law-reference extractors
+-- (cjeu-migration docs/CROSS_DATASET_ROADMAP.md, R3.2-R3.4).
+--
+-- NUMBER PROVISIONAL: 0011 is left to feature/eu-legislation-schema (R3.1);
+-- the coordinator confirms the final numbers before merging.
+--
+-- Ground rule 5 of the roadmap: every link carries its extractor version,
+-- match method and confidence. case_citation got them in 0009; this does the
+-- same for case_law_reference, which new data now reaches from three new
+-- source datasets (cellar_law_ref, rs_text_eu_law, echr_text_eu_law).
+--
+-- Strictly additive:
+--   * three nullable columns, no default: existing rows are not rewritten
+--     (metadata-only change; ACCESS EXCLUSIVE on case_law_reference for
+--     milliseconds, which is why nothing else in this file touches the table);
+--   * one CHECK, NOT VALID: no scan of existing rows (all NULL in the new
+--     column anyway); enforced for new and updated rows.
+--
+-- The unique index the new datasets need is in 0013: built here, it would scan
+-- case_law_reference while this file holds ACCESS EXCLUSIVE on it.
+
+-- (migration only) SET LOCAL lock_timeout = '5s';
+
+ALTER TABLE "cle_v2"."case_law_reference"
+    ADD COLUMN IF NOT EXISTS "extractor_version" text,
+    ADD COLUMN IF NOT EXISTS "match_method"      text,
+    ADD COLUMN IF NOT EXISTS "confidence"        real;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = '"cle_v2"."case_law_reference"'::regclass
+           AND conname = 'case_law_reference_confidence_check'
+    ) THEN
+        ALTER TABLE "cle_v2"."case_law_reference"
+            ADD CONSTRAINT "case_law_reference_confidence_check"
+            CHECK ("confidence" IS NULL OR "confidence" BETWEEN 0 AND 1) NOT VALID;
+    END IF;
+END
+$$;
+
+COMMENT ON COLUMN "cle_v2"."case_law_reference"."extractor_version" IS
+    'Extractor that wrote the row, e.g. eu_law_text/1.0.0. NULL on rows loaded before 0012.';
+COMMENT ON COLUMN "cle_v2"."case_law_reference"."match_method" IS
+    'How the act was identified: celex_metadata | act_number | treaty_article | act_name. NULL on rows loaded before 0012.';
+COMMENT ON COLUMN "cle_v2"."case_law_reference"."confidence" IS
+    'The extractor''s own estimate that the reference is right, 0 to 1. NULL on rows loaded before 0012.';
+
+-- ---- 0014_case_law_reference_indexes.sql ----
+-- Unique keys for case_law_reference rows that are resolved AND keep their raw
+-- reference. None of 0001's three keys covers that shape: _uk_provision and
+-- _uk_legislation require raw_resource IS NULL, _uk_raw requires both ids NULL.
+-- Two partial indexes over disjoint datasets, so their predicates never overlap:
+--
+--   case_law_reference_uk_bwb_resolved   rs_lido_sqlite rows the RS loader now
+--                                        resolves to their act (R3.5)
+--   case_law_reference_uk_resolved_ref   Cellar and the new EU-law text datasets
+--                                        resolved to an act or provision (R3.2–R3.4)
+--
+-- In one file, separate from 0011/0012, so the two builds take only a SHARE
+-- lock on case_law_reference (about 8.2M rows; one scan each): reads continue,
+-- writes wait. Measure on db-dev and apply outside the Monday ETL and Thursday
+-- promotion windows. Before applying, both counts below must be 0:
+--
+--   SELECT count(*) FROM case_law_reference
+--    WHERE source_dataset = 'rs_lido_sqlite' AND legislation_id IS NOT NULL;
+--   SELECT count(*) FROM case_law_reference
+--    WHERE raw_resource IS NOT NULL AND (legislation_id IS NOT NULL OR provision_id IS NOT NULL)
+--      AND source_dataset IN ('cellar_sparql', 'cellar_law_ref', 'rs_text_eu_law', 'echr_text_eu_law');
+
+-- (migration only) SET LOCAL lock_timeout = '5s';
+-- (migration only) SET LOCAL maintenance_work_mem = '128MB';
+
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_bwb_resolved"
+    ON "cle_v2"."case_law_reference"
+    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
+    WHERE "source_dataset" = 'rs_lido_sqlite'
+      AND "provision_id" IS NULL
+      AND "legislation_id" IS NOT NULL
+      AND "raw_resource" IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_resolved_ref"
+    ON "cle_v2"."case_law_reference"
+    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
+    WHERE "raw_resource" IS NOT NULL
+      AND ("legislation_id" IS NOT NULL OR "provision_id" IS NOT NULL)
+      AND "source_dataset" IN ('cellar_sparql', 'cellar_law_ref', 'rs_text_eu_law', 'echr_text_eu_law');
