@@ -25,8 +25,9 @@ import unicodedata
 # en dash, em dash, horizontal bar, minus sign and the soft hyphen.
 HYPHENS = "-‐‑‒–—―−­"
 _HYPHEN_CLASS = "[" + re.escape(HYPHENS) + "]"
-# Spaces, including no-break and thin spaces.
-_SPACE_CLASS = r"[    ]"
+# Spaces, including no-break and thin spaces (U+00A0, U+2009, U+202F). Shared
+# by every extractor's patterns.
+SPACE_CLASS = "[ \u00a0\u2009\u202f]"
 
 # Procedure suffixes after a case number ("C-221/17 P", "C-89/24 PPU").
 CJEU_SUFFIXES = (
@@ -44,14 +45,37 @@ CJEU_SUFFIXES = (
     "SA",
 )
 
+# Suffixes that are also ordinary words or initials ("C-123/15 SA Lorraine",
+# "C-221/17 R. v. ..."): not a suffix when a "." or a word follows, unless that
+# word joins another case number ("C-204/21 R and C-205/21 R"). "TO" directly
+# followed by another case number is the word of a range ("C-199/12 TO C-201/12").
+_PROSE_SUFFIXES = ("SA", "OP", "R")
+_CONNECTOR = r"(?i:and|en|et|und|e|y|i|to|tot|t/m|à|bis|of|van|de|du)(?!\w)"
+_PROSE_GUARD = r"(?!\.[^\S\n]*\S|" + SPACE_CLASS + r"+(?!" + _CONNECTOR + r")[^\W\d_])"
+_RANGE_GUARD = (
+    r"(?!"
+    + SPACE_CLASS
+    + r"*(?:[CTF]"
+    + SPACE_CLASS
+    + r"?(?:"
+    + _HYPHEN_CLASS
+    + r")?"
+    + SPACE_CLASS
+    + r"?)?\d)"
+)
+_SUFFIX_ALTERNATIVES = "|".join(
+    s + _PROSE_GUARD if s in _PROSE_SUFFIXES else s + _RANGE_GUARD if s == "TO" else s
+    for s in CJEU_SUFFIXES
+)
+
 # A CJEU, General Court or Civil Service Tribunal case number. The court
 # letter is optional (cases before 1989 have none: "26/62"); the separator
 # between letter and number may be a hyphen of any kind, a space, or both.
 CJEU_CASE_NUMBER_RE = re.compile(
     r"(?<![\w/])"
-    r"(?:(?P<court>[CTF])" + _SPACE_CLASS + r"?(?:" + _HYPHEN_CLASS + r")?" + _SPACE_CLASS + r"?)?"
+    r"(?:(?P<court>[CTF])" + SPACE_CLASS + r"?(?:" + _HYPHEN_CLASS + r")?" + SPACE_CLASS + r"?)?"
     r"(?P<number>\d{1,4})/(?P<year>\d{2})(?![\d/])"
-    r"(?:" + _SPACE_CLASS + r"(?P<suffix>" + "|".join(CJEU_SUFFIXES) + r")\b)?"
+    r"(?:" + SPACE_CLASS + r"(?P<suffix>(?:" + _SUFFIX_ALTERNATIVES + r"))\b)?"
 )
 
 _ECLI_RE = re.compile(

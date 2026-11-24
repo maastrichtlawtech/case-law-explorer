@@ -1,5 +1,4 @@
 import pytest
-
 from data_extraction.linking import identifiers as ids
 
 
@@ -111,3 +110,38 @@ def test_normalize_dispatch():
     assert ids.normalize("cjeu_case_number", "C‑199/12") == "C-199/12"
     with pytest.raises(KeyError):
         ids.normalize("unknown", "x")
+
+
+# Review round 3: procedure suffixes. The strings are illustrative constructions
+# from the review notes, not quoted case text.
+@pytest.mark.parametrize(
+    "text, expected",
+    [
+        ("C-123/15 SA Lorraine", ("C-123/15", None)),  # a company form, not 'SA' proceedings
+        ("C-221/17 OP GROND VAN", ("C-221/17", None)),  # upper-cased prose
+        ("C-221/17 R. v. Smith", ("C-221/17", None)),  # an initial, not interim relief
+        ("C-204/21 R, EU:C:2021:593", ("C-204/21", "R")),
+        ("C-204/21 R and C-205/21 R", ("C-204/21", "R")),
+        ("C-204/21 R.", ("C-204/21", "R")),
+        ("C-123/15 SA", ("C-123/15", "SA")),
+        ("C-123/15 TO, EU:C:2016:1", ("C-123/15", "TO")),
+    ],
+)
+def test_illustrative_suffix_not_taken_from_prose(text, expected):
+    match = ids.CJEU_CASE_NUMBER_RE.search(text)
+    assert (ids.normalize_cjeu_case_number(match.group(0)), match.group("suffix")) == expected
+
+
+def test_illustrative_to_between_two_numbers_is_a_range_word():
+    matches = list(ids.CJEU_CASE_NUMBER_RE.finditer("C-199/12 TO C-201/12"))
+    assert [(m.group(0), m.group("suffix")) for m in matches] == [
+        ("C-199/12", None),
+        ("C-201/12", None),
+    ]
+
+
+def test_space_class_is_exported_with_no_break_and_thin_spaces():
+    import re
+
+    space = re.compile(ids.SPACE_CLASS)
+    assert all(space.fullmatch(ch) for ch in (" ", " ", " ", " "))
