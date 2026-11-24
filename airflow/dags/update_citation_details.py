@@ -9,7 +9,7 @@ from data_loading import data_loader
 from data_loading.clients.postgres import PostgresCLEClient
 from data_transformation import data_transformer
 from dotenv import find_dotenv, load_dotenv
-from etl_factory import get_var
+from etl_factory import get_rechtspraak_api_pool, get_var
 from rechtspraak_citations_extractor.citations_extractor import get_citations
 from rechtspraak_extractor.rechtspraak import get_rechtspraak
 from rechtspraak_extractor.rechtspraak_metadata import get_rechtspraak_metadata
@@ -81,6 +81,29 @@ def merge_and_extract(eclis, metadata_df, input_paths=None):
     return missing_eclis
 
 
+class UnsupportedEcliListFetch(RuntimeError):
+    """rechtspraak_extractor has no call that fetches a given list of ECLIs."""
+
+
+def _refuse_ecli_list_fetch(missing_eclis):
+    """Fail before any request instead of on a TypeError halfway through.
+
+    rechtspraak_extractor 1.6.0's get_rechtspraak() takes only a decision-date
+    window (max_ecli, sd, ed, save_file); it has no `eclis` argument, so the
+    call below raised TypeError. Refetching a list of ECLIs one by one from
+    data.rechtspraak.nl is also what got the server's IP blocked: lido.db
+    (lido_sqlite_build) holds their metadata, and rechtspraak_etl's
+    modified-date sweep picks up changed cases.
+    """
+    if missing_eclis:
+        raise UnsupportedEcliListFetch(
+            f"Not fetching {len(missing_eclis)} ECLIs from data.rechtspraak.nl: "
+            "rechtspraak_extractor 1.6.0's get_rechtspraak() only accepts a "
+            "decision-date window (max_ecli, sd, ed), not a list of ECLIs. "
+            "Re-run rechtspraak_etl for the affected window instead."
+        )
+
+
 def extract_missing_eclis(
     missing_eclis,
     output_path=None,
@@ -94,6 +117,7 @@ def extract_missing_eclis(
         output_path = os.path.join(data_path, "processed", "missing_citations_extraction.csv")
     if input_paths is None:
         input_paths = [output_path]
+    _refuse_ecli_list_fetch(missing_eclis)
 
     if missing_eclis:
         logging.info("Performing extraction for missing ECLIs.")
@@ -387,8 +411,13 @@ def run_update_citation_details(**kwargs):
 
 
 with dag:
+    # Not run alongside rechtspraak_etl once the pool is configured (see
+    # etl_factory.get_rechtspraak_api_pool): both load RS rows, and
+    # extract_missing_eclis targets data.rechtspraak.nl.
+    rechtspraak_api_pool = get_rechtspraak_api_pool()
     update_citation_details_task = PythonOperator(
         task_id="update_citation_details_tasks",
         python_callable=run_update_citation_details,
         dag=dag,
+        **({"pool": rechtspraak_api_pool} if rechtspraak_api_pool else {}),
     )

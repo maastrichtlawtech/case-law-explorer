@@ -16,6 +16,7 @@ from etl_factory import (
     build_monthly_task_group,
     cleanup_raw_files,
     get_optional_int,
+    get_rechtspraak_api_pool,
     get_schedule,
     register_promotion,
 )
@@ -126,7 +127,9 @@ def rechtspraak_etl(**kwargs):
 
 
 with dag:
-    etl_tasks = build_monthly_task_group(dag, "rechtspraak_etl", "RS", rechtspraak_etl)
+    etl_tasks = build_monthly_task_group(
+        dag, "rechtspraak_etl", "RS", rechtspraak_etl, pool=get_rechtspraak_api_pool()
+    )
     terminal = etl_tasks
 
     # Only chain segmentation on when there is a segmentation service to call.

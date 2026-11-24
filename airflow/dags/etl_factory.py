@@ -27,6 +27,27 @@ NO_SOURCE_DATA_MARKER = "no_source_data.{}.marker"
 # Longer empty trailing chunks look like a broken source, not an early month.
 EMPTY_FINAL_CHUNK_MAX_DAYS = 14
 
+# Suggested name for the shared Airflow pool (size 1) that keeps tasks calling
+# data.rechtspraak.nl from running at the same time across DAGs. The API
+# allows 10 requests/s per IP and has blocked the server for exceeding it;
+# max_active_runs/max_active_tasks only serialize tasks within one DAG.
+RECHTSPRAAK_API_POOL = "rechtspraak_api"
+
+
+def get_rechtspraak_api_pool():
+    """The pool for tasks that call data.rechtspraak.nl, or None for Airflow's default.
+
+    Opt-in through the RECHTSPRAAK_API_POOL environment variable, because the
+    scheduler never runs a task whose pool doesn't exist. Create the pool
+    first, then set the variable:
+
+        airflow pools set rechtspraak_api 1 "Requests to data.rechtspraak.nl"
+
+    Read from the environment, not an Airflow Variable, so parsing the DAG
+    files doesn't query the metadata database.
+    """
+    return os.getenv("RECHTSPRAAK_API_POOL", "").strip() or None
+
 
 class NoSourceData(Exception):
     """The source returned no documents for the requested chunk."""
@@ -232,18 +253,21 @@ def cleanup_raw_files(paths):
                 logging.warning(f"Could not remove {file_path}: {e}")
 
 
-def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable):
+def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, pool=None):
     """
     One sequential task which resolves its window at run time and invokes the
     source callable in month-sized chunks. This keeps historical backfills and
     scheduled refreshes on the existing DAG without parallel source bursts.
+    `pool` puts that task in an Airflow pool; None keeps Airflow's default.
     """
+    pool_kwargs = {"pool": pool} if pool else {}
     with TaskGroup(f"{task_prefix}_tasks", tooltip=f"{task_prefix} tasks", dag=dag) as task_group:
         PythonOperator(
             task_id="run_window",
             python_callable=run_monthly_window,
             op_kwargs={"var_prefix": var_prefix, "etl_callable": etl_callable},
             dag=dag,
+            **pool_kwargs,
         )
 
     return task_group
