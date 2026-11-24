@@ -267,7 +267,9 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
         LEGISLATION_EXTERNAL_ENABLED, for the DAGs that write legislation
         files (cellar, echr; linking_tasks.LEGISLATION_OUTPUTS);
       * ``extract_law_references`` (linking_tasks.run_window_law_references)
-        with LAW_REFERENCE_EXTRACTION_ENABLED.
+        with LAW_REFERENCE_EXTRACTION_ENABLED;
+      * ``extract_authorities`` (linking_tasks.run_window_authorities, roadmap
+        Phase 4) with AUTHORITY_EXTRACTION_ENABLED.
 
     The group's last task runs before register_promotion. With every flag off
     the group is exactly the single ``run_window`` task.
@@ -311,5 +313,14 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
             )
             last >> extract_law_references
             last = extract_law_references
+        if links and linking_tasks.authority_enabled():
+            extract_authorities = PythonOperator(
+                task_id="extract_authorities",
+                python_callable=linking_tasks.run_window_authorities,
+                op_kwargs={"var_prefix": var_prefix},
+                dag=dag,
+            )
+            last >> extract_authorities
+            last = extract_authorities
 
     return task_group
