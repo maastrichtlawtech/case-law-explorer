@@ -350,19 +350,43 @@ class PostgresRSProcessor(_BaseRowProcessor):
         lido_reference_loader.py already writes (distinct source_dataset
         keeps the two from colliding on the unique index).
 
-        bwb_id is a single value per case today, not one per legislation
-        citation, so every row from the same case currently gets the same
-        raw_resource -- a known limitation until lido.db's legislations_cited/
-        bwb_id are populated in a way that lines up per-entry."""
+        The BWB id of each citation comes from its LiDO URL
+        (http://linkeddata.overheid.nl/terms/bwb/id/BWBR0001854/...), else from
+        the row's bwb_id. The URL comes first because it is per citation, while
+        bwb_id is a single value per case (lido.db leaves it empty, so in
+        practice the URL is all there is);
+        a citation with neither is skipped with a warning (no unique index
+        covers a row without raw_resource, so it could not be loaded
+        idempotently). Each row asks for its act to be resolved by exact BWB id
+        (roadmap R3.5; client.upsert_law_reference).
+
+        caselaw-coolify etl/apply_loader_compatibility.py patches the same
+        derivation in at image build (bwb_id first there); that patch's two
+        rewrites of this method and of upsert_law_reference must be dropped
+        when this code is deployed (the patch refuses to apply to changed
+        source, by design)."""
         bwb_id = row.get(RS_BWB_ID) or None
-        return [
-            {
-                "raw_reference": legislation,
-                "raw_resource": bwb_id,
-                "source_dataset": "rs_lido_sqlite",
-            }
-            for legislation in (_split_set(row.get(RS_LEGISLATIONS)) or [])
-        ]
+        rows = []
+        for legislation in _split_set(row.get(RS_LEGISLATIONS)) or []:
+            raw_resource = None
+            if "/bwb/id/" in legislation:
+                raw_resource = legislation.split("/bwb/id/", 1)[1].split("/", 1)[0] or None
+            raw_resource = raw_resource or bwb_id
+            if raw_resource is None:
+                logging.warning(
+                    "Skipping unresolved legislation reference without a BWB id: %s",
+                    legislation,
+                )
+                continue
+            rows.append(
+                {
+                    "raw_reference": legislation,
+                    "raw_resource": raw_resource,
+                    "source_dataset": "rs_lido_sqlite",
+                    "resolve_legislation": True,
+                }
+            )
+        return rows
 
 
 class PostgresCelexProcessor(_BaseRowProcessor):
