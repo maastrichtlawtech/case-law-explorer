@@ -215,14 +215,30 @@ def test_wbv_and_decrees():
         "het besluit van de staatssecretaris van Financiën van 8 juli 2014, "
         "nr. DGB 2014/296M, bepaalt"
     )
-    (hit,) = authority_patterns.scan(text)
+    decrees = authority_text.scan_groups(nl_decrees=True)
+    (hit,) = authority_patterns.scan(text, decrees)
     assert (hit.doc.identifier_scheme, hit.doc.identifier, hit.doc.date) == (
         "nl_besluit_kenmerk",
         "DGB2014/296M",
         "2014-07-08",
     )
-    (numeric,) = authority_patterns.scan("het besluit van 15 december 2016, nr. 2016-187170")
+    (numeric,) = authority_patterns.scan(
+        "het besluit van 15 december 2016, nr. 2016-187170", decrees
+    )
     assert numeric.doc.identifier == "2016-187170"
+
+
+def test_decrees_off_by_default(monkeypatch):
+    """Illustrative string: an individual administrative decision is no
+    policy rule, and the decree pattern that takes it for one is off unless
+    AUTHORITY_NL_DECREES is set."""
+    text = "het besluit van 14 maart 2018, kenmerk 2018/12345, is herroepen"
+    monkeypatch.delenv("AUTHORITY_NL_DECREES", raising=False)
+    assert "nl_decree" not in authority_text.scan_groups()
+    assert authority_patterns.scan(text) == []
+    assert authority_patterns.scan(text, authority_text.scan_groups()) == []
+    monkeypatch.setenv("AUTHORITY_NL_DECREES", "true")
+    assert "nl_decree" in authority_text.scan_groups()
 
 
 @pytest.mark.parametrize(
@@ -333,6 +349,45 @@ def test_un_symbol_url():
 )
 def test_un_and_coe_rejected(text):
     assert [i for i in _ids(text) if i[0] in ("un_treaty_body", "coe_body")] == []
+
+
+# Illustrative strings (not from real case texts) for the review findings.
+@pytest.mark.parametrize(
+    "text",
+    [
+        "the cat was found on 3 May; communication No. 2149/2012",  # "cat" is no CAT
+        "the hrc noted in communication No. 2149/2012",  # lower-case acronym
+        "HRC, communication No. 2149/2012",  # bare HRC: the Council or the Committee
+        "cedaw: communication No. 1/2012",
+    ],
+)
+def test_committee_acronyms_need_capitals(text):
+    assert [i for i in _ids(text) if i[1] == "un_communication"] == []
+
+
+@pytest.mark.parametrize(
+    "text, identifier",
+    [
+        ("CAT, communication No. 2149/2012", "CAT/2149/2012"),
+        ("UN HRC, communication No. 2149/2012", "CCPR/2149/2012"),
+        ("CCPR, communication No. 2149/2012", "CCPR/2149/2012"),
+        ("CEDAW, communication No. 1/2012", "CEDAW/1/2012"),
+    ],
+)
+def test_committee_acronyms_in_capitals(text, identifier):
+    assert [i[2] for i in _ids(text) if i[1] == "un_communication"] == [identifier]
+
+
+def test_kamerstuk_paper_number_with_a_letter_is_not_truncated():
+    """Illustrative: "nr. 3a" is not paper 3."""
+    ids = [i[2] for i in _ids("Kamerstukken II 2015/16, 34 356, nr. 3a")]
+    assert "kst-34356-3" not in ids
+
+
+def test_official_publication_needs_a_separator_after_the_year():
+    """Illustrative: "Stb. 2017123" is no Staatsblad 2017, 123."""
+    assert _ids("Stb. 2017123") == []
+    assert [i[2] for i in _ids("Stcrt. 2019 12345")] == ["stcrt-2019-12345"]
 
 
 def test_overlaps_keep_the_longest():

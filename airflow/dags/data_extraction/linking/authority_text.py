@@ -13,8 +13,8 @@ occurrence:
 What is found (see authority_patterns for the identifiers): Dutch
 parliamentary papers (Kamerstukken, Handelingen), Staatsblad / Staatscourant /
 Tractatenblad numbers (AUTHORITY_NL_OFFICIAL_PUBLICATIONS, default on), the
-Vreemdelingencirculaire 2000, WBV and decrees cited by date and reference
-number, full ECLIs of courts outside the three collections, UN treaty body
+Vreemdelingencirculaire 2000, WBV, decrees cited by date and reference
+number (AUTHORITY_NL_DECREES, default off), full ECLIs of courts outside the three collections, UN treaty body
 documents and communications, and Council of Europe documents (Venice
 Commission, CPT, GRECO, ECRI, Committee of Ministers, Commissioner for Human
 Rights). Every pattern runs on both corpora.
@@ -55,6 +55,7 @@ log = logging.getLogger(__name__)
 SCHEMA = "cle_v2"
 EXTRACTOR_VERSION = "authority_text/1.0.0"
 OFFICIAL_PUBLICATIONS_FLAG = "AUTHORITY_NL_OFFICIAL_PUBLICATIONS"
+NL_DECREES_FLAG = "AUTHORITY_NL_DECREES"
 
 CORPORA = {
     # corpus: (case_text.source, source_dataset)
@@ -64,14 +65,21 @@ CORPORA = {
 DATASETS = tuple(dataset for _source, dataset in CORPORA.values())
 
 
-def scan_groups(official_publications: Optional[bool] = None) -> tuple:
+def scan_groups(
+    official_publications: Optional[bool] = None, nl_decrees: Optional[bool] = None
+) -> tuple:
     """The pattern groups to run; Staatsblad/Staatscourant/Tractatenblad
-    numbers only with AUTHORITY_NL_OFFICIAL_PUBLICATIONS (default on)."""
+    numbers only with AUTHORITY_NL_OFFICIAL_PUBLICATIONS (default on), decrees
+    cited by date and reference number only with AUTHORITY_NL_DECREES
+    (default off)."""
     if official_publications is None:
         official_publications = env_flag(OFFICIAL_PUBLICATIONS_FLAG, True)
-    return tuple(
+    if nl_decrees is None:
+        nl_decrees = env_flag(NL_DECREES_FLAG, False)
+    groups = tuple(
         g for g in authority_patterns.GROUPS if official_publications or g != "nl_official"
     )
+    return groups + (("nl_decree",) if nl_decrees else ())
 
 
 def records_for_text(

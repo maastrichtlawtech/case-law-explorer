@@ -53,7 +53,9 @@ nl_policy_rule (R4.2)
     nr. DGB 2014/296M" -> scheme 'nl_besluit_kenmerk', identifier
     'DGB2014/296M', date 2014-07-08. A reference needs letters before the year
     or a year-number of at least three digits, so an ordinary decision number
-    is not taken for one.
+    is not taken for one. Group 'nl_decree', behind AUTHORITY_NL_DECREES
+    (default off): the pattern also takes individual administrative decisions
+    ("besluit van 14 maart 2018, kenmerk 2018/12345") for decrees.
     Named "beleidsregels" without a number or publication are not written:
     a bare name is no identifier. When they are cited with their
     Staatscourant number, that number is.
@@ -175,7 +177,7 @@ KST_RE = re.compile(
     r"(?:" + _DASH + r"(?P<dash>\d{1,3})(?!\d))?"
     r"(?:" + _SP + r"+(?P<sub>[IVXL]{1,6}|[A-Z])(?![\w.]))?"
     r"(?:" + _SP + r"*\((?:R" + _SP + r"?\d{3,4})\))?"
-    r"(?:" + _SP + r"*,?" + _SP + r"*(?:(?:nr|no|nummer)\.?" + _SP + r"*(?P<nr>\d{1,4})(?![\d/])"
+    r"(?:" + _SP + r"*,?" + _SP + r"*(?:(?:nr|no|nummer)\.?" + _SP + r"*(?P<nr>\d{1,4})(?![\w/])"
     r"|," + _SP + r"*(?P<nr2>\d{1,4})(?![\d/.])"
     r"|," + _SP + r"*(?P<letter>[A-Z]{1,3})(?![\w.])))?"
     r"(?:" + _SP + r"*," + _SP + r"*(?P<pin>" + _PIN + r"))?"
@@ -331,7 +333,7 @@ def handelingen_hits(text: str) -> List[AuthorityHit]:
 
 OFFICIAL_RE = re.compile(
     r"(?<![\w.])(?P<pub>Stb|Stcrt|Trb|Staatsblad|Staatscourant|Tractatenblad)\.?"
-    r"" + _SP + r"*(?P<year>(?:18|19|20)\d{2})" + _SP + r"*,?" + _SP + r"*(?:nr\.?" + _SP + r"*)?"
+    r"" + _SP + r"*(?P<year>(?:18|19|20)\d{2})(?!\d)" + _SP + r"*,?" + _SP + r"*(?:nr\.?" + _SP + r"*)?"
     r"(?P<nr>\d{1,6})(?![\d/,.]\d)(?![\w/])"
 )
 _OFFICIAL_CODE = {
@@ -459,6 +461,17 @@ def policy_rule_hits(text: str) -> List[AuthorityHit]:
             title=f"WBV {identifier}",
         )
         hits.append(AuthorityHit(doc, m.start(), m.end(), None, "nl_wbv", 0.9))
+    return hits
+
+
+def decree_hits(text: str) -> List[AuthorityHit]:
+    """Decrees cited by date and reference number (group 'nl_decree', not in
+    GROUPS: run only with AUTHORITY_NL_DECREES, default off). The pattern also
+    matches individual administrative decisions ("besluit van 14 maart 2018,
+    kenmerk 2018/12345") and would merge unrelated decisions that share a
+    reference number, so it stays off until a db-dev sample shows its
+    precision."""
+    hits = []
     for m in BESLUIT_RE.finditer(text):
         dm = DATE_RE.match(m.group("date") + " ")
         decided = parse_date_match(dm) if dm else None
@@ -532,14 +545,18 @@ UN_SYMBOL_RE = re.compile(
     r"(?:/[A-Z0-9][A-Za-z0-9]*(?:[.\-][A-Za-z0-9]+)*){2,8})(?![\w/])"
 )
 # Committee named near a communication number; Dutch and French names too.
+# Names match in any case; acronyms only in capitals ((?-i:...)), so "cat" or
+# "hrc" in running text is no cue. A bare "HRC" is ambiguous (the Human Rights
+# Council too): only "UN HRC" and "CCPR" name the committee.
 _COMMITTEE_CUES = (
     (
-        r"Human Rights Committee|Mensenrechtencomit[ée]|Comit[ée] des droits de l.homme|\bHRC\b",
+        r"Human Rights Committee|Mensenrechtencomit[ée]|Comit[ée] des droits de l.homme"
+        r"|(?-i:\bUN HRC\b|\bCCPR\b)",
         "CCPR",
     ),
     (
         r"Committee against Torture|Comit[ée] tegen (?:Foltering|marteling)"
-        r"|Comit[ée] contre la torture|\bCAT\b",
+        r"|Comit[ée] contre la torture|(?-i:\bCAT\b)",
         "CAT",
     ),
     (
@@ -547,9 +564,9 @@ _COMMITTEE_CUES = (
         r"|Comit[ée] des droits de l.enfant",
         "CRC",
     ),
-    (r"\bCEDAW\b|Committee on the Elimination of Discrimination against Women", "CEDAW"),
-    (r"\bCERD\b|Committee on the Elimination of Racial Discrimination", "CERD"),
-    (r"\bCRPD\b|Committee on the Rights of Persons with Disabilities", "CRPD"),
+    (r"(?-i:\bCEDAW\b)|Committee on the Elimination of Discrimination against Women", "CEDAW"),
+    (r"(?-i:\bCERD\b)|Committee on the Elimination of Racial Discrimination", "CERD"),
+    (r"(?-i:\bCRPD\b)|Committee on the Rights of Persons with Disabilities", "CRPD"),
 )
 _COMMITTEE_CUES = tuple((re.compile(cue, re.I), code) for cue, code in _COMMITTEE_CUES)
 
@@ -696,10 +713,14 @@ def coe_hits(text: str) -> List[AuthorityHit]:
 # ---------------------------------------------------------------------------
 
 GROUPS = ("nl_parliamentary", "nl_official", "nl_policy", "foreign_ecli", "un", "coe")
+# Groups scan() runs only when named (authority_text.scan_groups adds them
+# behind their flags).
+OPTIONAL_GROUPS = ("nl_decree",)
 _SCANNERS = {
     "nl_parliamentary": (kamerstuk_hits, handelingen_hits),
     "nl_official": (official_publication_hits,),
     "nl_policy": (policy_rule_hits,),
+    "nl_decree": (decree_hits,),
     "foreign_ecli": (foreign_ecli_hits,),
     "un": (un_hits,),
     "coe": (coe_hits,),

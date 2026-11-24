@@ -67,6 +67,10 @@ Cited authorities (roadmap Phase 4) run the same way behind their own flag:
     AUTHORITY_CELLAR          per extractor, default on when the master is on.
     AUTHORITY_NL_OFFICIAL_PUBLICATIONS
                               content switch of authority_text, default on.
+    AUTHORITY_NL_DECREES      content switch of authority_text, default off:
+                              decrees cited by date and reference number
+                              ("besluit van ..., nr. DGB 2014/296M"); the
+                              pattern also takes individual decisions.
     AUTHORITY_CELLAR_DECISIONS
                               sector 3 decisions as authority documents,
                               default off (R3.2 records them as legislation).
