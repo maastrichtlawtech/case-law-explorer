@@ -538,6 +538,20 @@ def test_extract_against_database(conn, tmp_path):
     (mention,) = summary.mentions
     assert mention.text_field == "summary" and mention.raw_text == "EU:C:2019:189"
 
+    # The artifact loads through the insert-only link loader, twice without change.
+    from data_loading.link_loader import load_artifact
+
+    counts = load_artifact(conn, out)
+    assert counts["rs_text_cjeu_casenum"] == {
+        "inserted": 1,
+        "inserted_unresolved": 1,
+        "mentions_inserted": 3,
+    }
+    assert counts["rs_text_ecli"]["inserted"] == 2
+    assert counts["rs_text_echr_appno"]["inserted"] == 1
+    again = load_artifact(conn, out)
+    assert all("inserted" not in c and "mentions_inserted" not in c for c in again.values())
+
 
 @needs_db
 def test_extract_by_case_ids_and_range(conn, tmp_path):
