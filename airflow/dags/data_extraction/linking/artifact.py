@@ -38,8 +38,9 @@ not hold yet keeps the extractor's method, rule and confidence; late binding
 """
 
 import json
+import os
 from dataclasses import asdict, dataclass, field
-from typing import Iterable, Iterator, Optional
+from typing import Dict, Iterable, Iterator, List, Optional
 
 CASE_KEYS = ("ecli", "celex", "item_id")
 REF_SCHEMES = ("cjeu_case_number", "echr_appno", "nl_zaaknummer", "ljn", "name_date")
@@ -220,13 +221,123 @@ class LinkRecord:
         return out
 
 
+def _line(record: LinkRecord) -> str:
+    return json.dumps(record.to_dict(), ensure_ascii=False, sort_keys=True)
+
+
+class ArtifactWriter:
+    """Write a link artifact batch by batch, holding one batch at a time.
+
+    Each ``write(records)`` call is one batch, written sorted on its
+    serialised lines. The extractors page their source cases by ascending
+    cases.id (keyset), so the same input and batch size give the same bytes
+    however the records of a batch arrived. ``write_jsonl`` is the one-batch
+    case (the whole file sorted).
+
+    The file is written to ``<path>.tmp`` and moved into place by close();
+    abort() (or an exception inside ``with``) removes it, so a file at
+    ``path`` is always complete. With path None nothing is written and only
+    the records are counted.
+    """
+
+    def __init__(self, path):
+        self.path = None if path is None else str(path)
+        self.count = 0
+        self._handle = None
+        if self.path is not None:
+            self._handle = open(self.path + ".tmp", "w", encoding="utf-8")
+
+    def write(self, records: Iterable[LinkRecord]) -> int:
+        """Write one batch; returns how many records it had."""
+        lines = sorted(_line(r) for r in records)
+        if self._handle is not None:
+            for line in lines:
+                self._handle.write(line + "\n")
+        self.count += len(lines)
+        return len(lines)
+
+    def close(self) -> int:
+        if self._handle is not None:
+            self._handle.close()
+            self._handle = None
+            os.replace(self.path + ".tmp", self.path)
+        return self.count
+
+    def abort(self):
+        if self._handle is not None:
+            self._handle.close()
+            self._handle = None
+            try:
+                os.remove(self.path + ".tmp")
+            except FileNotFoundError:
+                pass
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self.close()
+        else:
+            self.abort()
+        return False
+
+
+class DatasetWriters:
+    """One ArtifactWriter per source_dataset ({dataset: path}); write(records)
+    routes each record to its dataset's file, keeping the batch order rules
+    of ArtifactWriter, and refuses a dataset it has no file for. Every file
+    is written, empty when no record went to it."""
+
+    def __init__(self, paths: Dict[str, str]):
+        self.writers: Dict[str, ArtifactWriter] = {}
+        try:
+            for dataset, path in paths.items():
+                self.writers[dataset] = ArtifactWriter(path)
+        except BaseException:
+            self.abort()
+            raise
+
+    def write(self, records: Iterable[LinkRecord]) -> int:
+        by_dataset: Dict[str, List[LinkRecord]] = {d: [] for d in self.writers}
+        for record in records:
+            if record.source_dataset not in by_dataset:
+                raise ArtifactError(
+                    f"source_dataset {record.source_dataset!r} not expected here, "
+                    f"expected one of {list(self.writers)}"
+                )
+            by_dataset[record.source_dataset].append(record)
+        return sum(self.writers[d].write(rs) for d, rs in by_dataset.items())
+
+    @property
+    def counts(self) -> Dict[str, int]:
+        return {d: w.count for d, w in self.writers.items()}
+
+    def close(self) -> Dict[str, int]:
+        for writer in self.writers.values():
+            writer.close()
+        return self.counts
+
+    def abort(self):
+        for writer in self.writers.values():
+            writer.abort()
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        if exc_type is None:
+            self.close()
+        else:
+            self.abort()
+        return False
+
+
 def write_jsonl(records: Iterable[LinkRecord], path) -> int:
     """Write records, one per line, sorted for a stable hash; returns the count."""
-    lines = sorted(json.dumps(r.to_dict(), ensure_ascii=False, sort_keys=True) for r in records)
-    with open(path, "w", encoding="utf-8") as handle:
-        for line in lines:
-            handle.write(line + "\n")
-    return len(lines)
+    with ArtifactWriter(path) as writer:
+        writer.write(records)
+    return writer.count
 
 
 def read_jsonl(path) -> Iterator[LinkRecord]:

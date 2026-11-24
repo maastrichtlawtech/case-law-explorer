@@ -50,7 +50,13 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import identifiers, resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord, match_method
+from data_extraction.linking.artifact import (
+    ArtifactWriter,
+    CaseKey,
+    DatasetWriters,
+    LinkRecord,
+    match_method,
+)
 from data_extraction.linking.text_common import (
     CandidateLookup,
     PendingLink,
@@ -62,7 +68,6 @@ from data_extraction.linking.text_common import (
     env_flag,
     iter_case_batches,
     mention,
-    write_artifact,
 )
 
 log = logging.getLogger(__name__)
@@ -712,7 +717,14 @@ def _segments_for(segments_by_case, case_id, text):
     return None
 
 
-def extract_batch(cursor, case_ids: Sequence[int], lookup, domestic_flag: bool, has_secondary=True):
+def extract_batch(
+    cursor,
+    case_ids: Sequence[int],
+    lookup,
+    domestic_flag: bool,
+    has_secondary=True,
+    has_segments=None,
+):
     cursor.execute(_TEXTS_SQL, (list(case_ids),))
     rows = cursor.fetchall()
     sources, units = {}, []
@@ -730,7 +742,9 @@ def extract_batch(cursor, case_ids: Sequence[int], lookup, domestic_flag: bool, 
             if case_id in sources and fulltext:
                 units.append((case_id, TextUnit(fulltext, "fulltext", language, HUDOC_SECONDARY)))
     segments_by_case = {}
-    if _table_exists(cursor, "echr_extractor_segments"):
+    if has_segments is None:
+        has_segments = _table_exists(cursor, "echr_extractor_segments")
+    if has_segments:
         cursor.execute(_SEGMENTS_SQL, (list(case_ids),))
         for row in cursor.fetchall():
             segments_by_case.setdefault(row[0], []).append(dict(zip(_SEGMENT_COLUMNS, row[2:])))
@@ -754,18 +768,30 @@ def extract_batch(cursor, case_ids: Sequence[int], lookup, domestic_flag: bool, 
     return records
 
 
-def write_out(records: List[LinkRecord], out_path, datasets=DATASETS):
-    """A directory gets one file per dataset (empty files included); a file gets all."""
-    if os.path.isdir(out_path) or str(out_path).endswith(os.sep):
+def _is_dir(out_path):
+    return os.path.isdir(out_path) or str(out_path).endswith(os.sep)
+
+
+def open_writers(out_path, datasets=DATASETS):
+    """A directory gets one file per dataset (empty files included); a file
+    gets all. Returns a writer whose ``write(batch)`` streams one batch."""
+    if _is_dir(out_path):
         os.makedirs(out_path, exist_ok=True)
-        counts = {}
-        for dataset in datasets:
-            path = os.path.join(out_path, f"{dataset}.jsonl")
-            counts[dataset] = write_artifact(
-                (r for r in records if r.source_dataset == dataset), path
-            )
-        return counts
-    return {"all": write_artifact(records, out_path)}
+        return DatasetWriters({d: os.path.join(out_path, f"{d}.jsonl") for d in datasets})
+    return ArtifactWriter(out_path)
+
+
+def _written(writers):
+    if isinstance(writers, DatasetWriters):
+        return writers.counts
+    return {"all": writers.count}
+
+
+def write_out(records: List[LinkRecord], out_path, datasets=DATASETS):
+    """All records as one batch; see open_writers."""
+    with open_writers(out_path, datasets) as writers:
+        writers.write(records)
+    return _written(writers)
 
 
 def extract(conn, case_ids=None, id_range=None, out_path=None, domestic_flag=None, batch_size=500):
@@ -775,21 +801,26 @@ def extract(conn, case_ids=None, id_range=None, out_path=None, domestic_flag=Non
     """
     if domestic_flag is None:
         domestic_flag = env_flag(DOMESTIC_FLAG, True)
-    records: List[LinkRecord] = []
     with conn.cursor() as cursor:
         has_secondary = _table_exists(cursor, "echr_document_secondary_text")
+        has_segments = _table_exists(cursor, "echr_extractor_segments")
+    conn.rollback()
+    total, by_dataset = 0, {}
+    writers = open_writers(out_path) if out_path else ArtifactWriter(None)
+    with writers, conn.cursor() as cursor:
         lookup = CandidateLookup(cursor)
         for ids in iter_case_batches(
             conn, _IDS_SQL, case_ids=case_ids, id_range=id_range, batch_size=batch_size
         ):
-            records.extend(extract_batch(cursor, ids, lookup, domestic_flag, has_secondary))
+            records = extract_batch(cursor, ids, lookup, domestic_flag, has_secondary, has_segments)
             lookup.clear()
-            log.info("echr_text: up to case %s, %s records", ids[-1], len(records))
-    by_dataset = {}
-    for record in records:
-        by_dataset[record.source_dataset] = by_dataset.get(record.source_dataset, 0) + 1
-    written = write_out(records, out_path) if out_path else {}
-    return {"records": len(records), "by_dataset": by_dataset, "written": written}
+            conn.rollback()  # read-only; end the snapshot between batches
+            for record in records:
+                by_dataset[record.source_dataset] = by_dataset.get(record.source_dataset, 0) + 1
+            total += writers.write(records)
+            log.info("echr_text: up to case %s, %s records", ids[-1], total)
+    written = _written(writers) if out_path else {}
+    return {"records": total, "by_dataset": by_dataset, "written": written}
 
 
 def main(argv=None):

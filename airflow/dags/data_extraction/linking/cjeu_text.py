@@ -45,7 +45,7 @@ from datetime import date
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import identifiers, resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord, match_method
+from data_extraction.linking.artifact import ArtifactWriter, CaseKey, LinkRecord, match_method
 from data_extraction.linking.text_common import (
     DATE_RE,
     CandidateLookup,
@@ -59,7 +59,6 @@ from data_extraction.linking.text_common import (
     iter_case_batches,
     mention,
     parse_date_match,
-    write_artifact,
 )
 
 log = logging.getLogger(__name__)
@@ -533,27 +532,26 @@ def extract(conn, case_ids=None, id_range=None, out_path=None, name_dates=None, 
     """
     if name_dates is None:
         name_dates = env_flag(NAME_DATE_FLAG, False)
-    records: List[LinkRecord] = []
-    with conn.cursor() as cursor:
+    path = out_path
+    if out_path and (os.path.isdir(out_path) or str(out_path).endswith(os.sep)):
+        os.makedirs(out_path, exist_ok=True)
+        path = os.path.join(out_path, f"{DATASET}.jsonl")
+    by_method = {}
+    with ArtifactWriter(path or None) as writer, conn.cursor() as cursor:
         lookup = CandidateLookup(cursor)
         for ids in iter_case_batches(
             conn, _IDS_SQL, case_ids=case_ids, id_range=id_range, batch_size=batch_size
         ):
-            records.extend(extract_batch(cursor, ids, lookup, name_dates))
+            records = extract_batch(cursor, ids, lookup, name_dates)
             lookup.clear()
-            log.info("cjeu_text: up to case %s, %s records", ids[-1], len(records))
-    by_method = {}
-    for record in records:
-        key = record.match_method if record.target else f"{record.match_method}_unresolved"
-        by_method[key] = by_method.get(key, 0) + 1
-    written = None
-    if out_path:
-        path = out_path
-        if os.path.isdir(out_path) or str(out_path).endswith(os.sep):
-            os.makedirs(out_path, exist_ok=True)
-            path = os.path.join(out_path, f"{DATASET}.jsonl")
-        written = write_artifact(records, path)
-    return {"records": len(records), "by_method": by_method, "written": written}
+            conn.rollback()  # read-only; end the snapshot between batches
+            for record in records:
+                key = record.match_method if record.target else f"{record.match_method}_unresolved"
+                by_method[key] = by_method.get(key, 0) + 1
+            writer.write(records)
+            log.info("cjeu_text: up to case %s, %s records", ids[-1], writer.count)
+    written = writer.count if out_path else None
+    return {"records": writer.count, "by_method": by_method, "written": written}
 
 
 def main(argv=None):

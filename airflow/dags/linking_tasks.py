@@ -47,9 +47,49 @@ Flags (environment variables, '1'/'true'/'yes'/'on'):
                               per extractor, default on when the master is on.
     LINK_CELLAR_UUID_CACHE    JSON file {cellar URI: [dossier identifier]} for
                               cellar_relations. Unset or missing: that
-                              extractor is skipped with a warning. The DAG
-                              never queries Cellar SPARQL; refresh the cache
-                              with ``cellar_relations --refresh-uuid-cache``.
+                              extractor is skipped with a warning.
+    LINK_CELLAR_UUID_CELEX_CACHE
+                              optional JSON file {cellar URI: [CELEX]} for
+                              cellar_relations (targets whose UUID names a
+                              work rather than a dossier). Unset: not used;
+                              set but missing: not used, with a warning.
+
+The DAG never queries Cellar SPARQL. Both caches are refreshed outside it, by
+hand or by a separate scheduled job (not part of this change), with
+
+    python -m data_extraction.linking.cellar_relations --dsn-env VAR \\
+        --refresh-uuid-cache --uuid-dossier $LINK_CELLAR_UUID_CACHE \\
+        [--uuid-celex $LINK_CELLAR_UUID_CELEX_CACHE]
+
+which asks Cellar only for the UUIDs of unresolved cellar_sparql rows that
+the files lack. Rows whose UUID is not in the cache yet are skipped and
+counted (``uuid_unmapped``) until a refresh adds it and a later run selects
+the row again.
+
+Not covered: Rechtspraak's modified-date sweep
+-----------------------------------------------
+rechtspraak_etl also loads ``processed/modified/<date>/RS_cases_clean.csv``
+(old judgments published or corrected retroactively; RS_MODIFIED_LOOKBACK_DAYS)
+on the final chunk of a forced run. Links are NOT extracted for those cases
+here, on purpose: the promoter (caselaw-coolify etl/promoter.py artifacts_for)
+replays only ``processed/<month>/...``, never ``processed/modified/...``, so
+neither those corpus rows nor link files written next to them would reach
+production, and links loaded into db-dev alone would make db-dev and
+production differ in a way assert_promoted cannot see. Until the promoter
+replays the modified sweep, those cases get their links from the backfill
+(below) or from a later weekly run that names them (rs_text, like every
+extractor, reads the texts from the database, so it sees the corrected body
+whenever it next runs for that case). Doing it properly needs the promoter to
+register ``processed/modified/<date>/`` (corpus CSV and
+``links/<source_dataset>.jsonl``) first; then this module can write the same
+layout there.
+
+Deployment
+----------
+The link artifacts, the link loader and row_processors (rs_lido_sqlite
+citations, is_cross_jurisdiction) run in Airflow and, on replay, in the
+etl-promoter. Deploy both from the same ref, or a replay into production can
+load an artifact with code that reads it differently.
 
 Backfill (cjeu-migration)
 -------------------------
@@ -95,6 +135,7 @@ log = logging.getLogger(__name__)
 SCHEMA = "cle_v2"
 MASTER_FLAG = "LINK_EXTRACTION_ENABLED"
 CELLAR_UUID_CACHE_ENV = "LINK_CELLAR_UUID_CACHE"
+CELLAR_UUID_CELEX_CACHE_ENV = "LINK_CELLAR_UUID_CELEX_CACHE"
 LINKS_DIR = "links"
 COUNTS_FILE = "_counts.{}.json"
 # Same name as etl_factory.NO_SOURCE_DATA_MARKER (not imported: etl_factory
@@ -273,21 +314,37 @@ def extractor_plan(source: Source) -> List[Tuple[Extractor, Optional[str]]]:
     return plan
 
 
+def _uuid_celex_cache() -> Optional[str]:
+    """LINK_CELLAR_UUID_CELEX_CACHE when set and present, else None."""
+    path = os.environ.get(CELLAR_UUID_CELEX_CACHE_ENV, "").strip()
+    if not path:
+        return None
+    if not os.path.isfile(path):
+        log.warning(
+            "links: %s file %s does not exist; cellar_relations runs without it",
+            CELLAR_UUID_CELEX_CACHE_ENV,
+            path,
+        )
+        return None
+    return path
+
+
 def _run_extractor(conn, extractor: Extractor, out_path, case_ids=None, id_range=None):
     module = importlib.import_module(extractor.module)
     kwargs = {"case_ids": case_ids, "id_range": id_range, "out_path": out_path}
     if extractor.name == "cellar_relations":
         kwargs["uuid_dossier"] = module.load_uuid_map(os.environ[CELLAR_UUID_CACHE_ENV].strip())
+        kwargs["uuid_celex"] = module.load_uuid_map(_uuid_celex_cache())
     module.extract(conn, **kwargs)
 
 
-def _write_atomic(records, path) -> int:
-    from data_extraction.linking.artifact import write_jsonl
+def _split(raw_path, writers) -> None:
+    """Stream the extractor's file into the per-dataset files, record by
+    record: each file keeps the extractor's (deterministic) order."""
+    from data_extraction.linking.artifact import read_jsonl
 
-    tmp = f"{path}.tmp"
-    count = write_jsonl(records, tmp)
-    os.replace(tmp, path)
-    return count
+    for record in read_jsonl(raw_path):
+        writers.write([record])
 
 
 def extract_links(
@@ -297,9 +354,12 @@ def extract_links(
     every dataset of source (empty when skipped or nothing was found).
 
     case_ids (a list, possibly empty) or id_range selects the source cases.
-    Returns ({extractor: status}, {dataset: {"records": n}}).
+    Returns ({extractor: status}, {dataset: {"records": n}}). Nothing is
+    held in memory beyond one extractor batch: the extractor streams its file
+    and it is split record by record. Each dataset file appears complete
+    (written to .tmp, then renamed) or not at all.
     """
-    from data_extraction.linking.artifact import read_jsonl
+    from data_extraction.linking.artifact import ArtifactError, DatasetWriters
 
     os.makedirs(out_dir, exist_ok=True)
     tmp_dir = os.path.join(out_dir, f".tmp-{source.prefix}")
@@ -308,25 +368,23 @@ def extract_links(
     statuses, datasets = {}, {}
     try:
         for extractor, reason in extractor_plan(source):
-            by_dataset = {d: [] for d in extractor.datasets}
-            if reason:
-                statuses[extractor.name] = {"status": "skipped", "reason": reason}
-            elif case_ids is not None and not case_ids:
-                statuses[extractor.name] = {"status": "no_cases"}
-            else:
-                raw = os.path.join(tmp_dir, f"{extractor.name}.jsonl")
-                _run_extractor(conn, extractor, raw, case_ids=case_ids, id_range=id_range)
-                for record in read_jsonl(raw):
-                    if record.source_dataset not in by_dataset:
-                        raise ValueError(
-                            f"{extractor.name} wrote source_dataset {record.source_dataset!r}, "
-                            f"expected one of {list(by_dataset)}"
-                        )
-                    by_dataset[record.source_dataset].append(record)
-                statuses[extractor.name] = {"status": "ran"}
-            for dataset, records in by_dataset.items():
-                path = os.path.join(out_dir, f"{dataset}.jsonl")
-                datasets[dataset] = {"records": _write_atomic(records, path)}
+            paths = {d: os.path.join(out_dir, f"{d}.jsonl") for d in extractor.datasets}
+            with DatasetWriters(paths) as writers:
+                if reason:
+                    statuses[extractor.name] = {"status": "skipped", "reason": reason}
+                elif case_ids is not None and not case_ids:
+                    statuses[extractor.name] = {"status": "no_cases"}
+                else:
+                    raw = os.path.join(tmp_dir, f"{extractor.name}.jsonl")
+                    _run_extractor(conn, extractor, raw, case_ids=case_ids, id_range=id_range)
+                    try:
+                        _split(raw, writers)
+                    except ArtifactError as exc:
+                        raise ValueError(f"{extractor.name}: {exc}") from None
+                    os.remove(raw)
+                    statuses[extractor.name] = {"status": "ran"}
+            for dataset, count in writers.counts.items():
+                datasets[dataset] = {"records": count}
     finally:
         shutil.rmtree(tmp_dir, ignore_errors=True)
     return statuses, datasets

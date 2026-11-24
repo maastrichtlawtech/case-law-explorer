@@ -57,11 +57,11 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import identifiers, resolver
 from data_extraction.linking.artifact import (
+    ArtifactWriter,
     CaseKey,
     LinkRecord,
     Mention,
     match_method,
-    write_jsonl,
 )
 from data_extraction.linking.text_common import (
     BATCH_SIZE,
@@ -855,21 +855,23 @@ def extract(conn, case_ids=None, id_range=None, out_path=None, batch_size=BATCH_
     """Scan the RS texts of the given cases (all when both are None) and write
     the link artifact to out_path. Returns (records written, stats Counter)."""
     stats = Counter()
-    records = []
-    for batch in iter_batches(conn, case_ids, id_range, batch_size):
-        scanned = [(source, scan_case(source)) for source in batch if source.ecli]
-        stats["sources"] += len(batch)
-        stats["sources_without_ecli"] += len(batch) - len(scanned)
-        with conn.cursor() as cursor:
-            lookup = DbLookup(cursor)
-            lookup.prefetch([hit for _source, hits in scanned for hit in hits])
-            for source, hits in scanned:
-                records.extend(resolve_case(source, hits, lookup, stats))
-        conn.rollback()  # read-only; end the snapshot between batches
-    for record in records:
-        stats["records_" + record.source_dataset] += 1
-        stats["mentions_" + record.source_dataset] += len(record.mentions)
-    written = write_jsonl(records, out_path) if out_path else len(records)
+    with ArtifactWriter(out_path) as writer:
+        for batch in iter_batches(conn, case_ids, id_range, batch_size):
+            scanned = [(source, scan_case(source)) for source in batch if source.ecli]
+            stats["sources"] += len(batch)
+            stats["sources_without_ecli"] += len(batch) - len(scanned)
+            records = []
+            with conn.cursor() as cursor:
+                lookup = DbLookup(cursor)
+                lookup.prefetch([hit for _source, hits in scanned for hit in hits])
+                for source, hits in scanned:
+                    records.extend(resolve_case(source, hits, lookup, stats))
+            conn.rollback()  # read-only; end the snapshot between batches
+            for record in records:
+                stats["records_" + record.source_dataset] += 1
+                stats["mentions_" + record.source_dataset] += len(record.mentions)
+            writer.write(records)  # one batch at a time, sorted within the batch
+    written = writer.count
     log.info("rs_text: %d records; %s", written, dict(sorted(stats.items())))
     return written, stats
 
