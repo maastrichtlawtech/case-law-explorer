@@ -13,7 +13,10 @@ echr_text_cjeu
     or without the "ECLI:" prefix. An EU ECLI written in the same citation as
     case numbers wins over the case-number guess (the research hand check's
     misses: an AG opinion or a judgment chosen where the ECLI named the right
-    document). Case numbers resolve through case_identifier with
+    document): right after the numbers, or farther on in the same clause
+    ("Case C-221/17 (Tjebbes), EU:C:2019:189") when it names one of the
+    numbers' documents. Case-number years must fit the court (no court letter
+    after 1988, "C"/"T" from 1989, "F" 2005-2016). Case numbers resolve through case_identifier with
     resolver.choose_cjeu; an AG opinion is chosen only when "Opinion" /
     "conclusions" is written just before the citation.
 echr_text_rs
@@ -57,6 +60,7 @@ from data_extraction.linking.text_common import (
     Source,
     TextUnit,
     build_records,
+    cjeu_year_ok,
     cli_args,
     connect,
     env_flag,
@@ -84,7 +88,6 @@ CONF_ECLI_CONFLICT = 0.8
 DOMESTIC_SECTIONS = ("facts", "domestic_law", "legal_framework")
 
 _H = "[" + re.escape(identifiers.HYPHENS) + "]"
-_S = r"[    ]"
 
 # ---------------------------------------------------------------------------
 # CJEU case numbers and EU ECLIs
@@ -109,6 +112,9 @@ _RANGE_WORDS = {"to", "à", "au", "bis", "tot en met", "t/m", "a"}
 _FOLLOWING_ECLI_RE = re.compile(
     r"[\s,;:(\[]{0,6}(?P<ecli>(?:ECLI:)?EU:[CTF]:\d{4}:\d{1,6})(?![\w:])"
 )
+# Farther on in the same citation ("Case C-221/17 (Tjebbes), EU:C:2019:189"), an
+# EU ECLI binds only when it names one of the numbers' documents (resolve).
+CLAUSE_ECLI_CHARS = 100
 _SENTENCE_END_RE = re.compile(r"(?:[.;!?][\"”’)]?\s+(?=[A-Z0-9“\"(«])|\n)")
 _OPINION_CUE_RE = re.compile(
     r"\bOpinion\b|\bopinion\s+of\s+(?:the\s+)?Advocate[\s-]General\b|\bconclusions\b|"
@@ -136,6 +142,7 @@ class CjeuCitation:
     numbers: List[NumberMention]
     ecli: Optional[Tuple[int, int, str]] = None  # start, end, normalized
     opinion_cue: bool = False
+    ecli_adjacent: bool = True  # False: found farther on in the citation
 
 
 @dataclass
@@ -168,6 +175,8 @@ def _number_matches(text):
     out = []
     for match in identifiers.CJEU_CASE_NUMBER_RE.finditer(text):
         before = text[max(0, match.start() - 25) : match.start()]
+        if not cjeu_year_ok(match.group("court") or "", match.group("year")):
+            continue  # "Case 45/18": no court letter after 1988
         if match.group("court") is None:
             # "Case 26/62" only; a bare "17341/03" is an application number.
             if not _CASE_WORD_RE.search(before) or _APPNO_MARK_RE.search(before):
@@ -207,6 +216,20 @@ def _sentence_start(window):
     return start
 
 
+def _clause_end(text, start, limit=CLAUSE_ECLI_CHARS):
+    """Offset of the end of the citation clause starting at start: ';', a
+    newline or a real sentence end (not 'v.', 'no.', initials), within limit."""
+    window = text[start : start + limit]
+    for match in _SENTENCE_END_RE.finditer(window):
+        if window[match.start()] == ".":
+            word = re.search(r"([\w.]+)$", window[: match.start()])
+            token = (word.group(1) if word else "").lower()
+            if token in _ABBREVIATIONS or len(token) == 1:
+                continue
+        return start + match.start()
+    return start + len(window)
+
+
 def _opinion_cue(text, start):
     window = text[max(0, start - 160) : start]
     window = window[_sentence_start(window) :]
@@ -236,17 +259,26 @@ def scan_cjeu(text: str) -> Tuple[List[CjeuCitation], List[Tuple[int, int, str]]
     group: List[NumberMention] = []
     group_end = None
 
-    def close():
+    def close(next_start):
         nonlocal group
         if not group:
             return
         citation = CjeuCitation(numbers=group, opinion_cue=_opinion_cue(text, group[0].start))
+        found, span = None, None
         following = _FOLLOWING_ECLI_RE.match(text, group_end)
         if following:
-            ecli = identifiers.normalize_ecli(following.group("ecli"))
-            if ecli:
-                citation.ecli = (following.start("ecli"), following.end("ecli"), ecli)
-                used_eclis.add(following.start("ecli"))
+            found, span = following.group("ecli"), following.span("ecli")
+        else:
+            # Farther on in the clause, before the next case number.
+            limit = min(next_start, _clause_end(text, group_end))
+            farther = EU_ECLI_RE.search(text, group_end)
+            if farther and farther.start() < limit:
+                found, span = farther.group(0), farther.span()
+        ecli = identifiers.normalize_ecli(found) if found else None
+        if ecli:
+            citation.ecli = (span[0], span[1], ecli)
+            citation.ecli_adjacent = following is not None
+            used_eclis.add(span[0])
         citations.append(citation)
         group = []
 
@@ -263,10 +295,10 @@ def scan_cjeu(text: str) -> Tuple[List[CjeuCitation], List[Tuple[int, int, str]]
                 group.append(number)
                 group_end = match.end()
                 continue
-            close()
+            close(match.start())
         group = [number]
         group_end = match.end()
-    close()
+    close(len(text))
 
     eclis = []
     for match in EU_ECLI_RE.finditer(text):
@@ -455,12 +487,14 @@ class Sections:
 
     def at(self, offset: int) -> Optional[str]:
         heading = _section_at(self.marks, offset)
-        if heading in _FRAMEWORK:
+        span = next((label for start, end, label in self.spans if start <= offset < end), None)
+        # A framework heading refines the facts (where segmentation puts the
+        # legal framework) but never overrides a law or operative span: a
+        # mixed-case "The Law" is not seen as a heading, so the framework
+        # heading would otherwise run on into the Court's assessment.
+        if heading in _FRAMEWORK and span in (None, "facts"):
             return heading
-        for start, end, label in self.spans:
-            if start <= offset < end:
-                return label
-        return heading
+        return span or heading
 
 
 # ---------------------------------------------------------------------------
@@ -525,7 +559,12 @@ def resolve(
                 for c in numbers.get(n.normalized, [])
             }
             any_candidates = bool(candidate_eclis)
-            if ecli in candidate_eclis or not any_candidates:
+            bound = citation.ecli_adjacent or ecli in candidate_eclis
+            if not bound:
+                # Not next to the numbers and naming none of their documents:
+                # a separate reference; the numbers resolve on their own below.
+                add(DATASET_CJEU, CaseKey(ecli=ecli), start, end, "ecli", CONF_ECLI)
+            elif ecli in candidate_eclis or not any_candidates:
                 # The ECLI names the document; the numbers are part of its citation.
                 add(
                     DATASET_CJEU,
@@ -558,7 +597,8 @@ def resolve(
                         ref=n.normalized,
                         scheme="cjeu_case_number",
                     )
-            continue
+            if bound:
+                continue
 
         choices = [
             (n, _choose_number(n, numbers, source.date, citation.opinion_cue))
@@ -668,7 +708,7 @@ _IDS_SQL = f"""
 
 _TEXTS_SQL = f"""
     SELECT t.case_id, c.ecli, c.celex_id, c.item_id, c.date_decision,
-           t.language, t.fulltext, t.summary, NULL::text AS item_id
+           t.language, t.fulltext, t.summary
       FROM {SCHEMA}.case_text t
       JOIN {SCHEMA}.cases c ON c.id = t.case_id
      WHERE t.source = 'HUDOC' AND t.case_id = ANY(%s)
@@ -716,7 +756,7 @@ def extract_batch(cursor, case_ids: Sequence[int], lookup, domestic_flag: bool, 
     cursor.execute(_TEXTS_SQL, (list(case_ids),))
     rows = cursor.fetchall()
     sources, units = {}, []
-    for case_id, ecli, celex, item_id, decided, language, fulltext, summary, _ in rows:
+    for case_id, ecli, celex, item_id, decided, language, fulltext, summary in rows:
         sources[case_id] = Source(
             CaseKey(ecli=ecli or None, celex=celex or None, item_id=item_id or None), decided
         )
