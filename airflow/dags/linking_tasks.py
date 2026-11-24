@@ -54,6 +54,31 @@ Flags (environment variables, '1'/'true'/'yes'/'on'):
                               work rather than a dossier). Unset: not used;
                               set but missing: not used, with a warning.
 
+Cited authorities (roadmap Phase 4) run the same way behind their own flag:
+
+    AUTHORITY_EXTRACTION_ENABLED
+                              default off. On: build_monthly_task_group adds
+                              an ``extract_authorities`` task after
+                              ``extract_links`` (or after ``run_window`` when
+                              links are off), as the group's last task. Off:
+                              nothing is added.
+    AUTHORITY_RS_TEXT, AUTHORITY_RS_PUBLICATION, AUTHORITY_ECHR_TEXT,
+    AUTHORITY_CELLAR          per extractor, default on when the master is on.
+    AUTHORITY_NL_OFFICIAL_PUBLICATIONS, AUTHORITY_CELLAR_DECISIONS
+                              content switches of authority_text and
+                              cellar_authority, default on.
+
+       rechtspraak  rs_text_authority (authority_text), rs_publication
+       echr         echr_text_authority (authority_text)
+       cellar       cellar_authority
+
+    Files: ``processed/<month>/authorities/<source_dataset>.jsonl`` (every one
+    written, empty when nothing was found or the extractor is off; see
+    authority_artifact_paths) and ``_counts.<PREFIX>.json`` next to them,
+    loaded with data_loading.authority_loader. Backfill:
+    ``python -m linking_tasks backfill-authorities --dsn-env VAR --source S
+    --from-id N --to-id M --out DIR [--load]``.
+
 The DAG never queries Cellar SPARQL. Both caches are refreshed outside it, by
 hand or by a separate scheduled job (not part of this change), with
 
@@ -547,6 +572,183 @@ def run_window_links(var_prefix, **context):
 
 
 # ---------------------------------------------------------------------------
+# cited authorities (roadmap Phase 4)
+# ---------------------------------------------------------------------------
+
+AUTHORITY_FLAG = "AUTHORITY_EXTRACTION_ENABLED"
+AUTHORITIES_DIR = "authorities"
+
+
+def authority_enabled() -> bool:
+    """AUTHORITY_EXTRACTION_ENABLED is set to a true value (default off)."""
+    return env_flag(AUTHORITY_FLAG, False)
+
+
+@dataclass(frozen=True)
+class AuthorityExtractor:
+    dataset: str  # the one source_dataset it writes
+    module_name: str
+    flag: str
+    options: Tuple[Tuple[str, str], ...] = ()  # extra keyword arguments of extract()
+
+    @property
+    def module(self):
+        return f"data_extraction.linking.{self.module_name}"
+
+
+AUTHORITY_EXTRACTORS: Dict[str, AuthorityExtractor] = {
+    e.dataset: e
+    for e in (
+        AuthorityExtractor(
+            "rs_text_authority", "authority_text", "AUTHORITY_RS_TEXT", (("corpus", "rs"),)
+        ),
+        AuthorityExtractor("rs_publication", "rs_publication", "AUTHORITY_RS_PUBLICATION"),
+        AuthorityExtractor(
+            "echr_text_authority", "authority_text", "AUTHORITY_ECHR_TEXT", (("corpus", "echr"),)
+        ),
+        AuthorityExtractor("cellar_authority", "cellar_authority", "AUTHORITY_CELLAR"),
+    )
+}
+# Per source, in load order.
+AUTHORITY_SOURCES: Dict[str, Tuple[str, ...]] = {
+    "rechtspraak": ("rs_text_authority", "rs_publication"),
+    "echr": ("echr_text_authority",),
+    "cellar": ("cellar_authority",),
+}
+
+
+def authority_artifact_paths(source: Source, month_folder: str) -> List[str]:
+    """Paths (relative to DATA_PATH) of the authority files a weekly run writes
+    for one month, in load order; every one exists after the task, possibly
+    empty. The promoter registers these with role 'authorities' and replays
+    them with data_loading.authority_loader."""
+    return [
+        f"processed/{month_folder}/{AUTHORITIES_DIR}/{d}.jsonl"
+        for d in AUTHORITY_SOURCES[source.name]
+    ]
+
+
+def authority_counts_path(source: Source, month_folder: str) -> str:
+    return f"processed/{month_folder}/{AUTHORITIES_DIR}/{COUNTS_FILE.format(source.prefix)}"
+
+
+def extract_authorities(conn, source: Source, out_dir, case_ids=None, id_range=None):
+    """Run source's authority extractors; writes out_dir/<dataset>.jsonl for
+    every dataset of source (empty when switched off or no cases). Returns
+    ({dataset: status}, {dataset: {"records": n}})."""
+    from data_extraction.linking.authority_artifact import AuthorityWriter
+
+    os.makedirs(out_dir, exist_ok=True)
+    statuses, datasets = {}, {}
+    for dataset in AUTHORITY_SOURCES[source.name]:
+        extractor = AUTHORITY_EXTRACTORS[dataset]
+        path = os.path.join(out_dir, f"{dataset}.jsonl")
+        if not env_flag(extractor.flag, True):
+            log.warning("authorities: skipping %s (%s is off)", dataset, extractor.flag)
+            statuses[dataset] = {"status": "skipped", "reason": f"{extractor.flag} is off"}
+        elif case_ids is not None and not case_ids:
+            statuses[dataset] = {"status": "no_cases"}
+        else:
+            module = importlib.import_module(extractor.module)
+            written, _stats = module.extract(
+                conn,
+                case_ids=case_ids,
+                id_range=id_range,
+                out_path=path,
+                **dict(extractor.options),
+            )
+            statuses[dataset] = {"status": "ran"}
+            datasets[dataset] = {"records": written}
+            continue
+        with AuthorityWriter(path):
+            pass  # an empty file, so the promoter finds every path
+        datasets[dataset] = {"records": 0}
+    return statuses, datasets
+
+
+def load_authorities(conn, source: Source, out_dir) -> Dict[str, dict]:
+    from data_loading import authority_loader
+
+    loaded = {}
+    for dataset in AUTHORITY_SOURCES[source.name]:
+        result = authority_loader.load_artifact(conn, os.path.join(out_dir, f"{dataset}.jsonl"))
+        loaded[dataset] = result.get(dataset, {})
+    return loaded
+
+
+def run_month_authorities(conn, source: Source, data_path, month_folder) -> Optional[dict]:
+    """Extract and load the cited authorities of one month's batch. Returns
+    the counts, or None when the chunk is marked as having no source data."""
+    processed_dir = os.path.join(data_path, "processed", month_folder)
+    if os.path.exists(os.path.join(processed_dir, NO_SOURCE_DATA_MARKER.format(source.prefix))):
+        log.info("authorities: %s %s has no source data", source.name, month_folder)
+        return None
+    csv_path = os.path.join(processed_dir, source.processed_csv)
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"processed artifact missing for authority extraction: {csv_path}")
+    keys = read_processed_keys(csv_path, source.key_column)
+    case_ids = case_ids_for_keys(conn, source, keys)
+    out_dir = os.path.join(processed_dir, AUTHORITIES_DIR)
+    statuses, datasets = extract_authorities(conn, source, out_dir, case_ids=case_ids)
+    for dataset, load in load_authorities(conn, source, out_dir).items():
+        datasets[dataset]["load"] = load
+    counts = {
+        "source": source.name,
+        "month": month_folder,
+        "case_keys": len(keys),
+        "case_ids": len(case_ids),
+        "extractors": statuses,
+        "datasets": datasets,
+    }
+    _write_counts(os.path.join(out_dir, COUNTS_FILE.format(source.prefix)), counts)
+    _log_counts(f"authorities {source.name} {month_folder}", counts)
+    return counts
+
+
+def run_window_authorities(var_prefix, **context):
+    """Airflow callable: cited authorities for every month chunk of the run's
+    window. A no-op unless AUTHORITY_EXTRACTION_ENABLED."""
+    if not authority_enabled():
+        log.info("authorities: %s is off; nothing to do", AUTHORITY_FLAG)
+        return None
+    from data_loading.clients.postgres import PostgresCLEClient
+    from etl_factory import get_data_path, iter_month_chunks, resolve_run_window
+
+    source = SOURCE_BY_PREFIX[var_prefix]
+    start, end, _ = resolve_run_window(var_prefix, context)
+    data_path = get_data_path()
+    summary = {}
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        for chunk_start, _chunk_end in iter_month_chunks(start, end):
+            folder = chunk_start.isoformat()
+            counts = run_month_authorities(conn, source, data_path, folder)
+            summary[folder] = (
+                None if counts is None else {d: v["records"] for d, v in counts["datasets"].items()}
+            )
+    return summary
+
+
+def backfill_authorities(conn, source: Source, from_id, to_id, out_dir, load=False) -> dict:
+    """Extract (and optionally load) the cited authorities of source over
+    cases.id from_id..to_id (inclusive, either may be None) into out_dir."""
+    statuses, datasets = extract_authorities(conn, source, out_dir, id_range=(from_id, to_id))
+    if load:
+        for dataset, result in load_authorities(conn, source, out_dir).items():
+            datasets[dataset]["load"] = result
+    counts = {
+        "source": source.name,
+        "from_id": from_id,
+        "to_id": to_id,
+        "extractors": statuses,
+        "datasets": datasets,
+    }
+    _write_counts(os.path.join(out_dir, COUNTS_FILE.format(source.prefix)), counts)
+    _log_counts(f"authorities {source.name} {from_id}..{to_id}", counts)
+    return counts
+
+
+# ---------------------------------------------------------------------------
 # backfill CLI
 # ---------------------------------------------------------------------------
 
@@ -596,6 +798,16 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         default=None,
         help="rs_text ECLIs: cross-court only (backfill default) or all",
     )
+    authorities = commands.add_parser(
+        "backfill-authorities",
+        help="extract (and load) cited authorities (Phase 4) over a cases.id range",
+    )
+    authorities.add_argument("--dsn-env", required=True, help="environment variable with the DSN")
+    authorities.add_argument("--source", required=True, choices=sorted(SOURCES))
+    authorities.add_argument("--from-id", type=int, default=None, help="first cases.id")
+    authorities.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
+    authorities.add_argument("--out", required=True, help="directory for <source_dataset>.jsonl")
+    authorities.add_argument("--load", action="store_true", help="also load into the DSN")
     args = parser.parse_args(argv)
     dsn = os.environ.get(args.dsn_env)
     if not dsn:
@@ -607,15 +819,20 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     try:
         if not args.load:
             conn.set_session(readonly=True)
-        counts = backfill(
-            conn,
-            SOURCES[args.source],
-            args.from_id,
-            args.to_id,
-            args.out,
-            load=args.load,
-            ecli_scope=args.ecli_scope,
-        )
+        if args.command == "backfill-authorities":
+            counts = backfill_authorities(
+                conn, SOURCES[args.source], args.from_id, args.to_id, args.out, load=args.load
+            )
+        else:
+            counts = backfill(
+                conn,
+                SOURCES[args.source],
+                args.from_id,
+                args.to_id,
+                args.out,
+                load=args.load,
+                ecli_scope=args.ecli_scope,
+            )
     finally:
         conn.close()
     print(json.dumps(_json_safe(counts), indent=2, sort_keys=True))

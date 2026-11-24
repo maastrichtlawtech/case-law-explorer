@@ -259,6 +259,11 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
     the DAG chains after the group (register_promotion), and a failure there
     retries only the link step, not the source extraction. With the flag off
     the group is exactly the single ``run_window`` task.
+
+    With links=True and AUTHORITY_EXTRACTION_ENABLED set, ``extract_authorities``
+    (linking_tasks.run_window_authorities, roadmap Phase 4) follows as the
+    group's last task, after ``extract_links`` when that is there. With both
+    flags off the group is the single ``run_window`` task, as before.
     """
     with TaskGroup(f"{task_prefix}_tasks", tooltip=f"{task_prefix} tasks", dag=dag) as task_group:
         run_window = PythonOperator(
@@ -275,5 +280,16 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 dag=dag,
             )
             run_window >> extract_links
+            last = extract_links
+        else:
+            last = run_window
+        if links and linking_tasks.authority_enabled():
+            extract_authorities = PythonOperator(
+                task_id="extract_authorities",
+                python_callable=linking_tasks.run_window_authorities,
+                op_kwargs={"var_prefix": var_prefix},
+                dag=dag,
+            )
+            last >> extract_authorities
 
     return task_group
