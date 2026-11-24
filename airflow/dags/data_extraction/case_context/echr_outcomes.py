@@ -21,15 +21,21 @@ Rows written (source_dataset 'echr_conclusion'):
 
     scope 'article', outcome violation | no_violation, article as the
     Convention article without its paragraph: '3', '6' (for '6-1', '6-3-c'),
-    '14' (for '14+8', Article 14 taken with Article 8), 'P1-1' (Article 1 of
-    Protocol No. 1; 'P1-1-1' -> 'P1-1'). raw_value keeps every source piece
-    as written, ' | '-separated, prefixed with its field.
+    '14' (for '14+8', '14+P1-1' and "Article 14 taken in conjunction with
+    Article 1 of Protocol No. 1": the lead article, the one before '+' or
+    "(taken) in conjunction with"), 'P1-1' (Article 1 of Protocol No. 1;
+    'P1-1-1' -> 'P1-1'). raw_value keeps every source piece as written,
+    ' | '-separated, prefixed with its field.
 
-    scope 'overall', outcome inadmissible when a conclusion item is exactly
+    scope 'overall', outcome inadmissible when a conclusion item of a
+    decision (not a judgment, as case_status reads it) is exactly
     "Inadmissible" (or starts with "Inadmissible (" / "Inadmissible:"), and
     struck_out when one starts with "Struck out of the list". "Remainder
     inadmissible", "Partly inadmissible" and the like are partial and are not
-    an overall outcome.
+    an overall outcome. No overall row is written for a case with
+    article-level findings (a merits judgment that declares part of the
+    application inadmissible or strikes part of it out is not inadmissible or
+    struck out as a whole); such items are counted ``overall_suppressed``.
 
 Conclusion items are split on ';' outside parentheses. An item that names a
 violation but whose article cannot be read is not guessed (counted
@@ -70,6 +76,10 @@ _ARTICLE = re.compile(r"\bart(?:icle|\.)?\s*(\d+)", re.I)
 _VIOLATION = re.compile(r"^(?P<neg>no|non)?[-\s]*violations?\s+of\s+(?P<rest>.+)$", re.I | re.S)
 _INADMISSIBLE = re.compile(r"^inadmissible\s*(?:$|[(:])", re.I)
 _STRUCK_OUT = re.compile(r"^struck\s+out\s+of\s+(?:the\s+)?list\b", re.I)
+# What follows the lead article: "14+P1-1", "Article 14 taken in conjunction
+# with Article 1 of Protocol No. 1".
+_CONJUNCTION = re.compile(r"\+|\b(?:taken\s+)?in\s+conjunction\s+with\b", re.I)
+_JUDGMENT = re.compile("JUD", re.I)
 _FIELD_TOKEN = re.compile(r"^\s*(?:P\s*(\d+)\s*-\s*(\d+)|(\d+))")
 
 
@@ -91,14 +101,17 @@ def split_items(conclusion: Optional[str]) -> List[str]:
 
 
 def _head(text: str) -> str:
-    """The part naming the article: before ' - ' or the first '('."""
-    return re.split(r"\s+-\s+|\(", text, maxsplit=1)[0]
+    """The part naming the (lead) article: before ' - ' or the first '(',
+    then before '+' or "(taken) in conjunction with"."""
+    head = re.split(r"\s+-\s+|\(", text, maxsplit=1)[0]
+    return _CONJUNCTION.split(head, maxsplit=1)[0]
 
 
 def article_from_text(text: str) -> Optional[str]:
     """'Article 6 - Right to a fair trial' -> '6'; 'Art. 6-1' -> '6';
     'Article 1 of Protocol No. 1 - ...' -> 'P1-1'; 'P1-1' -> 'P1-1';
-    'Article 14+8 - ...' -> '14'. None when no article can be read."""
+    'Article 14+8 - ...' -> '14', 'Article 14+P1-1' -> '14'. None when no
+    article can be read."""
     head = _head(text)
     match = _PROTOCOL_ARTICLE.search(head)
     if match:
@@ -161,20 +174,30 @@ class CaseOutcomes:
                 continue
             self.add("article", article, outcome, f"{field}: {token}", True)
 
-    def add_conclusion(self, conclusion: Optional[str], stats: Counter):
+    def add_conclusion(
+        self, conclusion: Optional[str], stats: Counter, judgment: bool = False
+    ):
         for item in split_items(conclusion):
             outcome, article, reason = parse_conclusion_item(item)
             stats[f"item_{reason}"] += 1
             if outcome is None:
                 continue
+            if judgment and outcome == "inadmissible":
+                stats["overall_suppressed"] += 1
+                continue
             scope = "article" if article else "overall"
             self.add(scope, article, outcome, f"conclusion: {item}", False)
 
-    def records(self, key) -> List[OutcomeRecord]:
+    def records(self, key, stats: Optional[Counter] = None) -> List[OutcomeRecord]:
         out = []
+        has_articles = any(scope == "article" for scope, _a, _o in self.found)
         for (scope, article, outcome), (raws, flags) in sorted(
             self.found.items(), key=lambda kv: (kv[0][0], kv[0][1] or "", kv[0][2])
         ):
+            if scope == "overall" and has_articles:
+                if stats is not None:
+                    stats["overall_suppressed"] += 1
+                continue
             if scope == "overall":
                 confidence = CONFIDENCE_OVERALL
             else:
@@ -196,10 +219,12 @@ class CaseOutcomes:
 
 
 def outcomes_for_documents(key, documents: Iterable[tuple], stats: Counter) -> List[OutcomeRecord]:
-    """documents: (conclusion, violation, nonviolation, [(kind, article_code)])
-    of one case's judgments and decisions."""
+    """documents: (conclusion, violation, nonviolation, [(kind, article_code)]
+    [, doctype]) of one case's judgments and decisions."""
     collected = CaseOutcomes()
-    for conclusion, violation, nonviolation, articles in documents:
+    for document in documents:
+        conclusion, violation, nonviolation, articles = document[:4]
+        doctype = document[4] if len(document) > 4 else None
         collected.add_field("violation", violation, "violation", stats)
         collected.add_field("nonviolation", nonviolation, "no_violation", stats)
         for kind, code in articles or ():
@@ -209,8 +234,9 @@ def outcomes_for_documents(key, documents: Iterable[tuple], stats: Counter) -> L
                 continue
             outcome = "violation" if kind == "violation" else "no_violation"
             collected.add("article", article, outcome, f"echr_document_article: {code}", True)
-        collected.add_conclusion(conclusion, stats)
-    return collected.records(key)
+        judgment = bool(_JUDGMENT.search(doctype or ""))
+        collected.add_conclusion(conclusion, stats, judgment)
+    return collected.records(key, stats)
 
 
 # All judgments and decisions of the given cases (a case's language
@@ -220,7 +246,8 @@ _DOCS = f"""
            ARRAY(SELECT ARRAY[a.kind, a.article_code]
                    FROM {common.SCHEMA}.echr_document_article a
                   WHERE a.item_id = d.item_id AND a.kind IN ('violation', 'nonviolation')
-                  ORDER BY a.kind, a.article_code)
+                  ORDER BY a.kind, a.article_code),
+           d.doctype
       FROM {common.SCHEMA}.cases c
       JOIN {common.SCHEMA}.echr_document d ON d.case_id = c.id
      WHERE (d.doctype ~* 'JUD' OR d.doctype ~* 'DEC')
@@ -243,9 +270,13 @@ _CASES = f"""
 def _by_case(rows):
     grouped = defaultdict(list)
     keys = {}
-    for case_id, ecli, case_item, _item, conclusion, violation, nonviolation, articles in rows:
+    for row in rows:
+        case_id, ecli, case_item, _item, conclusion, violation, nonviolation, articles = row[:8]
+        doctype = row[8] if len(row) > 8 else None
         keys[case_id] = case_key(ecli=ecli, item_id=case_item)
-        grouped[case_id].append((conclusion, violation, nonviolation, [tuple(a) for a in articles]))
+        grouped[case_id].append(
+            (conclusion, violation, nonviolation, [tuple(a) for a in articles], doctype)
+        )
     return keys, grouped
 
 

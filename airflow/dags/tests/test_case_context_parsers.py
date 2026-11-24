@@ -133,6 +133,18 @@ def test_cjeu_only_decisions_get_a_row():
         ("Violation of P1-1", ("violation", "P1-1")),
         ("No-violation of Art. 6-1", ("no_violation", "6")),
         ("Violation of Article 14+8 - Prohibition of discrimination", ("violation", "14")),
+        # ILLUSTRATIVE (review 2026-11-24): the lead article, not the protocol one
+        ("Violation of Article 14+P1-1 - Prohibition of discrimination", ("violation", "14")),
+        (
+            "Violation of Article 14 taken in conjunction with Article 1 of Protocol No. 1",
+            ("violation", "14"),
+        ),
+        ("Violation of Article 14 in conjunction with Article 8", ("violation", "14")),
+        (
+            "Violation of Article 1 of Protocol No. 1 taken in conjunction with Article 14",
+            ("violation", "P1-1"),
+        ),
+        ("Violation of P1-1+14", ("violation", "P1-1")),
         ("Inadmissible", ("inadmissible", None)),
         ("Struck out of the list", ("struck_out", None)),
         ("Struck out of the list (Friendly settlement)", ("struck_out", None)),
@@ -176,6 +188,7 @@ def test_echr_split_items_ignores_semicolons_inside_parentheses():
         ("P1-1", "P1-1"),
         ("P4-2", "P4-2"),
         ("14+8", "14"),
+        ("14+P1-1", "14"),
         ("P1-1-1", "P1-1"),
         ("x", None),
     ],
@@ -497,3 +510,51 @@ def test_artifact_round_trip_and_validation():
     for value in bad:
         with pytest.raises(ArtifactError):
             artifact.record_from_dict(value)
+
+
+def test_echr_partial_inadmissibility_on_a_judgment_is_no_overall_outcome():
+    from collections import Counter
+
+    key = CaseKey(ecli="ECLI:CE:ECHR:2000:0101JUD000000100")  # ILLUSTRATIVE
+    stats = Counter()
+    records = echr_outcomes.outcomes_for_documents(
+        key,
+        [
+            (
+                "Inadmissible (Article 6);Violation of Article 3 - Prohibition of torture;"
+                "Struck out of the list (Article 37-1-b)",
+                None,
+                None,
+                [],
+                "HEJUD",
+            )
+        ],
+        stats,
+    )
+    assert {(r.scope, r.article, r.outcome) for r in records} == {("article", "3", "violation")}
+    assert stats["overall_suppressed"] == 2
+
+
+def test_echr_inadmissible_from_a_judgment_alone_is_not_overall():
+    from collections import Counter
+
+    key = CaseKey(ecli="ECLI:CE:ECHR:2000:0101JUD000000100")  # ILLUSTRATIVE
+    records = echr_outcomes.outcomes_for_documents(
+        key, [("Inadmissible", None, None, [], "HEJUD")], Counter()
+    )
+    assert records == []
+
+
+def test_echr_decision_overall_outcomes_are_kept():
+    from collections import Counter
+
+    key = CaseKey(ecli="ECLI:CE:ECHR:2000:0101DEC000000100")  # ILLUSTRATIVE
+    for doctype in ("HEDEC", None):
+        records = echr_outcomes.outcomes_for_documents(
+            key, [("Inadmissible", None, None, [], doctype)], Counter()
+        )
+        assert [(r.scope, r.outcome) for r in records] == [("overall", "inadmissible")]
+    records = echr_outcomes.outcomes_for_documents(
+        key, [("Struck out of the list (Friendly settlement)", None, None, [], "HEJUD")], Counter()
+    )
+    assert [(r.scope, r.outcome) for r in records] == [("overall", "struck_out")]
