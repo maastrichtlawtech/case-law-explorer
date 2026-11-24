@@ -382,6 +382,9 @@ def test_kamerstuk_paper_number_with_a_letter_is_not_truncated():
     """Illustrative: "nr. 3a" is not paper 3."""
     ids = [i[2] for i in _ids("Kamerstukken II 2015/16, 34 356, nr. 3a")]
     assert "kst-34356-3" not in ids
+    # the same without "nr.": "34 356, 3a"
+    ids = [i[2] for i in _ids("Kamerstukken II 2015/16, 34 356, 3a")]
+    assert "kst-34356-3" not in ids
 
 
 def test_official_publication_needs_a_separator_after_the_year():
