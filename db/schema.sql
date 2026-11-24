@@ -1251,7 +1251,7 @@ CREATE INDEX IF NOT EXISTS "case_citation_idx_target_ref" ON "cle_v2"."case_cita
 CREATE INDEX IF NOT EXISTS "case_citation_idx_source_dataset" ON "cle_v2"."case_citation"
     ("source_dataset");
 
--- ---- 0011_case_law_reference_bwb_resolved.sql ----
+-- ---- 0013_case_law_reference_bwb_resolved.sql ----
 -- rs_lido_sqlite law references whose BWB id names exactly one act carry its
 -- legislation_id (roadmap R3.5); such rows fall under none of the three unique
 -- indexes above. Covers no existing row. Separate file in the migrations
