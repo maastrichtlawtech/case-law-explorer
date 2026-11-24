@@ -1,0 +1,764 @@
+{
+ "_source": {
+  "compiled": "2026-11-24, by hand, for case-law-explorer roadmap item R3.1",
+  "references": [
+   "EUR-Lex: CELEX numbers of the founding, amending and accession treaties and of the Charter (https://eur-lex.europa.eu/collection/eu-law/treaties.html)",
+   "Council of Europe Treaty Office: full list of treaties, CETS numbers and dates of opening for signature (https://www.coe.int/en/web/conventions/full-list)",
+   "United Nations Treaty Collection: depositary chapters IV (human rights) and V (refugees and stateless persons), MTDSG numbers and dates of adoption (https://treaties.un.org)"
+  ],
+  "checked_online": "On 2026-11-24 these were confirmed against the pages: CELEX 11997D (Treaty of Amsterdam); UN IV-2, IV-3, IV-8, IV-9, IV-11, IV-15, V-2, V-5 with their dates. EUR-Lex collection pages and the Council of Europe list refused automated fetches and UN IV-4 returned no content, so the other CELEX numbers, every CETS number and IV-4 were taken from the references above without that check. IV-2's date is the General Assembly adoption date (21 December 1965); the treaty page heads it with the opening for signature, 7 March 1966.",
+  "conventions": "scheme 'celex': CELEX number of the whole act (sector 1: sector, year and letter, e.g. 12016E); 'coe_treaty': CETS number, three digits; 'un_treaty': UN Treaty Collection MTDSG chapter-number. enacted_date is the date of signature or adoption where given, otherwise only enacted_year. Aliases go to the most recent consolidated version of a treaty (TFEU/TEU/Charter 2016, EC Treaty 2006). protocol_number is the ECHR protocol number used in HUDOC article codes (P1-1 = Protocol No. 1, article 1; 0 = the Convention).",
+  "not_runtime": "Committed reference data; no code path downloads it."
+ },
+ "acts": [
+  {
+   "scheme": "celex",
+   "identifier": "11951K",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing the European Coal and Steel Community",
+   "enacted_date": "1951-04-18",
+   "enacted_year": 1951,
+   "aliases": [
+    "ECSC Treaty",
+    "EGKS-Verdrag"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11957E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing the European Economic Community",
+   "enacted_date": "1957-03-25",
+   "enacted_year": 1957,
+   "aliases": [
+    "EEC Treaty",
+    "EEG-Verdrag",
+    "EWG-Vertrag",
+    "Treaty of Rome",
+    "Verdrag tot oprichting van de Europese Economische Gemeenschap"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11957A",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing the European Atomic Energy Community",
+   "enacted_date": "1957-03-25",
+   "enacted_year": 1957,
+   "aliases": [
+    "Euratom Treaty",
+    "Euratom-Verdrag"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11965F",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing a Single Council and a Single Commission of the European Communities (Merger Treaty)",
+   "enacted_date": "1965-04-08",
+   "enacted_year": 1965,
+   "aliases": [
+    "Merger Treaty",
+    "Fusieverdrag"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11986U",
+   "jurisdiction": "EU",
+   "document_type": "amending_treaty",
+   "title": "Single European Act",
+   "enacted_year": 1986,
+   "aliases": [
+    "Single European Act",
+    "Europese Akte"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11992M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (Maastricht)",
+   "enacted_date": "1992-02-07",
+   "enacted_year": 1992,
+   "aliases": [
+    "Maastricht Treaty",
+    "Verdrag van Maastricht"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11992E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing the European Community (as amended at Maastricht)",
+   "enacted_year": 1992
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11997D",
+   "jurisdiction": "EU",
+   "document_type": "amending_treaty",
+   "title": "Treaty of Amsterdam",
+   "enacted_date": "1997-10-02",
+   "enacted_year": 1997,
+   "aliases": [
+    "Treaty of Amsterdam",
+    "Verdrag van Amsterdam"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11997M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (consolidated version, Amsterdam)",
+   "enacted_year": 1997
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11997E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing the European Community (consolidated version, Amsterdam)",
+   "enacted_year": 1997
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12001C",
+   "jurisdiction": "EU",
+   "document_type": "amending_treaty",
+   "title": "Treaty of Nice",
+   "enacted_date": "2001-02-26",
+   "enacted_year": 2001,
+   "aliases": [
+    "Treaty of Nice",
+    "Verdrag van Nice"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12002M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (consolidated version 2002)",
+   "enacted_year": 2002
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12002E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing the European Community (consolidated version 2002)",
+   "enacted_year": 2002
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12006M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (consolidated version 2006)",
+   "enacted_year": 2006
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12006E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty establishing the European Community (consolidated version 2006)",
+   "enacted_year": 2006,
+   "aliases": [
+    "EC Treaty",
+    "EG-Verdrag",
+    "EGV",
+    "Traité CE",
+    "Treaty establishing the European Community",
+    "Verdrag tot oprichting van de Europese Gemeenschap"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12007L",
+   "jurisdiction": "EU",
+   "document_type": "amending_treaty",
+   "title": "Treaty of Lisbon",
+   "enacted_date": "2007-12-13",
+   "enacted_year": 2007,
+   "aliases": [
+    "Treaty of Lisbon",
+    "Verdrag van Lissabon"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12008M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (consolidated version 2008)",
+   "enacted_year": 2008
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12008E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on the Functioning of the European Union (consolidated version 2008)",
+   "enacted_year": 2008
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12010M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (consolidated version 2010)",
+   "enacted_year": 2010
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12010E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on the Functioning of the European Union (consolidated version 2010)",
+   "enacted_year": 2010
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12012M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (consolidated version 2012)",
+   "enacted_year": 2012
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12012E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on the Functioning of the European Union (consolidated version 2012)",
+   "enacted_year": 2012
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12016M",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on European Union (consolidated version 2016)",
+   "enacted_year": 2016,
+   "aliases": [
+    "TEU",
+    "VEU",
+    "EUV",
+    "TUE",
+    "Treaty on European Union",
+    "Verdrag betreffende de Europese Unie"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12016E",
+   "jurisdiction": "EU",
+   "document_type": "treaty",
+   "title": "Treaty on the Functioning of the European Union (consolidated version 2016)",
+   "enacted_year": 2016,
+   "aliases": [
+    "TFEU",
+    "VWEU",
+    "AEUV",
+    "TFUE",
+    "Treaty on the Functioning of the European Union",
+    "Verdrag betreffende de werking van de Europese Unie"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12000P",
+   "jurisdiction": "EU",
+   "document_type": "charter",
+   "title": "Charter of Fundamental Rights of the European Union (2000)",
+   "enacted_date": "2000-12-07",
+   "enacted_year": 2000
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12007P",
+   "jurisdiction": "EU",
+   "document_type": "charter",
+   "title": "Charter of Fundamental Rights of the European Union (2007)",
+   "enacted_date": "2007-12-12",
+   "enacted_year": 2007
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12010P",
+   "jurisdiction": "EU",
+   "document_type": "charter",
+   "title": "Charter of Fundamental Rights of the European Union (consolidated version 2010)",
+   "enacted_year": 2010
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12012P",
+   "jurisdiction": "EU",
+   "document_type": "charter",
+   "title": "Charter of Fundamental Rights of the European Union (consolidated version 2012)",
+   "enacted_year": 2012
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12016P",
+   "jurisdiction": "EU",
+   "document_type": "charter",
+   "title": "Charter of Fundamental Rights of the European Union (consolidated version 2016)",
+   "enacted_year": 2016,
+   "aliases": [
+    "Charter of Fundamental Rights of the European Union",
+    "EU Charter",
+    "Charter",
+    "Handvest van de grondrechten van de Europese Unie",
+    "Handvest",
+    "Charte des droits fondamentaux de l'Union européenne",
+    "Grundrechtecharta"
+   ]
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11972B",
+   "jurisdiction": "EU",
+   "document_type": "accession_act",
+   "title": "Act concerning the conditions of accession of Denmark, Ireland and the United Kingdom",
+   "enacted_year": 1972
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11979H",
+   "jurisdiction": "EU",
+   "document_type": "accession_act",
+   "title": "Act concerning the conditions of accession of Greece",
+   "enacted_year": 1979
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11985I",
+   "jurisdiction": "EU",
+   "document_type": "accession_act",
+   "title": "Act concerning the conditions of accession of Spain and Portugal",
+   "enacted_year": 1985
+  },
+  {
+   "scheme": "celex",
+   "identifier": "11994N",
+   "jurisdiction": "EU",
+   "document_type": "accession_act",
+   "title": "Act concerning the conditions of accession of Austria, Finland and Sweden",
+   "enacted_year": 1994
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12003T",
+   "jurisdiction": "EU",
+   "document_type": "accession_act",
+   "title": "Act concerning the conditions of accession of the Czech Republic, Estonia, Cyprus, Latvia, Lithuania, Hungary, Malta, Poland, Slovenia and Slovakia",
+   "enacted_year": 2003
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12005S",
+   "jurisdiction": "EU",
+   "document_type": "accession_act",
+   "title": "Act concerning the conditions of accession of Bulgaria and Romania",
+   "enacted_year": 2005
+  },
+  {
+   "scheme": "celex",
+   "identifier": "12012J",
+   "jurisdiction": "EU",
+   "document_type": "accession_act",
+   "title": "Act concerning the conditions of accession of Croatia",
+   "enacted_year": 2012
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "005",
+   "jurisdiction": "CE",
+   "document_type": "convention",
+   "title": "Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "1950-11-04",
+   "enacted_year": 1950,
+   "aliases": [
+    "European Convention on Human Rights",
+    "ECHR",
+    "EVRM",
+    "Europees Verdrag tot bescherming van de rechten van de mens en de fundamentele vrijheden",
+    "EHRM-verdrag",
+    "CEDH",
+    "Convention européenne des droits de l'homme",
+    "EMRK"
+   ],
+   "protocol_number": 0
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "009",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 1 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "1952-03-20",
+   "enacted_year": 1952,
+   "aliases": [
+    "Protocol No. 1 to the ECHR",
+    "Protocol nr. 1 bij het EVRM",
+    "Eerste Protocol bij het EVRM",
+    "First Protocol to the ECHR"
+   ],
+   "protocol_number": 1
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "044",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 2 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_year": 1963,
+   "aliases": [
+    "Protocol No. 2 to the ECHR",
+    "Protocol nr. 2 bij het EVRM"
+   ],
+   "protocol_number": 2
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "045",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 3 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_year": 1963,
+   "aliases": [
+    "Protocol No. 3 to the ECHR",
+    "Protocol nr. 3 bij het EVRM"
+   ],
+   "protocol_number": 3
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "046",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 4 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "1963-09-16",
+   "enacted_year": 1963,
+   "aliases": [
+    "Protocol No. 4 to the ECHR",
+    "Protocol nr. 4 bij het EVRM"
+   ],
+   "protocol_number": 4
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "055",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 5 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_year": 1966,
+   "aliases": [
+    "Protocol No. 5 to the ECHR",
+    "Protocol nr. 5 bij het EVRM"
+   ],
+   "protocol_number": 5
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "114",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 6 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "1983-04-28",
+   "enacted_year": 1983,
+   "aliases": [
+    "Protocol No. 6 to the ECHR",
+    "Protocol nr. 6 bij het EVRM"
+   ],
+   "protocol_number": 6
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "117",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 7 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "1984-11-22",
+   "enacted_year": 1984,
+   "aliases": [
+    "Protocol No. 7 to the ECHR",
+    "Protocol nr. 7 bij het EVRM"
+   ],
+   "protocol_number": 7
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "118",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 8 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_year": 1985,
+   "aliases": [
+    "Protocol No. 8 to the ECHR",
+    "Protocol nr. 8 bij het EVRM"
+   ],
+   "protocol_number": 8
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "140",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 9 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_year": 1990,
+   "aliases": [
+    "Protocol No. 9 to the ECHR",
+    "Protocol nr. 9 bij het EVRM"
+   ],
+   "protocol_number": 9
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "146",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 10 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_year": 1992,
+   "aliases": [
+    "Protocol No. 10 to the ECHR",
+    "Protocol nr. 10 bij het EVRM"
+   ],
+   "protocol_number": 10
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "155",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 11 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "1994-05-11",
+   "enacted_year": 1994,
+   "aliases": [
+    "Protocol No. 11 to the ECHR",
+    "Protocol nr. 11 bij het EVRM"
+   ],
+   "protocol_number": 11
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "177",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 12 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "2000-11-04",
+   "enacted_year": 2000,
+   "aliases": [
+    "Protocol No. 12 to the ECHR",
+    "Protocol nr. 12 bij het EVRM"
+   ],
+   "protocol_number": 12
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "187",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 13 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "2002-05-03",
+   "enacted_year": 2002,
+   "aliases": [
+    "Protocol No. 13 to the ECHR",
+    "Protocol nr. 13 bij het EVRM"
+   ],
+   "protocol_number": 13
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "194",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 14 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "2004-05-13",
+   "enacted_year": 2004,
+   "aliases": [
+    "Protocol No. 14 to the ECHR",
+    "Protocol nr. 14 bij het EVRM"
+   ],
+   "protocol_number": 14
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "213",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 15 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "2013-06-24",
+   "enacted_year": 2013,
+   "aliases": [
+    "Protocol No. 15 to the ECHR",
+    "Protocol nr. 15 bij het EVRM"
+   ],
+   "protocol_number": 15
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "214",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 16 to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_date": "2013-10-02",
+   "enacted_year": 2013,
+   "aliases": [
+    "Protocol No. 16 to the ECHR",
+    "Protocol nr. 16 bij het EVRM"
+   ],
+   "protocol_number": 16
+  },
+  {
+   "scheme": "coe_treaty",
+   "identifier": "204",
+   "jurisdiction": "CE",
+   "document_type": "protocol",
+   "title": "Protocol No. 14bis to the Convention for the Protection of Human Rights and Fundamental Freedoms",
+   "enacted_year": 2009
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "V-2",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "Convention relating to the Status of Refugees",
+   "enacted_date": "1951-07-28",
+   "enacted_year": 1951,
+   "aliases": [
+    "Refugee Convention",
+    "Geneva Refugee Convention",
+    "Vluchtelingenverdrag",
+    "Verdrag betreffende de status van vluchtelingen",
+    "Convention relative au statut des réfugiés",
+    "Genfer Flüchtlingskonvention"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "V-5",
+   "jurisdiction": "UN",
+   "document_type": "protocol",
+   "title": "Protocol relating to the Status of Refugees",
+   "enacted_date": "1967-01-31",
+   "enacted_year": 1967,
+   "aliases": [
+    "New York Protocol",
+    "Protocol van New York"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "IV-11",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "Convention on the Rights of the Child",
+   "enacted_date": "1989-11-20",
+   "enacted_year": 1989,
+   "aliases": [
+    "CRC",
+    "UNCRC",
+    "IVRK",
+    "Internationaal Verdrag inzake de rechten van het kind",
+    "Kinderrechtenverdrag"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "IV-4",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "International Covenant on Civil and Political Rights",
+   "enacted_date": "1966-12-16",
+   "enacted_year": 1966,
+   "aliases": [
+    "ICCPR",
+    "IVBPR",
+    "BUPO-verdrag",
+    "Internationaal Verdrag inzake burgerrechten en politieke rechten"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "IV-3",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "International Covenant on Economic, Social and Cultural Rights",
+   "enacted_date": "1966-12-16",
+   "enacted_year": 1966,
+   "aliases": [
+    "ICESCR",
+    "IVESCR",
+    "Internationaal Verdrag inzake economische, sociale en culturele rechten"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "IV-9",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "Convention against Torture and Other Cruel, Inhuman or Degrading Treatment or Punishment",
+   "enacted_date": "1984-12-10",
+   "enacted_year": 1984,
+   "aliases": [
+    "CAT",
+    "Convention against Torture",
+    "Antifolterverdrag",
+    "Verdrag tegen foltering en andere wrede, onmenselijke of onterende behandeling of bestraffing"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "IV-8",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "Convention on the Elimination of All Forms of Discrimination against Women",
+   "enacted_date": "1979-12-18",
+   "enacted_year": 1979,
+   "aliases": [
+    "CEDAW",
+    "Vrouwenverdrag"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "IV-2",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "International Convention on the Elimination of All Forms of Racial Discrimination",
+   "enacted_date": "1965-12-21",
+   "enacted_year": 1965,
+   "aliases": [
+    "CERD",
+    "ICERD",
+    "Internationaal Verdrag inzake de uitbanning van alle vormen van rassendiscriminatie"
+   ]
+  },
+  {
+   "scheme": "un_treaty",
+   "identifier": "IV-15",
+   "jurisdiction": "UN",
+   "document_type": "convention",
+   "title": "Convention on the Rights of Persons with Disabilities",
+   "enacted_date": "2006-12-13",
+   "enacted_year": 2006,
+   "aliases": [
+    "CRPD",
+    "VN-Verdrag Handicap",
+    "Verdrag inzake de rechten van personen met een handicap"
+   ]
+  }
+ ]
+}
