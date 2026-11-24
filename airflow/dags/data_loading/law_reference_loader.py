@@ -325,10 +325,21 @@ def artifact_dataset(path):
     return None
 
 
+def _without_records(path) -> bool:
+    with open(path, encoding="utf-8") as handle:
+        return not any(line.strip() for line in handle)
+
+
 def load_artifact(conn, path, batch_size: int = BATCH_SIZE):
     """Load one JSONL law-reference artifact of any of ALL_DATASETS; see
-    load_records, or legislation_loader.load_law_references for echr_article."""
-    if artifact_dataset(path) in PROVISION_DATASETS:
+    load_records, or legislation_loader.load_law_references for echr_article.
+    A file without records loads nothing and checks no schema, so an empty
+    echr_article file loads where 0012 is not applied yet (its loader needs
+    only 0011)."""
+    dataset = artifact_dataset(path)
+    if dataset is None and _without_records(path):
+        return {}
+    if dataset in PROVISION_DATASETS:
         from data_loading import legislation_loader
 
         return legislation_loader.load_law_reference_artifact(conn, path, batch_size=batch_size)

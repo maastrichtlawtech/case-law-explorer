@@ -338,7 +338,7 @@ def test_promoter_paths():
     assert paths == {
         "rechtspraak": [],
         "cellar": [(f"processed/{month}/links/legislation_external.jsonl", "legislation")],
-        "echr": [(f"processed/{month}/links/echr_article.jsonl", "law_references")],
+        "echr": [(f"processed/{month}/law_references/echr_article.jsonl", "law_references")],
     }
 
 
@@ -685,7 +685,8 @@ def test_legislation_month_and_backfill_cli(scratch_db, tmp_path, monkeypatch): 
         "inserted": 1,
         "provisions_inserted_article": 1,
     }
-    assert (folder / "links" / "echr_article.jsonl").exists()
+    assert (folder / "law_references" / "echr_article.jsonl").exists()
+    assert not (folder / "links" / "echr_article.jsonl").exists()
     assert json.loads((folder / "links" / "_legislation_counts.ECHR.json").read_text())
     assert (
         linking_tasks.run_legislation_month(

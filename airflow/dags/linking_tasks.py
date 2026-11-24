@@ -125,9 +125,10 @@ that is on too). For every month folder it writes and loads:
 
     cellar  processed/<month>/links/legislation_external.jsonl   role 'legislation'
             (data_extraction.legislation.catalog: the curated acts and the
-            CELEX acts of sectors 1-3 the month's cases refer to; loaded by
+            CELEX acts of sectors 1-4 and the base acts of consolidated
+            texts the month's cases refer to; loaded by
             legislation_loader.load_acts_artifact)
-    echr    processed/<month>/links/echr_article.jsonl           role 'law_references'
+    echr    processed/<month>/law_references/echr_article.jsonl  role 'law_references'
             (data_extraction.legislation.echr_articles: echr_document_article
             -> ECHR provisions; loaded by
             legislation_loader.load_law_reference_artifact, which
@@ -174,6 +175,9 @@ nothing was found or the extractor is off; see law_artifact_paths, the list
 the promoter registers with role 'law_references'), loads it with
 data_loading.law_reference_loader into case_law_reference (insert-only) and
 writes the counts to ``processed/<month>/law_references/_counts.<PREFIX>.json``.
+The ECHR month folder's law_references/ also holds echr_article.jsonl, written
+by ``extract_legislation`` (above; its counts stay in links/), so every file of
+role 'law_references' lives in law_references/.
 Per-extractor flags LAW_RS_TEXT, LAW_ECHR_TEXT, LAW_CELLAR_REFS default on
 when the master is on. The same flag makes cjeu_loader resolve legislation_id
 on the Cellar CDM law references it inserts (see cjeu_loader
@@ -234,6 +238,7 @@ LEGISLATION_COUNTS_FILE = "_legislation_counts.{}.json"
 CELLAR_UUID_CACHE_ENV = "LINK_CELLAR_UUID_CACHE"
 CELLAR_UUID_CELEX_CACHE_ENV = "LINK_CELLAR_UUID_CELEX_CACHE"
 LINKS_DIR = "links"
+LAW_DIR = "law_references"
 COUNTS_FILE = "_counts.{}.json"
 # Same name as etl_factory.NO_SOURCE_DATA_MARKER (not imported: etl_factory
 # imports Airflow, and the backfill CLI must run without it).
@@ -349,7 +354,6 @@ SOURCE_BY_PREFIX: Dict[str, Source] = {s.prefix: s for s in SOURCES.values()}
 
 # Law references (R3.2-R3.4): own master flag, own artifact folder and loader.
 LAW_MASTER_FLAG = "LAW_REFERENCE_EXTRACTION_ENABLED"  # = law_reference_loader.FLAG
-LAW_DIR = "law_references"
 LAW_EXTRACTORS: Dict[str, Extractor] = {
     "rechtspraak": Extractor("rs_eu_law", "LAW_RS_TEXT", ("rs_text_eu_law",)),
     "echr": Extractor("echr_eu_law", "LAW_ECHR_TEXT", ("echr_text_eu_law",)),
@@ -678,10 +682,11 @@ def run_window_links(var_prefix, **context):
 
 @dataclass(frozen=True)
 class LegislationOutput:
-    name: str  # file stem in links/
+    name: str  # file stem
     role: str  # promoter role
     extractor: str  # module in data_extraction.legislation
     loader: str  # function in data_loading.legislation_loader
+    folder: str = LINKS_DIR  # under processed/<month>/: next to the files of its role
 
 
 LEGISLATION_OUTPUTS: Dict[str, Tuple[LegislationOutput, ...]] = {
@@ -691,7 +696,11 @@ LEGISLATION_OUTPUTS: Dict[str, Tuple[LegislationOutput, ...]] = {
     ),
     "echr": (
         LegislationOutput(
-            "echr_article", "law_references", "echr_articles", "load_law_reference_artifact"
+            "echr_article",
+            "law_references",
+            "echr_articles",
+            "load_law_reference_artifact",
+            LAW_DIR,
         ),
     ),
 }
@@ -708,36 +717,45 @@ def legislation_artifact_paths(source: Source, month_folder: str) -> List[Tuple[
     writes for one month, in load order; every one exists after the task,
     possibly empty. What the promoter must replay."""
     return [
-        (f"processed/{month_folder}/{LINKS_DIR}/{o.name}.jsonl", o.role)
+        (f"processed/{month_folder}/{o.folder}/{o.name}.jsonl", o.role)
         for o in LEGISLATION_OUTPUTS[source.name]
     ]
 
 
-def extract_legislation(conn, source: Source, out_dir, case_ids=None, id_range=None) -> dict:
-    """Write out_dir/<name>.jsonl for every legislation output of source;
-    {name: stats}. Each extractor writes .tmp and renames, so a file is
-    complete or absent."""
+def _legislation_path(out_dir, output: LegislationOutput, month_layout: bool) -> str:
+    """out_dir/<folder>/<name>.jsonl for a month folder (month_layout), else
+    out_dir/<name>.jsonl (a backfill's --out directory)."""
+    folder = os.path.join(out_dir, output.folder) if month_layout else out_dir
+    return os.path.join(folder, f"{output.name}.jsonl")
+
+
+def extract_legislation(
+    conn, source: Source, out_dir, case_ids=None, id_range=None, month_layout=False
+) -> dict:
+    """Write <name>.jsonl for every legislation output of source, in out_dir
+    or, with month_layout (out_dir a processed month folder), in each output's
+    folder under it; {name: stats}. Each extractor writes .tmp and renames, so
+    a file is complete or absent."""
     os.makedirs(out_dir, exist_ok=True)
     results = {}
     for output in LEGISLATION_OUTPUTS[source.name]:
         module = importlib.import_module(f"data_extraction.legislation.{output.extractor}")
+        path = _legislation_path(out_dir, output, month_layout)
+        os.makedirs(os.path.dirname(path), exist_ok=True)
         written, stats = module.extract(
-            conn,
-            case_ids=case_ids,
-            id_range=id_range,
-            out_path=os.path.join(out_dir, f"{output.name}.jsonl"),
+            conn, case_ids=case_ids, id_range=id_range, out_path=path
         )
         results[output.name] = {"records": written, "stats": dict(stats)}
     return results
 
 
-def load_legislation(conn, source: Source, out_dir) -> Dict[str, dict]:
+def load_legislation(conn, source: Source, out_dir, month_layout=False) -> Dict[str, dict]:
     from data_loading import legislation_loader
 
     loaded = {}
     for output in LEGISLATION_OUTPUTS[source.name]:
         load = getattr(legislation_loader, output.loader)
-        loaded[output.name] = load(conn, os.path.join(out_dir, f"{output.name}.jsonl"))
+        loaded[output.name] = load(conn, _legislation_path(out_dir, output, month_layout))
     return loaded
 
 
@@ -755,9 +773,10 @@ def run_legislation_month(conn, source: Source, data_path, month_folder) -> Opti
         raise FileNotFoundError(f"processed artifact missing for legislation: {csv_path}")
     keys = read_processed_keys(csv_path, source.key_column)
     case_ids = case_ids_for_keys(conn, source, keys)
-    out_dir = os.path.join(processed_dir, LINKS_DIR)
-    outputs = extract_legislation(conn, source, out_dir, case_ids=case_ids)
-    for name, load in load_legislation(conn, source, out_dir).items():
+    outputs = extract_legislation(
+        conn, source, processed_dir, case_ids=case_ids, month_layout=True
+    )
+    for name, load in load_legislation(conn, source, processed_dir, month_layout=True).items():
         outputs[name]["load"] = load
     counts = {
         "source": source.name,
@@ -766,7 +785,11 @@ def run_legislation_month(conn, source: Source, data_path, month_folder) -> Opti
         "case_ids": len(case_ids),
         "outputs": outputs,
     }
-    _write_counts(os.path.join(out_dir, LEGISLATION_COUNTS_FILE.format(source.prefix)), counts)
+    counts_dir = os.path.join(processed_dir, LINKS_DIR)
+    os.makedirs(counts_dir, exist_ok=True)
+    _write_counts(
+        os.path.join(counts_dir, LEGISLATION_COUNTS_FILE.format(source.prefix)), counts
+    )
     for name, values in outputs.items():
         log.info(
             "legislation %s %s %s: %s records, load %s",

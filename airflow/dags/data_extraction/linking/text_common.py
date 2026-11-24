@@ -317,6 +317,7 @@ def iter_case_batches(
             cursor.execute(sql, values)
             ids = [row[0] for row in cursor.fetchall()]
         if not ids:
+            conn.rollback()  # end the read-only snapshot of the final, empty page
             return
         yield ids
         last = ids[-1]

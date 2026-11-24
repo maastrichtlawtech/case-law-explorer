@@ -364,3 +364,23 @@ def test_one_entry_point_for_every_law_reference_file(scratch_db, tmp_path):  # 
     empty.write_text("")
     assert law_reference_loader.artifact_dataset(empty) is None
     assert law_reference_loader.load_artifact(conn, empty) == {}
+
+
+class _NoDatabase:
+    """A connection that fails on any use."""
+
+    def cursor(self):
+        raise AssertionError("the database was used")
+
+    def rollback(self):
+        raise AssertionError("the database was used")
+
+
+def test_empty_file_needs_no_schema(tmp_path):
+    """An empty echr_article (or other law-reference) file loads nothing and
+    checks no 0012 columns, so it loads into a database with 0011 only."""
+    empty = tmp_path / "echr_article.jsonl"
+    empty.write_text("")
+    assert law_reference_loader.load_artifact(_NoDatabase(), empty) == {}
+    empty.write_text("\n  \n")
+    assert law_reference_loader.load_artifact(_NoDatabase(), empty) == {}

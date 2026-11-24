@@ -472,3 +472,41 @@ def test_cellar_records_by_sector():
     assert stats == Counter(
         sector_3=1, sector_1=2, skipped_sector_5=1, skipped_sector_6=1, source_without_key=1
     )
+
+
+class _PagingConnection:
+    """Serves pages of case ids and records the calls (no database)."""
+
+    def __init__(self, pages):
+        self.pages = list(pages)
+        self.calls = []
+
+    def cursor(self):
+        connection = self
+
+        class _Cursor:
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc):
+                return False
+
+            def execute(self, sql, values):
+                connection.calls.append("execute")
+
+            def fetchall(self):
+                return [(i,) for i in connection.pages.pop(0)]
+
+        return _Cursor()
+
+    def rollback(self):
+        self.calls.append("rollback")
+
+
+def test_iter_case_batches_ends_the_snapshot_of_the_final_empty_page():
+    from data_extraction.linking.text_common import iter_case_batches
+
+    conn = _PagingConnection([[1, 2], []])
+    batches = list(iter_case_batches(conn, "SELECT case_id FROM t WHERE true {where}"))
+    assert batches == [[1, 2]]
+    assert conn.calls == ["execute", "execute", "rollback"]

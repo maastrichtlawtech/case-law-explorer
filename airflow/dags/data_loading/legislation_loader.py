@@ -24,8 +24,19 @@ backfill can all run it any number of times:
   * a record whose source case is missing is counted and skipped.
 
 Everything written carries source_dataset and extractor_version, so a dataset
-is removed with DELETEs by source_dataset (case_law_reference first, then
-legal_provision, then legislation_alias rows of those acts and legislation).
+is removed with DELETEs by source_dataset, in foreign-key order:
+
+  1. case_law_reference rows of the dataset, and then every row of another
+     dataset whose legislation_id or provision_id points at the dataset's acts
+     or provisions (law references of R3.2-R3.4, rs_lido_sqlite rows resolved
+     by R3.5, Cellar CDM references resolved by cjeu_loader): delete those
+     too, or keep the acts they point at;
+  2. legal_provision rows of the dataset, children before parents (paragraph
+     rows, parent_id set, before their article rows; a provision of another
+     dataset whose parent_id points at one of them, or a lido_link row whose
+     target_provision_id does, blocks it the same way);
+  3. legislation_alias rows of the dataset's acts;
+  4. legislation rows of the dataset.
 
 Needs migration 0011 (columns and unique indexes).
 
