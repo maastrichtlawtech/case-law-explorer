@@ -92,7 +92,7 @@ def echr_etl(**kwargs):
 
 
 with dag:
-    etl_tasks = build_monthly_task_group(dag, "echr_etl", "ECHR", echr_etl)
+    etl_tasks = build_monthly_task_group(dag, "echr_etl", "ECHR", echr_etl, links=True)
     promotion = PythonOperator(
         task_id="register_promotion",
         python_callable=register_promotion,
