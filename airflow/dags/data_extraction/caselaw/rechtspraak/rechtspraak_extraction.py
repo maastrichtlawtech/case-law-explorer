@@ -213,14 +213,21 @@ def _metadata_coverage(base_extraction, metadata_df):
 
 
 def _backfill_full_text(
-    metadata_df: pd.DataFrame, base_extraction: pd.DataFrame, output_dir: str
+    metadata_df: pd.DataFrame,
+    base_extraction: pd.DataFrame,
+    output_dir: str,
+    fetched_live: set | None = None,
 ) -> pd.DataFrame:
     """full_text is never in lido.db (the LIDO bulk export doesn't carry
     judgment text), so every sqlite-sourced row leaves it empty. Try the base
     feed's own summary first -- it sometimes already holds the full judgment
     -- and fall back to a second, narrower live API call only for whatever's
     still missing after that, rather than calling the live API unconditionally
-    for every row."""
+    for every row.
+
+    ``fetched_live`` holds ECLIs whose metadata already came from the live API
+    in this run: their empty full_text is what the API has, so asking again
+    would only repeat the request."""
     if metadata_df.empty or "full_text" not in metadata_df.columns:
         return metadata_df
 
@@ -250,7 +257,10 @@ def _backfill_full_text(
     if not missing.any() or base_extraction is None or base_extraction.empty:
         return metadata_df
 
-    still_missing_eclis = metadata_df.loc[missing, "ecli"].tolist()
+    fetched_live = fetched_live or set()
+    still_missing_eclis = [
+        ecli for ecli in metadata_df.loc[missing, "ecli"].tolist() if ecli not in fetched_live
+    ]
     subset = base_extraction[base_extraction["id"].isin(still_missing_eclis)]
     if subset.empty:
         return metadata_df
@@ -303,7 +313,11 @@ def _metadata_for_base(
         extra_df = _fetch_extra_sqlite_columns(eclis, sqlite_db_path)
         if not extra_df.empty:
             metadata_df = metadata_df.merge(extra_df, on="ecli", how="left")
-        metadata_df = _backfill_full_text(metadata_df, base_extraction, output_dir)
+        # lido.db returns only the ECLIs it holds; the rest fell back to the API.
+        fetched_live = set(eclis) - set(extra_df["ecli"]) if not extra_df.empty else set(eclis)
+        metadata_df = _backfill_full_text(
+            metadata_df, base_extraction, output_dir, fetched_live=fetched_live
+        )
 
     metadata_ratio = _metadata_coverage(base_extraction, metadata_df)
     minimum_metadata_ratio = float(os.getenv("RS_MIN_METADATA_RATIO", "0.98"))

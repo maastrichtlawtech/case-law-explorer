@@ -5,11 +5,16 @@ data.rechtspraak.nl allows at most 10 requests per second and its firewall
 blocks the client's IP when that is exceeded. It blocked the Airflow server
 from 2026-11-09 after a citation backfill fetched per-ECLI metadata from one
 thread per CPU with no delay. Importing this module routes the extractor
-package's per-ECLI fetches through one process-wide limiter; call
-``wait_for_slot()`` before any other request to the API.
+package's per-ECLI fetches through one process-wide limiter and a circuit
+breaker; call ``wait_for_slot()`` before any other request to the API.
+
+The limiter is per process. That is enough while rechtspraak_etl runs one task
+at a time and update_citation_details stays paused; running both at once, or a
+backfill alongside them, needs a shared Airflow pool.
 """
 
 import functools
+import logging
 import os
 import threading
 import time
@@ -50,11 +55,49 @@ def wait_for_slot():
     _limiter.wait()
 
 
+class CircuitBreaker:
+    """Stop calling the API after too many consecutive failed fetches.
+
+    The package's fetch retries internally and returns None when every attempt
+    failed (a 403 from the firewall looks the same as a missing document), and
+    its caller swallows exceptions. Without a breaker a blocked IP keeps sending
+    every remaining ECLI times its retries. Once open, fetches return None
+    without a request, so the run fails fast on its metadata-coverage check.
+    """
+
+    def __init__(self, threshold):
+        self._threshold = threshold
+        self._lock = threading.Lock()
+        self._consecutive_failures = 0
+        self.open = False
+
+    def record(self, succeeded):
+        with self._lock:
+            if succeeded:
+                self._consecutive_failures = 0
+                return
+            self._consecutive_failures += 1
+            if not self.open and self._consecutive_failures >= self._threshold:
+                self.open = True
+                logging.error(
+                    "data.rechtspraak.nl failed %s fetches in a row; sending no further "
+                    "requests in this run (blocked or down?)",
+                    self._consecutive_failures,
+                )
+
+
+_breaker = CircuitBreaker(int(os.getenv("RECHTSPRAAK_MAX_CONSECUTIVE_FAILURES", "25")))
+
+
 def rate_limited(fetch):
     @functools.wraps(fetch)
     def wrapper(*args, **kwargs):
+        if _breaker.open:
+            return None
         wait_for_slot()
-        return fetch(*args, **kwargs)
+        result = fetch(*args, **kwargs)
+        _breaker.record(result is not None)
+        return result
 
     wrapper.rate_limited = True
     return wrapper

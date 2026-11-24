@@ -69,3 +69,48 @@ def test_metadata_calls_fetch_sequentially_without_fake_headers(monkeypatch, tmp
     assert calls
     assert all(call["multi_threading"] is False for call in calls)
     assert all(call["_fake_headers"] is False for call in calls)
+
+
+def test_breaker_stops_requests_after_consecutive_failures(monkeypatch):
+    monkeypatch.setattr(rate_limit, "wait_for_slot", lambda: None)
+    monkeypatch.setattr(rate_limit, "_breaker", rate_limit.CircuitBreaker(threshold=3))
+    calls = []
+    wrapped = rate_limit.rate_limited(lambda url, fake_headers=False: calls.append(url))
+
+    results = [wrapped(f"u{n}") for n in range(10)]
+
+    assert results == [None] * 10
+    assert calls == ["u0", "u1", "u2"]
+    assert rate_limit._breaker.open
+
+
+def test_breaker_resets_on_success(monkeypatch):
+    monkeypatch.setattr(rate_limit, "wait_for_slot", lambda: None)
+    monkeypatch.setattr(rate_limit, "_breaker", rate_limit.CircuitBreaker(threshold=3))
+    responses = iter([None, None, b"<xml/>", None, None, b"<xml/>"])
+    wrapped = rate_limit.rate_limited(lambda url, fake_headers=False: next(responses))
+
+    for n in range(6):
+        wrapped(f"u{n}")
+
+    assert not rate_limit._breaker.open
+
+
+def test_full_text_backfill_skips_eclis_already_fetched_live(monkeypatch, tmp_path):
+    asked = []
+
+    def fake_metadata(**kwargs):
+        asked.extend(kwargs["dataframe"]["id"].tolist())
+        return pd.DataFrame(columns=["ecli", "full_text"])
+
+    monkeypatch.setattr(extraction, "get_rechtspraak_metadata", fake_metadata)
+    metadata = pd.DataFrame(
+        {"ecli": ["ECLI:NL:HR:2026:1", "ECLI:NL:HR:2026:2"], "full_text": ["", ""]}
+    )
+    base = pd.DataFrame({"id": ["ECLI:NL:HR:2026:1", "ECLI:NL:HR:2026:2"], "summary": ["", ""]})
+
+    extraction._backfill_full_text(
+        metadata, base, str(tmp_path), fetched_live={"ECLI:NL:HR:2026:1"}
+    )
+
+    assert asked == ["ECLI:NL:HR:2026:2"]
