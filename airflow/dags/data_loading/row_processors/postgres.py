@@ -54,6 +54,26 @@ from definitions.terminology.attribute_names import (
 
 SET_SEP = "; "  # used to separate set items in string
 
+RS_RESOLVE_BWB_FLAG = "RS_RESOLVE_BWB_ENABLED"
+
+
+def rs_resolve_bwb_enabled() -> bool:
+    """RS_RESOLVE_BWB_ENABLED is set to a true value (default off): the RS
+    corpus loader derives each citation's BWB id and resolves it (R3.5)."""
+    value = os.environ.get(RS_RESOLVE_BWB_FLAG) or ""
+    return value.strip().lower() in ("1", "true", "yes", "on")
+
+
+_LIDO_BWB_SEGMENT = "/bwb/id/"
+
+
+def _bwb_id_from_lido_url(legislation):
+    """BWB id in a LiDO URL (.../terms/bwb/id/BWBR0001854/...), else None.
+    (Written with partition so the compatibility patch's upstream marker,
+    which names the old derivation, does not match this module.)"""
+    _, found, rest = legislation.partition(_LIDO_BWB_SEGMENT)
+    return (rest.split("/", 1)[0] or None) if found else None
+
 
 def _split_set(value):
     if not value:
@@ -350,28 +370,48 @@ class PostgresRSProcessor(_BaseRowProcessor):
         lido_reference_loader.py already writes (distinct source_dataset
         keeps the two from colliding on the unique index).
 
+        With RS_RESOLVE_BWB_ENABLED off (the default) the rows are exactly
+        the ones written before roadmap R3.5: bwb_id is a single value per
+        case, not one per legislation citation, so every row from the same
+        case gets the same raw_resource. That block is kept verbatim on
+        purpose: caselaw-coolify etl/apply_loader_compatibility.py rewrites it
+        at image build (BWB id from the LiDO URL when bwb_id is empty), so
+        production keeps today's behaviour with the flag off. With the flag on
+        the rows come from _resolved_law_reference_rows (R3.5).
+
+        Deploy order: this branch replaces the old upsert_law_reference
+        statement, so the caselaw-coolify branch whose compatibility patch
+        skips patches already upstream (upstream markers) must be deployed
+        with or before it; without the markers the image build stops."""
+        if rs_resolve_bwb_enabled():
+            return self._resolved_law_reference_rows(row)
+        bwb_id = row.get(RS_BWB_ID) or None
+        return [
+            {
+                "raw_reference": legislation,
+                "raw_resource": bwb_id,
+                "source_dataset": "rs_lido_sqlite",
+            }
+            for legislation in (_split_set(row.get(RS_LEGISLATIONS)) or [])
+        ]
+
+    @staticmethod
+    def _resolved_law_reference_rows(row):
+        """R3.5 rows (RS_RESOLVE_BWB_ENABLED on).
+
         The BWB id of each citation comes from its LiDO URL
         (http://linkeddata.overheid.nl/terms/bwb/id/BWBR0001854/...), else from
         the row's bwb_id. The URL comes first because it is per citation, while
         bwb_id is a single value per case (lido.db leaves it empty, so in
-        practice the URL is all there is);
-        a citation with neither is skipped with a warning (no unique index
-        covers a row without raw_resource, so it could not be loaded
-        idempotently). Each row asks for its act to be resolved by exact BWB id
-        (roadmap R3.5; client.upsert_law_reference).
-
-        caselaw-coolify etl/apply_loader_compatibility.py patches the same
-        derivation in at image build (bwb_id first there); that patch's two
-        rewrites of this method and of upsert_law_reference must be dropped
-        when this code is deployed (the patch refuses to apply to changed
-        source, by design)."""
+        practice the URL is all there is); a citation with neither is skipped
+        with a warning (no unique index covers a row without raw_resource, so
+        it could not be loaded idempotently). Each row asks for its act to be
+        resolved by exact BWB id (client.upsert_law_reference; an identifier
+        shared by more than one legislation row stays unresolved)."""
         bwb_id = row.get(RS_BWB_ID) or None
         rows = []
         for legislation in _split_set(row.get(RS_LEGISLATIONS)) or []:
-            raw_resource = None
-            if "/bwb/id/" in legislation:
-                raw_resource = legislation.split("/bwb/id/", 1)[1].split("/", 1)[0] or None
-            raw_resource = raw_resource or bwb_id
+            raw_resource = _bwb_id_from_lido_url(legislation) or bwb_id
             if raw_resource is None:
                 logging.warning(
                     "Skipping unresolved legislation reference without a BWB id: %s",

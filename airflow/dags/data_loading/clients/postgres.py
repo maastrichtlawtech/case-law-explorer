@@ -550,7 +550,8 @@ class PostgresCLEClient:
 
         With resolve_legislation and a raw_resource naming exactly one BWB act
         (legislation.scheme 'bwb', identifier = raw_resource), the row gets that
-        legislation_id (roadmap R3.5). Such a row (legislation_id and
+        legislation_id (roadmap R3.5; the RS row processor asks for it only
+        with RS_RESOLVE_BWB_ENABLED). Such a row (legislation_id and
         raw_resource set) falls under none of 0001's unique indexes, so it is
         skipped when the case already has the reference, resolved or not (a
         reloaded case keeps its earlier unresolved row and gets no twin), and
@@ -595,7 +596,9 @@ class PostgresCLEClient:
 
     def bwb_legislation_id(self, bwb_id: str | None) -> int | None:
         """legislation.id of the one act with scheme 'bwb' and this identifier;
-        None when there is none or more than one. Cached per client."""
+        None when there is none or more than one (a database that holds a
+        row per version of an act, as db-dev may, leaves such references
+        unresolved rather than pick a version). Cached per client."""
         if not bwb_id:
             return None
         cache = self.__dict__.setdefault("_bwb_legislation_ids", {})

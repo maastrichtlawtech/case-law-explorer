@@ -132,7 +132,12 @@ that is on too). For every month folder it writes and loads:
             and those of R3.2-R3.4 below, through law_reference_loader)
 
 and ``processed/<month>/links/_legislation_counts.<PREFIX>.json``. Rechtspraak
-has no file here (its R3.5 change is in the corpus loader). The promoter must
+has no file here: its R3.5 change is in the corpus loader
+(row_processors/postgres.py) behind its own flag RS_RESOLVE_BWB_ENABLED,
+default off; off, the loader writes exactly the rows it wrote before R3.5.
+On, an rs_lido_sqlite row gets legislation_id only when exactly one
+legislation row has scheme 'bwb' and that identifier (a database holding
+version rows per BWB id leaves those references unresolved). The promoter must
 replay the legislation file before the law-reference file of the same month
 (the law-reference loader inserts a missing curated act itself, so the order
 matters only for titles of CELEX acts, which have none). Backfill:
