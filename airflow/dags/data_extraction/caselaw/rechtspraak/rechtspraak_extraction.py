@@ -8,6 +8,10 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 import rechtspraak_extractor.rechtspraak as rex
+from data_extraction.caselaw.rechtspraak.rate_limit import (
+    POLITE_METADATA_OPTIONS,
+    wait_for_slot,
+)
 from definitions.storage_handler import CSV_RS_CASES
 from dotenv import find_dotenv, load_dotenv
 from rechtspraak_extractor.rechtspraak_metadata import (
@@ -50,6 +54,7 @@ def _bounded_get_data_from_url(base_url, total_docs, start_date, end_date):
             start_date,
             end_date,
         )
+        wait_for_slot()
         response = rex.requests.get(url, timeout=rex.API_REQUEST_TIMEOUT)
         response.raise_for_status()
         response.raw.decode_content = True
@@ -98,6 +103,7 @@ def _get_rechtspraak_modified_bounded(
     from_index = 0
     while len(entries) < amount:
         page_size = min(rex.MAX_ECLIS_PER_PAGE, amount - len(entries))
+        wait_for_slot()
         response = rex.requests.get(
             rex.RECHTSPRAAK_API_BASE_URL,
             params=[
@@ -252,7 +258,7 @@ def _backfill_full_text(
     live_df = get_rechtspraak_metadata(
         save_file="n",
         dataframe=subset,
-        _fake_headers=True,
+        **POLITE_METADATA_OPTIONS,
         data_dir=output_dir,
         method="api",
     )
@@ -286,7 +292,7 @@ def _metadata_for_base(
     metadata_df = get_rechtspraak_metadata(
         save_file="n",
         dataframe=base_extraction,
-        _fake_headers=True,
+        **POLITE_METADATA_OPTIONS,
         data_dir=output_dir,
         method="sqlite",
         sqlite_db_path=sqlite_db_path,
