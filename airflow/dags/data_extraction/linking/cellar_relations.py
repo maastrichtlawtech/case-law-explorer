@@ -103,7 +103,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import unquote
 
 from data_extraction.linking import identifiers, resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, write_jsonl
+from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, match_method, write_jsonl
 
 log = logging.getLogger(__name__)
 
@@ -452,6 +452,14 @@ def record_for(row: CellarRow, resolved: Resolved) -> Optional[LinkRecord]:
         return None
     if target_key is not None and target_key == source_key:
         return None
+    if target_key is None:
+        # An unresolved reference: the method alone, no confidence.
+        method, confidence = resolved.method, None
+    else:
+        rule = resolved.rule
+        if rule.endswith("_unresolved"):  # named by ECLI/CELEX, not loaded yet
+            rule = rule[: -len("_unresolved")]
+        method, confidence = match_method(resolved.method, rule), round(resolved.confidence, 2)
     return LinkRecord(
         source=source_key,
         target=target_key,
@@ -460,8 +468,8 @@ def record_for(row: CellarRow, resolved: Resolved) -> Optional[LinkRecord]:
         relation_type=relation,
         source_dataset=SOURCE_DATASET,
         extractor_version=EXTRACTOR_VERSION,
-        match_method=resolved.method,
-        confidence=round(resolved.confidence, 2),
+        match_method=method,
+        confidence=confidence,
         mentions=(
             (
                 Mention(

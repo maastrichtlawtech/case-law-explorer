@@ -266,10 +266,10 @@ def test_unresolved_range_member_is_not_written_but_written_numbers_are():
 def test_judgment_by_default_opinion_only_with_cue():
     (judgment,) = run("HvJ 12 maart 2019, C-221/17, Tjebbes")
     assert judgment.target.celex is None and judgment.target.ecli == "ECLI:EU:C:2019:189"
-    assert judgment.match_method == "cjeu_judgment" and judgment.confidence == 0.95
+    assert judgment.match_method == "case_number/cjeu_judgment" and judgment.confidence == 0.95
     (opinion,) = run("zie de conclusie van A-G Mengozzi in zaak C-221/17")
     assert opinion.target.ecli == "ECLI:EU:C:2018:639"
-    assert opinion.match_method == "cjeu_opinion"
+    assert opinion.match_method == "case_number/cjeu_opinion"
     # The cue belongs to another citation (cut at ';'), or a judgment is named after it.
     (other,) = run("conclusie van A-G Mengozzi; HvJ 12 maart 2019, C-221/17")
     assert other.target.ecli == "ECLI:EU:C:2019:189"
@@ -329,14 +329,17 @@ def test_appnos_need_an_echr_text():
 def test_appno_judgment_decision_date_year_and_gc():
     base = "Artikel 8 EVRM. "
     (r,) = run(base + "EHRM 2 februari 2006, X tegen Nederland, nr. 12345/00")
-    assert r.target.ecli == ECHR_JUD_2.ecli and r.match_method == "echr_judgment_cited_date"
+    assert r.target.ecli == ECHR_JUD_2.ecli and r.match_method == "appno/echr_judgment_cited_date"
     (r,) = run(base + "EHRM (dec.) 3 maart 2002, nr. 12345/00")
-    assert r.target.ecli == ECHR_DEC.ecli and r.match_method == "echr_decision_cue"
+    assert r.target.ecli == ECHR_DEC.ecli and r.match_method == "appno/echr_decision_cue"
     (r,) = run(base + "X v. the Netherlands, no. 12345/00, ECHR 2004-I")
-    assert r.target.ecli == ECHR_JUD_1.ecli and r.match_method == "echr_judgment_cited_year"
+    assert r.target.ecli == ECHR_JUD_1.ecli and r.match_method == "appno/echr_judgment_cited_year"
     (r,) = run(base + "X t. Nederland [GC], klachtnummer 12345/00")
     assert r.target.ecli == ECHR_JUD_1.ecli
-    assert r.match_method == "echr_judgment_earliest_of_several_gc_cited" and r.confidence == 0.65
+    assert (
+        r.match_method == "appno/echr_judgment_earliest_of_several_gc_cited"
+        and r.confidence == 0.65
+    )
 
 
 def test_appno_lists_and_unresolved():
@@ -533,7 +536,7 @@ def test_extract_against_database(conn, tmp_path):
     alias = next(
         r for r in records if r.source_dataset == "rs_text_ecli" and r.source.ecli.endswith("2422")
     )
-    assert alias.match_method == "ecli_identifier"
+    assert alias.match_method == "ecli/case_identifier"
     summary = next(r for r in records if r.source.ecli == "ECLI:NL:HR:2022:637")
     (mention,) = summary.mentions
     assert mention.text_field == "summary" and mention.raw_text == "EU:C:2019:189"

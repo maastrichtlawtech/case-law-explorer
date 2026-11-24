@@ -5,11 +5,11 @@ An opinion's CELEX number is its case's number with type letters CC
 (62012CC0199); the judgment in the same case is CJ (62012CJ0199), or CO when
 the case ended with an order. Rules, in order:
 
-    1. CELEX CC -> CJ, a case with exactly that CELEX      match_method 'celex'
+    1. CELEX CC -> CJ, a case with exactly that CELEX      match_method 'celex/celex_cj'
     2. the first judgment (CJ/TJ) carrying one of the opinion's case numbers
        (case_identifier 'cjeu_case_number') dated on or after the opinion
-                                                             match_method 'case_number'
-    3. CELEX CC -> CO                                        match_method 'celex'
+                                                 match_method 'case_number/first_judgment'
+    3. CELEX CC -> CO                                        match_method 'celex/celex_co'
 
 Rule 2 comes before the CO swap (the roadmap lists CO second): in joined
 cases the judgment is filed under the lead number, and a non-lead member's
@@ -51,7 +51,7 @@ from datetime import date
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord, write_jsonl
+from data_extraction.linking.artifact import CaseKey, LinkRecord, match_method, write_jsonl
 
 log = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ EXTRACTOR_VERSION = "ag_opinions/1.0.0"
 RELATION = "opinion_of"
 BATCH_SIZE = 500
 
-CONFIDENCE = {"celex_cj": 0.98, "case_number": 0.85, "celex_co": 0.8}
+CONFIDENCE = {"celex_cj": 0.98, "first_judgment": 0.85, "celex_co": 0.8}
 
 _OPINION_CELEX = re.compile(r"^(6\d{4})CC(\d{4})(\(\d{2}\))?$")
 
@@ -90,7 +90,7 @@ class Opinion(Document):
 class Resolution:
     target: Document
     method: str  # celex | case_number
-    rule: str  # celex_cj | celex_co | case_number
+    rule: str  # celex_cj | celex_co | first_judgment
     confidence: float
 
 
@@ -153,7 +153,8 @@ def _by_case_number(opinion, by_case_number):
         return None, "case_numbers_disagree"
     chosen = firsts.pop()
     target = Document(chosen.case_id, chosen.ecli, chosen.celex, chosen.date)
-    return Resolution(target, "case_number", "case_number", CONFIDENCE["case_number"]), "ok"
+    resolution = Resolution(target, "case_number", "first_judgment", CONFIDENCE["first_judgment"])
+    return resolution, "ok"
 
 
 def resolve_opinion(
@@ -190,7 +191,7 @@ def record_for(opinion: Opinion, resolution: Resolution) -> Optional[LinkRecord]
         relation_type=RELATION,
         source_dataset=SOURCE_DATASET,
         extractor_version=EXTRACTOR_VERSION,
-        match_method=resolution.method,
+        match_method=match_method(resolution.method, resolution.rule),
         confidence=resolution.confidence,
     )
 

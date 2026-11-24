@@ -26,6 +26,17 @@ ECtHR application numbers (owner numbers only: case_identifier holds the
     no judgment;
   * among several judgments: the exact cited date, then the cited year, then
     the earliest.
+
+CJEU procedure suffixes (filter_cjeu_suffix)
+  * a suffix naming a separate document of the case (interim relief, costs,
+    rectification, interpretation, revision, ...) is never taken for the
+    judgment, and such a document is chosen only when the citation carries
+    that suffix; "P" (appeal) and "PPU" are part of the case's own number.
+
+LJNs (choose_ljn)
+  * an old LJN was shared by a Hoge Raad judgment and its Advocate General's
+    conclusion (HR / PHR): the court's decision unless the text names the
+    conclusion; several remaining documents are not guessed between.
 """
 
 from dataclasses import dataclass
@@ -38,6 +49,12 @@ SCHEMA = "cle_v2"
 
 CJEU_JUDGMENT, CJEU_ORDER, CJEU_OPINION, OTHER = "judgment", "order", "opinion", "other"
 ECHR_JUDGMENT, ECHR_DECISION, ECHR_COMMUNICATED = "judgment", "decision", "communicated"
+
+# Suffixes that name a different document than the judgment (interim measures,
+# costs, rectification, interpretation, revision, third-party proceedings,
+# legal aid, default judgments).
+SEPARATE_SUFFIXES = frozenset(("R", "RX", "REC", "DEP", "AJ", "TO", "INT", "REV", "OP", "SA"))
+CONF_LJN = 0.9
 
 
 @dataclass(frozen=True)
@@ -159,6 +176,55 @@ def choose_echr(
         if same_year:
             return Choice(same_year[0], base_rule + "_cited_year", round(confidence - 0.05, 2))
     return Choice(kind_pool[0], base_rule + "_earliest_of_several", round(confidence - 0.2, 2))
+
+
+def cjeu_suffix(value) -> Optional[str]:
+    """The procedure suffix of a stored case number ('C-204/21 R' -> 'R'), or None."""
+    parts = identifiers.parse_cjeu_case_number(value or "")
+    return parts[3] if parts else None
+
+
+def filter_cjeu_suffix(candidates, cited_suffix, fallback_to_all=False):
+    """Keep the documents the cited suffix names.
+
+    'C-204/21 R' -> the candidates stored with suffix R only; a plain (or 'P',
+    'PPU') number -> the candidates without a separate-document suffix. With
+    fallback_to_all, a plain number whose case has only separate documents
+    keeps every candidate (rs_text); without it, it keeps none (echr_text).
+    """
+    candidates = list(candidates)
+    if cited_suffix in SEPARATE_SUFFIXES:
+        return [c for c in candidates if cjeu_suffix(c.value) == cited_suffix]
+    plain = [c for c in candidates if cjeu_suffix(c.value) not in SEPARATE_SUFFIXES]
+    if fallback_to_all:
+        return plain or candidates
+    return plain
+
+
+def choose_ljn(candidates, source_date, opinion_cue=False) -> Optional[Choice]:
+    """One Rechtspraak document for an LJN, or None when it stays ambiguous.
+
+    Never a document dated after the citing decision. An LJN shared by a Hoge
+    Raad decision and its Advocate General's conclusion (HR / PHR) goes to the
+    court's decision unless the text names the conclusion (opinion_cue).
+    Several remaining documents (duplicate publications) are not guessed
+    between.
+    """
+    pool = [c for c in candidates if not (source_date and c.date and c.date > source_date)]
+    if not pool:
+        return None
+
+    def is_opinion(c):
+        return bool(c.ecli and ":PHR:" in c.ecli.upper())
+
+    preferred = [c for c in pool if is_opinion(c) == opinion_cue] or (
+        [c for c in pool if not is_opinion(c)] if opinion_cue else []
+    )
+    distinct = {c.case_id: c for c in preferred}
+    if len(distinct) != 1:
+        return None
+    rule = "conclusion" if opinion_cue and is_opinion(preferred[0]) else "court_decision"
+    return Choice(preferred[0], rule, CONF_LJN)
 
 
 _FETCH = f"""

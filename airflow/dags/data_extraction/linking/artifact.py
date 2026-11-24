@@ -13,12 +13,28 @@ docs/LINKING_DESIGN.md, "Data path").
      "relation_type": "cites",
      "source_dataset": "rs_text_cjeu_casenum",
      "extractor_version": "rs_text/1.0.0",
-     "match_method": "case_number",
+     "match_method": "case_number/cjeu_judgment",
      "confidence": 0.95,
      "mentions": [{"text_field": "fulltext", "language": "nl",
                    "text_source": "RECHTSPRAAK", "char_start": 10234,
                    "char_end": 10242, "raw_text": "C-221/17",
                    "context": "...", "section": null, "segment_hash": null}]}
+
+match_method is ``<method>/<rule>`` (build it with ``match_method()``):
+
+  method  what identified the target: ecli | celex | case_number | appno |
+          ljn | zaaknummer | metadata | formal_relation | name_date
+  rule    the resolver or extractor rule that chose among the candidates,
+          e.g. ``case_number/cjeu_judgment``, ``appno/echr_decision_cue``,
+          ``case_number/cjeu_judgment_earliest_of_several``,
+          ``celex/celex_cj``, ``metadata/zaaknummer_core``
+
+The method alone when there is no rule (an ECLI naming its case:
+``ecli``). An unresolved reference (no target, only target_ref_raw) carries
+the method alone and no confidence: ``case_number``, ``appno``, ``ljn``,
+``name_date``. A target named by ECLI/CELEX that the loading database does
+not hold yet keeps the extractor's method, rule and confidence; late binding
+(link_loader.resolve_late) copies them to the resolved row.
 """
 
 import json
@@ -28,10 +44,48 @@ from typing import Iterable, Iterator, Optional
 CASE_KEYS = ("ecli", "celex", "item_id")
 REF_SCHEMES = ("cjeu_case_number", "echr_appno", "nl_zaaknummer", "ljn", "name_date")
 TEXT_FIELDS = ("fulltext", "summary", "national_judgement_xml", "metadata")
+# The source datasets this artifact may carry, as prefixes: what the link
+# loader writes and late binding (link_loader.resolve_late) resolves. Every
+# other dataset in case_citation is legacy and resolved by the corpus loaders
+# (cjeu_loader SQL_LINK_*), which leave these alone.
+LINK_DATASETS = (
+    "rs_text_",
+    "echr_text_",
+    "cjeu_text_",
+    "cellar_national_judgement",
+    "cjeu_ag_link",
+    "cellar_relation_resolved",
+)
+MATCH_METHODS = (
+    "ecli",
+    "celex",
+    "case_number",
+    "appno",
+    "ljn",
+    "zaaknummer",
+    "metadata",
+    "formal_relation",
+    "name_date",
+)
 
 
 class ArtifactError(ValueError):
     """A link record that must not be loaded."""
+
+
+def is_link_dataset(name: Optional[str]) -> bool:
+    """Is this source_dataset one the link loader writes (LINK_DATASETS)?"""
+    return bool(name) and name.startswith(LINK_DATASETS)
+
+
+def match_method(method: str, rule: Optional[str] = None) -> str:
+    """'case_number', 'cjeu_judgment' -> 'case_number/cjeu_judgment'; the
+    method alone when there is no rule or the rule just repeats it."""
+    if method not in MATCH_METHODS:
+        raise ArtifactError(f"unknown match method {method!r}")
+    if not rule or rule == method:
+        return method
+    return f"{method}/{rule}"
 
 
 @dataclass(frozen=True)
@@ -125,6 +179,8 @@ class LinkRecord:
         return record
 
     def validate(self):
+        if not is_link_dataset(self.source_dataset):
+            raise ArtifactError(f"{self.source_dataset!r} is not a link dataset (LINK_DATASETS)")
         if self.target is None and self.target_ref_raw is None:
             raise ArtifactError("record needs a target or a target_ref_raw")
         if self.target_ref_raw is not None and self.target_ref_scheme not in REF_SCHEMES:
@@ -137,6 +193,14 @@ class LinkRecord:
             raise ArtifactError(f"confidence must be between 0 and 1, got {self.confidence}")
         if self.target is not None and self.target == self.source:
             raise ArtifactError("a case does not link to itself")
+        if self.match_method is not None:
+            method, _, rule = self.match_method.partition("/")
+            if method not in MATCH_METHODS or (_ and not rule):
+                raise ArtifactError(f"bad match_method {self.match_method!r}")
+            if self.target is None and (rule or self.confidence is not None):
+                raise ArtifactError(
+                    "an unresolved reference has the method alone and no confidence"
+                )
 
     def to_dict(self):
         out = {

@@ -41,7 +41,7 @@ def test_cc_to_cj():
         "relation_type": "opinion_of",
         "source_dataset": "cjeu_ag_link",
         "extractor_version": "ag_opinions/1.0.0",
-        "match_method": "celex",
+        "match_method": "celex/celex_cj",
         "confidence": 0.98,
     }
 
@@ -135,8 +135,8 @@ def test_extract_and_load(scratch_db, tmp_path):  # noqa: F811
     assert written == 2
     assert stats["opinions"] == 3 and stats["no_case_number"] == 1
     assert {(r.source.ecli, r.target.ecli, r.match_method) for r in read_jsonl(out)} == {
-        ("ECLI:EU:C:2013:474", "ECLI:EU:C:2013:720", "celex"),
-        ("ECLI:EU:C:2019:1", "ECLI:EU:C:2019:300", "case_number"),
+        ("ECLI:EU:C:2013:474", "ECLI:EU:C:2013:720", "celex/celex_cj"),
+        ("ECLI:EU:C:2019:1", "ECLI:EU:C:2019:300", "case_number/first_judgment"),
     }
     counts = load_artifact(conn, out)
     assert counts == {"cjeu_ag_link": {"inserted": 2}}

@@ -120,7 +120,7 @@ def test_appeal_is_reversed():
     )
     assert (r.source_dataset, r.match_method, r.confidence) == (
         "cellar_relation_resolved",
-        "case_number",
+        "case_number/uuid_dossier_cjeu_judgment",
         0.95,
     )
     assert r.mentions[0].raw_text == U_KIK and r.mentions[0].text_field == "metadata"
@@ -185,7 +185,7 @@ def test_preliminary_reference_via_work_celex():
         "82018AT0228(51)",
         "ECLI:EU:C:2022:879",
         "preliminary_reference",
-        "celex",
+        "celex/uuid_celex",
     )
     # not loaded yet: without the ruling's date a referral cannot be told from a
     # follow-up, so nothing is written
@@ -233,6 +233,8 @@ def test_unresolved_case_numbers():
         "C-1/11",
         "cjeu_case_number",
     )
+    # an unresolved reference: the method alone, no confidence
+    assert (records[0].match_method, records[0].confidence) == ("case_number", None)
     # a referral to a ruling not loaded yet: skipped (no date to tell)
     row = rel.CellarRow(5, "referred_for_preliminary_ruling", "C-89/24 PPU", doc(30, "82024NL1"))
     assert rel.resolve_row(row, lookups()) == (None, "ruling_not_in_database")

@@ -56,7 +56,9 @@ def summary(records):
 def test_gold_f_v_uk_by_application_number():
     text = "Cour EDH, F. c. Royaume-Uni (déc.), n° 17341/03, 22 juin 2004"
     records = run(text, APPNOS)
-    assert summary(records) == [("ECLI:CE:ECHR:2004:0622DEC001734103", "17341/03", "appno", 0.95)]
+    assert summary(records) == [
+        ("ECLI:CE:ECHR:2004:0622DEC001734103", "17341/03", "appno/echr_decision_cue", 0.95)
+    ]
     record = records[0]
     assert record.source_dataset == "cjeu_text_echr" and record.relation_type == "cites"
     assert record.extractor_version == "cjeu_text/1.0.0"
@@ -67,7 +69,9 @@ def test_gold_f_v_uk_by_application_number():
 
 def test_gold_without_dec_cue_falls_back_to_the_only_decision():
     records = run("F. v. the United Kingdom, no. 17341/03, ECtHR", APPNOS, language="en")
-    assert summary(records) == [("ECLI:CE:ECHR:2004:0622DEC001734103", "17341/03", "appno", 0.85)]
+    assert summary(records) == [
+        ("ECLI:CE:ECHR:2004:0622DEC001734103", "17341/03", "appno/echr_decision_no_judgment", 0.85)
+    ]
 
 
 def test_ecli_with_year_from_real_text():
@@ -83,10 +87,10 @@ def test_ecli_without_year_needs_a_document_of_that_day():
     )  # fmt: skip
     text = "Campbell and Fell v. United Kingdom, CE:ECHR:0628JUD000781977"
     assert summary(run(text, {"7819/77": [campbell]})) == [
-        ("ECLI:CE:ECHR:1984:0628JUD000781977", "7819/77", "ecli", 0.85)
+        ("ECLI:CE:ECHR:1984:0628JUD000781977", "7819/77", "ecli/without_year_echr_judgment", 0.85)
     ]
     other_day = "Campbell and Fell v. United Kingdom, CE:ECHR:0629JUD000781977"
-    assert summary(run(other_day, {"7819/77": [campbell]})) == [(None, "7819/77", "ecli", None)]
+    assert summary(run(other_day, {"7819/77": [campbell]})) == [(None, "7819/77", "appno", None)]
 
 
 def test_regulation_and_directive_numbers_are_not_application_numbers():
@@ -132,7 +136,7 @@ def test_application_number_list():
     a = Candidate(1, "ECLI:CE:ECHR:2008:A", None, None, date(2008, 1, 1), "judgment", "30562/04")
     text = "S. and Marper v. the United Kingdom [GC], nos. 30562/04 and 30566/04, ECHR 2008"
     records = run(text, {"30562/04": [a], "30566/04": [a]}, language="en")
-    assert summary(records) == [("ECLI:CE:ECHR:2008:A", "30562/04", "appno", 0.95)]
+    assert summary(records) == [("ECLI:CE:ECHR:2008:A", "30562/04", "appno/echr_judgment", 0.95)]
     assert [m.raw_text for m in records[0].mentions] == ["30562/04", "30566/04"]
 
 
@@ -145,7 +149,12 @@ def test_name_date_is_off_by_default(monkeypatch):
     monkeypatch.setenv("NAME_DATE_LINKS", "1")
     records = cjeu_text.extract_text(unit, OPINION, DictLookup(), name_index=index)
     assert summary(records) == [
-        ("ECLI:CE:ECHR:2004:0622DEC001734103", "F V UNITED KINGDOM|2004-06-22", "name_date", 0.7)
+        (
+            "ECLI:CE:ECHR:2004:0622DEC001734103",
+            "F V UNITED KINGDOM|2004-06-22",
+            "name_date/echr_decision_no_judgment",
+            0.7,
+        )
     ]
 
 
@@ -165,7 +174,7 @@ def test_name_date_unmatched_or_ambiguous_is_unresolved_and_number_wins():
     ]
     covered = "F. v. the United Kingdom, 22 June 2004, no. 17341/03 (ECtHR)"
     records = run(covered, APPNOS, name_dates=True, name_index=index)
-    assert [r.match_method for r in records] == ["appno"]
+    assert [r.match_method for r in records] == ["appno/echr_decision_no_judgment"]
 
 
 def test_normalize_case_name():
@@ -262,7 +271,10 @@ def test_extract_from_database(conn, tmp_path):
             [("de", "INFOCURIA_BLOB_HTML")],
         ),
     ]
-    assert result["by_method"] == {"appno": 2}
+    assert result["by_method"] == {
+        "appno/echr_decision_cue": 1,
+        "appno/echr_decision_no_judgment": 1,
+    }
     counts = load_artifact(conn, out / "cjeu_text_echr.jsonl")
     assert counts["cjeu_text_echr"]["inserted"] == 2
 
@@ -275,6 +287,6 @@ def test_extract_name_date_from_database(conn, tmp_path):
     # One link: the application number (French text) and the name + date
     # (English text) reach the same decision; the surer rule is kept.
     assert [(r.match_method, r.target.ecli) for r in records] == [
-        ("appno", "ECLI:CE:ECHR:2004:0622DEC001734103")
+        ("appno/echr_decision_cue", "ECLI:CE:ECHR:2004:0622DEC001734103")
     ]
     assert sorted(m.language for m in records[0].mentions) == ["en", "fr"]

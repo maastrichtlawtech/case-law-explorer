@@ -211,13 +211,13 @@ def test_gold_referrals_and_follow_ups():
     links, stats = _links("62012CJ0199", GOLD_RS)
     got = {(r.source.ecli, r.relation_type, r.match_method, r.confidence) for r in links}
     assert got == {
-        ("ECLI:NL:RVS:2012:BW3078", "preliminary_reference", "metadata", 0.95),
-        ("ECLI:NL:RVS:2012:BW3077", "preliminary_reference", "metadata", 0.95),
-        ("ECLI:NL:RVS:2012:BW3076", "preliminary_reference", "metadata", 0.95),
+        ("ECLI:NL:RVS:2012:BW3078", "preliminary_reference", "metadata/zaaknummer", 0.95),
+        ("ECLI:NL:RVS:2012:BW3077", "preliminary_reference", "metadata/zaaknummer", 0.95),
+        ("ECLI:NL:RVS:2012:BW3076", "preliminary_reference", "metadata/zaaknummer", 0.95),
         # Cellar writes the referral's number; the decision is filed under .../1/V2
-        ("ECLI:NL:RVS:2013:2423", "national_follow_up", "metadata", 0.9),
-        ("ECLI:NL:RVS:2013:2424", "national_follow_up", "metadata", 0.9),
-        ("ECLI:NL:RVS:2013:2422", "national_follow_up", "metadata", 0.9),
+        ("ECLI:NL:RVS:2013:2423", "national_follow_up", "metadata/zaaknummer_base", 0.9),
+        ("ECLI:NL:RVS:2013:2424", "national_follow_up", "metadata/zaaknummer_base", 0.9),
+        ("ECLI:NL:RVS:2013:2422", "national_follow_up", "metadata/zaaknummer_base", 0.9),
     }
     assert all(r.target.ecli == "ECLI:EU:C:2013:720" for r in links)
     assert all(r.source_dataset == "cellar_national_judgement" for r in links)
@@ -417,7 +417,7 @@ def test_extract_and_load(scratch_db, tmp_path):  # noqa: F811
     )
     # R2.7: RS decision -> CJEU ruling is cross-jurisdiction
     assert rows == [
-        ("national_follow_up", True, "metadata"),
-        ("preliminary_reference", True, "metadata"),
+        ("national_follow_up", True, "metadata/zaaknummer_base"),
+        ("preliminary_reference", True, "metadata/zaaknummer"),
     ]
     assert execute(conn, "SELECT count(*) FROM cle_v2.case_citation_mention")[0][0] == 6

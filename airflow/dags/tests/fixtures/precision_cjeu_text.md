@@ -66,8 +66,8 @@ are unit-tested, not measured on real text.
 ## Name + date (D5)
 
 Implemented behind `NAME_DATE_LINKS` (default off): exact normalised
-`echr_document.docname` and `judgement_date`, `match_method = 'name_date'`,
-written unresolved when no document or more than one document matches.
+`echr_document.docname` and `judgement_date`, `match_method = 'name_date/<rule>'`
+(the resolver.choose_echr rule), written unresolved (`'name_date'`) when no document or more than one document matches.
 Number checked against real data: **0** (no database with CJEU texts and
 `echr_document` was available here; D5 requires a 100-row stratified sample at
 95% precision before the flag is switched on).

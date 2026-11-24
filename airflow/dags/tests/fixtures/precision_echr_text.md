@@ -24,23 +24,25 @@ by hand (see below).
   and relation `cites`; sections and `cites_in_domestic_law` are covered by
   unit tests only.
 
+The Rule column is written in the `<method>/<rule>` form of `artifact.py`; the sample was taken before that convention and its values are restated in it.
+
 | # | Source (handcheck line, production case_id) | Mention(s) as written | Chosen target (CELEX / ECLI) | Rule | Correct | Why |
 |---|---|---|---|---|---|---|
-| 1 | L2, 3743832 | `C-448/98` | 61998CJ0448 | case_number, judgment (AG opinion 61998CC0448 not taken) | y | "the Guimont judgment of 5 December 2000 (C-448/98)": the judgment, no Opinion cue |
+| 1 | L2, 3743832 | `C-448/98` | 61998CJ0448 | case_number/cjeu_judgment (AG opinion 61998CC0448 not taken) | y | "the Guimont judgment of 5 December 2000 (C-448/98)": the judgment, no Opinion cue |
 | 2 | L3, 3773393 | `C-13/05`, `ECLI:EU:C:2006:456` | 62005CJ0013 / ECLI:EU:C:2006:456 | ecli in the same citation | y | "judgment of 11 July 2006, Sonia Chacón Navas ..., C-13/05, ECLI:EU:C:2006:456" |
 | 3 | L4, 3769528 | `C‑175/11` (U+2011), `EU:C:2013:45` | 62011CJ0175 / ECLI:EU:C:2013:45 | ecli | y | "judgment of 31 January 2013, D. and A., C‑175/11, EU:C:2013:45" |
 | 4 | L5, 3777361 | `C-670/22`, `EU:C:2024:372` | 62022CJ0670 / ECLI:EU:C:2024:372 | ecli | y | "arrêt M.N. (EncroChat) du 30 avril 2024 (affaire C-670/22, EU:C:2024:372)" |
-| 5 | L6, 3722101 | `C-9/91` | 61991CJ0009 | case_number, judgment | y | "In the Case C-9/91 The Queen v. Secretary of State for Social Security ... [2000] ECR I-3701": the judgment (EOC case), no Opinion cue |
+| 5 | L6, 3722101 | `C-9/91` | 61991CJ0009 | case_number/cjeu_judgment | y | "In the Case C-9/91 The Queen v. Secretary of State for Social Security ... [2000] ECR I-3701": the judgment (EOC case), no Opinion cue |
 | 6 | L8, 3779973 | `C-144/23`, `EU:C:2024:881` | 62023CJ0144 / ECLI:EU:C:2024:881 | ecli | y | "judgment of 15 October 2024 in KUBERA (C-144/23, EU:C:2024:881, paragraph 65)" |
 | 7 | L9, 3928993 | `C-206/13`, `EU:C:2014:126` | 62013CJ0206 / ECLI:EU:C:2014:126 | ecli | y | "judgment of 6 March 2014, Siragusa , C-206/13, EU:C:2014:126" |
 | 8 | L9, 3928993 | `C ‑ 198/13`, `EU:C:2014:2055` | 62013CJ0198 / ECLI:EU:C:2014:2055 | ecli | y | "judgment of 10 July 2014, Julián Hernández and Others , C ‑ 198/13, EU:C:2014:2055" (a second citation in the same excerpt, not in the research check) |
-| 9 | L10, 3742097 | `C-72/06` | 62006CJ0072 | case_number, judgment | y | "In a judgment of 19 April 2007 (Case C-72/06 Commission v . Greece )" |
-| 10 | L11, 3747337 | `C-143/06` | 62006CJ0143 | case_number, judgment | y | "l'arrêt du 8 novembre 2007, Ludwigs-Apotheke , C-143/06": "conclusions" comes after the citation, in the next paragraph, so no opinion |
+| 9 | L10, 3742097 | `C-72/06` | 62006CJ0072 | case_number/cjeu_judgment | y | "In a judgment of 19 April 2007 (Case C-72/06 Commission v . Greece )" |
+| 10 | L11, 3747337 | `C-143/06` | 62006CJ0143 | case_number/cjeu_judgment | y | "l'arrêt du 8 novembre 2007, Ludwigs-Apotheke , C-143/06": "conclusions" comes after the citation, in the next paragraph, so no opinion |
 | 11 | L12, 3761947 | `C-6/90`, `C ‑ 9/90`, `EU:C:1991:428` | 61990CJ0006 / ECLI:EU:C:1991:428 | ecli; joined member C-9/90 as a mention of the same link | y | "Francovich breach of EU law (C-6/90 and C ‑ 9/90, EU:C:1991:428)": the joined Francovich judgment |
-| 12 | L13, 3776363 | `C-219/15` | 62015CJ0219 | case_number, judgment | y | "(CJUE, 16 février 2017, Schmitt, C-219/15)" |
+| 12 | L13, 3776363 | `C-219/15` | 62015CJ0219 | case_number/cjeu_judgment | y | "(CJUE, 16 février 2017, Schmitt, C-219/15)" |
 | 13 | L14, 3776066 | `C ‑ 511/18`, `C ‑ 512/18`, `C ‑ 520/18`, `EU:C:2020:791` | 62018CJ0511 / ECLI:EU:C:2020:791 | ecli wins (research picked the AG opinion 62018CC0520) | y | "La Quadrature du Net and Others (C ‑ 511/18, C ‑ 512/18 and C ‑ 520/18, EU:C:2020:791) ... In a judgment of 6 October 2020" |
 | 14 | L15, 3778523 | `T‑254/17`, `EU:T:2020:459` | 62017TJ0254 / ECLI:EU:T:2020:459 | ecli | y | "judgment of 5 October 2020 in Intermarché Casino Achats v. Commission (T‑254/17, EU:T:2020:459), the General Court" |
-| 15 | L16, 3780170 | `C-40/21` | 62021CJ0040 | case_number, judgment; truncated `C:2023:367` not read as an ECLI | y | "judgment of the CJEU ... T.A.C. v. ANI (C-40/21, C:2023:367) of 4 May 2023" |
+| 15 | L16, 3780170 | `C-40/21` | 62021CJ0040 | case_number/cjeu_judgment; truncated `C:2023:367` not read as an ECLI | y | "judgment of the CJEU ... T.A.C. v. ANI (C-40/21, C:2023:367) of 4 May 2023" |
 | 16 | L17, 3755428 | `C-293/12`, `C-594/12`, `EU:C:2014:238` | 62012CJ0293 / ECLI:EU:C:2014:238 | ecli; joined member as a mention | y | "judgment ... of 8 April 2014 in the joined cases of Digital Rights Ireland and Seitinger and Others (C-293/12 and C-594/12, EU:C:2014:238)" |
 | 17 | L18, 3768689 | `C-354/20 PPU`, `C-412/20 PPU`, `EU:C:2020:1033` | 62020CJ0354 / ECLI:EU:C:2020:1033 | ecli | y | "judgment of 17 December 2020 in the case of L and P ... (C-354/20 PPU and C-412/20 PPU, EU:C:2020:1033)" |
 | 18 | L20, 3756512 | `C ‑ 127/08`, `EU:C:2008:449` | 62008CJ0127 / ECLI:EU:C:2008:449 | ecli (order 62008CO0127 and 62008CP0127 not taken) | y | "a judgment of 25 July 2008 in Blaise Baheten Metock and Others ... (C ‑ 127/08, EU:C:2008:449)" |

@@ -20,7 +20,7 @@ opinions; every language stored) and writes the dataset ``cjeu_text_echr``
 * name + date citations ("F. v. the United Kingdom, 22 June 2004") only with
   the flag NAME_DATE_LINKS on (default off; decision D5 allows them only after
   a 100-row sample reaches 95% precision). They match echr_document.docname and
-  judgement_date exactly (match_method 'name_date', target_ref_scheme
+  judgement_date exactly (match_method 'name_date/<rule>', target_ref_scheme
   'name_date') and are skipped when an application number or ECLI already
   names a document in the same citation.
 
@@ -45,7 +45,7 @@ from datetime import date
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import identifiers, resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord
+from data_extraction.linking.artifact import CaseKey, LinkRecord, match_method
 from data_extraction.linking.text_common import (
     DATE_RE,
     CandidateLookup,
@@ -354,13 +354,13 @@ def resolve(scan_result: Scan, unit: TextUnit, source: Source, lookup, name_inde
         ]
         choice = resolver.choose_echr(pool, source.date, decision_cue=doc_type == "DEC")
         if choice is None:
-            add(None, start, end, "ecli", None, ref=appno, scheme="echr_appno")
+            add(None, start, end, "appno", None, ref=appno, scheme="echr_appno")
         else:
             add(
                 CaseKey.from_dict(choice.candidate.key()),
                 start,
                 end,
-                "ecli",
+                match_method("ecli", "without_year_" + choice.rule),
                 CONF_ECLI_NO_YEAR,
                 ref=appno,
                 scheme="echr_appno",
@@ -380,7 +380,7 @@ def resolve(scan_result: Scan, unit: TextUnit, source: Source, lookup, name_inde
             target,
             ref.start,
             ref.end,
-            "appno",
+            match_method("appno", choice.rule if choice else None),
             choice.confidence if choice else None,
             ref=ref.value,
             scheme="echr_appno",
@@ -402,7 +402,15 @@ def resolve(scan_result: Scan, unit: TextUnit, source: Source, lookup, name_inde
             add(None, start, end, "name_date", None, ref=ref, scheme="name_date")
         else:
             target = CaseKey.from_dict(choice.candidate.key())
-            add(target, start, end, "name_date", CONF_NAME_DATE, ref=ref, scheme="name_date")
+            add(
+                target,
+                start,
+                end,
+                match_method("name_date", choice.rule),
+                CONF_NAME_DATE,
+                ref=ref,
+                scheme="name_date",
+            )
     return out
 
 
@@ -554,7 +562,11 @@ def main(argv=None):
     conn = connect(args.dsn_env)
     try:
         result = extract(
-            conn, case_ids=args.case_id, id_range=(args.from_id, args.to_id), out_path=args.out
+            conn,
+            case_ids=args.case_id,
+            id_range=(args.from_id, args.to_id),
+            out_path=args.out,
+            batch_size=args.batch_size,
         )
     finally:
         conn.close()

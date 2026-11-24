@@ -132,7 +132,7 @@ def test_conflicting_ecli_keeps_the_ecli_and_leaves_the_number_unresolved():
     records = run("judgment in Max-Planck (C-684/16, EU:C:2018:871).", numbers)
     assert targets(records) == [
         ("echr_text_cjeu", "cites", None, "C-684/16", "case_number"),
-        ("echr_text_cjeu", "cites", "ECLI:EU:C:2018:871", None, "ecli"),
+        ("echr_text_cjeu", "cites", "ECLI:EU:C:2018:871", None, "ecli/numbers_disagree"),
     ]
     assert {r.confidence for r in records if r.target} == {echr_text.CONF_ECLI_CONFLICT}
 
@@ -154,7 +154,9 @@ def test_opinion_when_written_before_the_citation():
 def test_truncated_ecli_is_ignored_and_case_number_resolves():
     numbers = {"C-40/21": [cand(3867077, "62021CC0040"), cand(3867914, "62021CJ0040")]}
     records = run(TAC, numbers)
-    assert [(r.target.celex, r.match_method) for r in records] == [("62021CJ0040", "case_number")]
+    assert [(r.target.celex, r.match_method) for r in records] == [
+        ("62021CJ0040", "case_number/cjeu_judgment")
+    ]
 
 
 def test_joined_range_goes_to_the_lead_case_and_plain_space():
@@ -162,7 +164,7 @@ def test_joined_range_goes_to_the_lead_case_and_plain_space():
     text = "CJUE, X, Y et Z, affaires jointes C 199/12 à C 201/12, 7 novembre 2013"
     records = run(text, numbers)
     assert targets(records) == [("echr_text_cjeu", "cites", "ECLI:EU:C:2013:720", "C-199/12",
-                                 "case_number")]  # fmt: skip
+                                 "case_number/cjeu_judgment")]  # fmt: skip
     assert [m.raw_text for m in records[0].mentions] == ["C 199/12", "C 201/12"]
 
 
@@ -188,7 +190,9 @@ def test_application_numbers_and_domestic_file_numbers_are_not_case_numbers():
         "the District Court (sygn. akt I C 123/05) and II C 45/10; Case 26/62 Van Gend en Loos"
     )
     records = run(text, {"26/62": [cand(7, "61962CJ0026")]})
-    assert targets(records) == [("echr_text_cjeu", "cites", "61962CJ0026", "26/62", "case_number")]
+    assert targets(records) == [
+        ("echr_text_cjeu", "cites", "61962CJ0026", "26/62", "case_number/cjeu_judgment")
+    ]
 
 
 def test_dated_after_source_is_not_chosen():
@@ -224,10 +228,10 @@ def test_dutch_ecli_and_ljn():
         "conclusie van de advocaat-generaal, LJN BV3436"
     )
     assert targets(run(text, ljns=ljns)) == [
-        ("echr_text_rs", "cites", "ECLI:NL:HR:2011:BR0132", "BR0132", "ljn"),
-        ("echr_text_rs", "cites", "ECLI:NL:HR:2012:BV3436", "BV3436", "ljn"),
+        ("echr_text_rs", "cites", "ECLI:NL:HR:2011:BR0132", "BR0132", "ljn/court_decision"),
+        ("echr_text_rs", "cites", "ECLI:NL:HR:2012:BV3436", "BV3436", "ljn/court_decision"),
         ("echr_text_rs", "cites", "ECLI:NL:HR:2013:BZ3640", None, "ecli"),
-        ("echr_text_rs", "cites", "ECLI:NL:PHR:2012:BV3436", "BV3436", "ljn"),
+        ("echr_text_rs", "cites", "ECLI:NL:PHR:2012:BV3436", "BV3436", "ljn/conclusion"),
     ]
 
 

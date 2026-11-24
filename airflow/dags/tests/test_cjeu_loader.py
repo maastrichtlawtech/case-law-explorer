@@ -210,6 +210,8 @@ def test_load_rows_retries_a_failed_batch_case_by_case(client, monkeypatch):
 
 
 def test_link_ecli_leaves_cross_dataset_link_rows_alone():
-    # Rows from the cross-dataset link loader (rs_text_*) are insert-only; late
-    # binding resolves them as new rows, so the CJEU load must not rewrite them.
-    assert "left(cc.source_dataset, 8) <> 'rs_text_'" in cjeu_loader.SQL_LINK_ECLI
+    # Rows from the cross-dataset link loader (LINK_DATASETS) are insert-only;
+    # late binding resolves them as new rows, so the CJEU load must not rewrite
+    # them.
+    assert "AND NOT (starts_with(cc.source_dataset, 'rs_text_') OR" in cjeu_loader.SQL_LINK_ECLI
+    assert "starts_with(cc.source_dataset, 'echr_text_')" in cjeu_loader.SQL_LINK_ECLI

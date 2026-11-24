@@ -23,9 +23,9 @@ Real research data only (cjeu-migration `migration/verify/research-2026-11-24/cj
 
 | Outcome | Rows |
 |---|---|
-| appeal_of, appeal judgment (`uuid_dossier_cjeu_judgment`) | 958 |
+| appeal_of, appeal judgment (`case_number/uuid_dossier_cjeu_judgment`) | 958 |
 | appeal_of, appeal judgment, earliest of several | 4 |
-| appeal_of, the only order (`uuid_dossier_cjeu_order`) | 641 |
+| appeal_of, the only order (`case_number/uuid_dossier_cjeu_order`) | 641 |
 | skipped: several orders and no judgment | 28 |
 | skipped: no candidate without a conflicting suffix (`P(R)`, `P-OST`, ...) | 75 |
 | skipped: case number not in `cn_map.json` | 74 |
@@ -64,27 +64,29 @@ read; the dossier identifier comes from Cellar itself.
 
 **22 correct of 22 checked.**
 
+match_method is written in the `<method>/<rule>` form of `artifact.py`; the sample was taken before that convention and its values are restated in it.
+
 | # | Decision under appeal (target) | Cellar URI (UUID) | Dossier | Appeal decision (source) | Method, confidence | Verdict |
 |---|---|---|---|---|---|---|
-| 1 | 62011TJ0674 | `a0d2afab-4558-11e7-aea8-01aa75ed71a1` | C-657/15 P | 62015CJ0657 | case_number 0.95 | correct |
-| 2 | 62021TJ0324 | `de71c42f-1e71-11ef-a251-01aa75ed71a1` | C-297/23 P | 62023CJ0297 | case_number 0.95 | correct |
-| 3 | 62010TO0084 | `265cc4b6-2a7a-11e7-9412-01aa75ed71a1` | C-586/11 P | 62011CO0586 | case_number 0.85 | correct |
-| 4 | 62011TO0466 | `3c3e00dd-29c2-11e7-ab65-01aa75ed71a1` | C-616/12 P | 62012CO0616 | case_number 0.85 | correct |
-| 5 | 62021TJ0354 | `d89b4bc5-82bd-11ee-99ba-01aa75ed71a1` | C-249/23 P | 62023CJ0249 | case_number 0.95 | correct |
-| 6 | 62021TJ0268 | `a219b131-d96d-11ef-be2a-01aa75ed71a1` | C-490/23 P | 62023CJ0490 | case_number 0.95 | correct |
-| 7 | 62011TJ0217 | `ddedb7fe-4cfd-11e7-a5ca-01aa75ed71a1` | C-338/15 P | 62015CO0338 | case_number 0.85 | correct |
-| 8 | 62020TO0684 | `b083e974-f772-11ec-b94a-01aa75ed71a1` | C-152/22 P | 62022CO0152 | case_number 0.85 | correct |
-| 9 | 62018TO0599 | `aaee15c5-dfd5-11eb-895a-01aa75ed71a1` | C-874/19 P | 62019CJ0874 | case_number 0.95 | correct |
-| 10 | 62018TO0282(01) | `9893ed2e-9556-11ec-b4e4-01aa75ed71a1` | C-364/20 P | 62020CJ0364 | case_number 0.95 | correct |
-| 11 | 62015FO0021 | `3d36debb-e497-11e7-9749-01aa75ed71a1` | T-682/15 P | 62015TJ0682 | case_number 0.95 | correct |
-| 12 | 62023TJ0370 | `a0452316-c074-11f0-a612-01aa75ed71a1` | C-779/24 P | 62024CJ0779 | case_number 0.95 | correct |
-| 13 | 62016TJ0183 | `ce1330a4-ef10-11e9-a32c-01aa75ed71a1` | C-590/19 P | 62019CO0590 | case_number 0.85 | correct |
-| 14 | 62017TJ0229 | `d2247210-eac6-11eb-93a8-01aa75ed71a1` | C-475/19 P | 62019CJ0475 | case_number 0.95 | correct |
-| 15 | 62023TJ1061 | `d8ac7d55-d0e0-11f0-8da2-01aa75ed71a1` | C-532/25 P | 62025CO0532 | case_number 0.85 | correct |
-| 16 | 62019TJ0670 | `e51a172d-3b2e-11ed-9c68-01aa75ed71a1` | C-613/21 P | 62021CJ0613 | case_number 0.95 | correct |
-| 17 | 62013TJ0472 | `81219f14-a650-11ea-bb7a-01aa75ed71a1` | C-591/16 P | 62016CJ0591 | case_number 0.95 | correct |
-| 18 | 62011TJ0305 | `484064e4-dd84-11e6-ad7c-01aa75ed71a1` | C-268/14 P | 62014CJ0268 | case_number 0.95 | correct |
-| 19 | 62020TJ0513 | `f6fe5623-f1f5-11f0-8d3c-01aa75ed71a1` | C-124/24 P | 62024CJ0124 | case_number 0.95 | correct |
-| 20 | 62008FJ0038 | `c2bf1392-3f82-11e7-a08e-01aa75ed71a1` | T-167/09 P | 62009TJ0167 | case_number 0.95 | correct |
-| 21 | 62019TJ0279 | `6c9350f4-e78e-11ee-9ea8-01aa75ed71a1` | C-779/21 P | 62021CJ0779 | case_number 0.95 | correct |
-| 22 | 62020TJ0187 | `761069d8-5667-11ec-91ac-01aa75ed71a1` | C-490/21 P | 62021CO0490 | case_number 0.85 | correct |
+| 1 | 62011TJ0674 | `a0d2afab-4558-11e7-aea8-01aa75ed71a1` | C-657/15 P | 62015CJ0657 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 2 | 62021TJ0324 | `de71c42f-1e71-11ef-a251-01aa75ed71a1` | C-297/23 P | 62023CJ0297 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 3 | 62010TO0084 | `265cc4b6-2a7a-11e7-9412-01aa75ed71a1` | C-586/11 P | 62011CO0586 | case_number/uuid_dossier_cjeu_order 0.85 | correct |
+| 4 | 62011TO0466 | `3c3e00dd-29c2-11e7-ab65-01aa75ed71a1` | C-616/12 P | 62012CO0616 | case_number/uuid_dossier_cjeu_order 0.85 | correct |
+| 5 | 62021TJ0354 | `d89b4bc5-82bd-11ee-99ba-01aa75ed71a1` | C-249/23 P | 62023CJ0249 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 6 | 62021TJ0268 | `a219b131-d96d-11ef-be2a-01aa75ed71a1` | C-490/23 P | 62023CJ0490 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 7 | 62011TJ0217 | `ddedb7fe-4cfd-11e7-a5ca-01aa75ed71a1` | C-338/15 P | 62015CO0338 | case_number/uuid_dossier_cjeu_order 0.85 | correct |
+| 8 | 62020TO0684 | `b083e974-f772-11ec-b94a-01aa75ed71a1` | C-152/22 P | 62022CO0152 | case_number/uuid_dossier_cjeu_order 0.85 | correct |
+| 9 | 62018TO0599 | `aaee15c5-dfd5-11eb-895a-01aa75ed71a1` | C-874/19 P | 62019CJ0874 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 10 | 62018TO0282(01) | `9893ed2e-9556-11ec-b4e4-01aa75ed71a1` | C-364/20 P | 62020CJ0364 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 11 | 62015FO0021 | `3d36debb-e497-11e7-9749-01aa75ed71a1` | T-682/15 P | 62015TJ0682 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 12 | 62023TJ0370 | `a0452316-c074-11f0-a612-01aa75ed71a1` | C-779/24 P | 62024CJ0779 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 13 | 62016TJ0183 | `ce1330a4-ef10-11e9-a32c-01aa75ed71a1` | C-590/19 P | 62019CO0590 | case_number/uuid_dossier_cjeu_order 0.85 | correct |
+| 14 | 62017TJ0229 | `d2247210-eac6-11eb-93a8-01aa75ed71a1` | C-475/19 P | 62019CJ0475 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 15 | 62023TJ1061 | `d8ac7d55-d0e0-11f0-8da2-01aa75ed71a1` | C-532/25 P | 62025CO0532 | case_number/uuid_dossier_cjeu_order 0.85 | correct |
+| 16 | 62019TJ0670 | `e51a172d-3b2e-11ed-9c68-01aa75ed71a1` | C-613/21 P | 62021CJ0613 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 17 | 62013TJ0472 | `81219f14-a650-11ea-bb7a-01aa75ed71a1` | C-591/16 P | 62016CJ0591 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 18 | 62011TJ0305 | `484064e4-dd84-11e6-ad7c-01aa75ed71a1` | C-268/14 P | 62014CJ0268 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 19 | 62020TJ0513 | `f6fe5623-f1f5-11f0-8d3c-01aa75ed71a1` | C-124/24 P | 62024CJ0124 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 20 | 62008FJ0038 | `c2bf1392-3f82-11e7-a08e-01aa75ed71a1` | T-167/09 P | 62009TJ0167 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 21 | 62019TJ0279 | `6c9350f4-e78e-11ee-9ea8-01aa75ed71a1` | C-779/21 P | 62021CJ0779 | case_number/uuid_dossier_cjeu_judgment 0.95 | correct |
+| 22 | 62020TJ0187 | `761069d8-5667-11ec-91ac-01aa75ed71a1` | C-490/21 P | 62021CO0490 | case_number/uuid_dossier_cjeu_order 0.85 | correct |
