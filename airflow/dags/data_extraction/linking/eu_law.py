@@ -48,7 +48,7 @@ Precision rules:
     institutional suffix or the "(EU)"-style prefix (Dutch "besluit" is an
     ordinary word, and "Besluit nr. 1/80" of the EEC-Turkey Association
     Council is not an EU act with a CELEX of this form);
-  * years must be possible (1958 to the present; two-digit years only before
+  * years must be possible (1952 to next year; two-digit years only before
     1999) and treaty article numbers must exist in that treaty;
   * a treaty or the Charter counts only with an article; a secondary act
     counts on its own too (article-less reference);
@@ -107,10 +107,10 @@ TREATIES = {
         _treaty("TEU", ("12016M", "12012M", "12008M"), 55),
         _treaty("CHARTER", ("12016P", "12012P", "12007P", "12000P"), 54),
         # EC Treaty in the Amsterdam numbering (1 May 1999 to 30 November 2009)
-        _treaty("EC", ("11997E", "12002E", "12006E"), 314),
+        _treaty("EC", ("12006E", "12002E", "11997E"), 314),
         # EC Treaty before Amsterdam (Maastricht; EEC numbering)
         _treaty("EC_1992", ("11992E",), 248),
-        _treaty("TEU_1997", ("11997M", "12002M", "12006M"), 53),
+        _treaty("TEU_1997", ("12006M", "12002M", "11997M"), 53),
         _treaty("EEC", ("11957E",), 248),
     )
 }
@@ -233,7 +233,7 @@ _SUFFIXES = (
 )
 _NR = r"(?:nr\.?|no\.?|No\.?|n°|nº|n" + _S + r"?o|number)"
 _NUMBER = (
-    r"(?P<a>\d{1,4})" + _S + r"?/" + _S + r"?(?P<b>\d{2,4})"
+    r"(?P<a>\d{1,4})" + _S + r"?/" + _S + r"?(?P<b>\d{1,4})"
     r"(?:" + _S + r"?/" + _S + r"?(?P<suffix>" + _SUFFIXES + r"))?(?![\d/])"
 )
 
@@ -284,7 +284,7 @@ _TREATY_NAMES = (
      + r"+the" + _WS + r"+European" + _WS + r"+Union", "TFEU", False, False),
     (r"Traité" + _WS + r"+sur" + _WS + r"+le" + _WS + r"+fonctionnement" + _WS + r"+de"
      + _WS + r"+l['’]" + _WS + r"*Union" + _WS + r"+européenne", "TFEU", False, False),
-    (r"VWEU|TFEU|TFUE|TFUE", "TFEU", False, True),
+    (r"VWEU|TFEU|TFUE|AEUV", "TFEU", False, True),
     # TEU
     (r"Verdrag" + _WS + r"+betreffende" + _WS + r"+de" + _WS + r"+Europese" + _WS + r"+Unie",
      "TEU", False, False),
@@ -515,29 +515,47 @@ class EuLawHit:
         return self.article.subdivision if self.article else None
 
 
-def _year(value: str, four_digit_from: int = 1999) -> Optional[int]:
-    """'93' -> 1993 (two-digit years only before 1999), '2011' -> 2011."""
+def _year(value: str) -> Optional[int]:
+    """'93' -> 1993 (two-digit years 1952-1998), '2011' -> 2011, '1995' ->
+    1995 (four-digit years 1952 to next year)."""
     if len(value) == 2:
         year = 1900 + int(value)
-        return year if 1952 <= year < four_digit_from else None
+        return year if 1952 <= year < 1999 else None
     if len(value) == 4:
         year = int(value)
-        return year if four_digit_from <= year <= date.today().year + 1 else None
+        return year if 1952 <= year <= date.today().year + 1 else None
     return None
 
 
-def act_celex(kind: str, a: str, b: str, has_nr: bool, max_year: Optional[int] = None):
+_EU_PREFIXES = ("EU", "UE")
+
+
+def act_celex(
+    kind: str,
+    a: str,
+    b: str,
+    has_nr: bool,
+    max_year: Optional[int] = None,
+    prefix: Optional[str] = None,
+):
     """CELEX of a numbered act, or None when the number is not possible.
 
     Directives and (framework) decisions are year/number. Regulations are
     number/year until 2014 ("1408/71", "nr. 604/2013") and year/number from
-    2015 ("(EU) 2016/679")."""
+    2015 ("(EU) 2016/679", also written "(EU) nr. 2016/679"): year/number when
+    a is a four-digit year from 2015 on, unless b is a four-digit year up to
+    2014 ("2016/2000": regulation 2016 of 2000), and then not when the prefix
+    is (EU)/(UE), which no regulation before 2010 carries. has_nr no longer
+    decides (kept for the callers)."""
     if kind == "R":
-        year_first = len(a) == 4 and not has_nr and _year(a) is not None and int(a) >= 2015
-        if year_first and len(b) == 4 and _year(b) is not None and int(b) <= 2014:
-            year_first = False  # "2004/2003" with both year-like: the older style
+        a_year = _year(a) if len(a) == 4 else None
+        b_year = _year(b) if len(b) == 4 else None
+        year_first = a_year is not None and a_year >= 2015
+        if year_first and b_year is not None and b_year <= 2014:
+            # both year-like: the older style, unless the prefix rules it out
+            year_first = prefix in _EU_PREFIXES and b_year < 2010
         if year_first:
-            year, number = _year(a), int(b)
+            year, number = a_year, int(b)
         else:
             year, number = _year(b), int(a)
             if year is not None and year >= 2015:
@@ -609,7 +627,7 @@ def scan(text: str, decided: Optional[date] = None, profile: str = "rs") -> List
             prefix, suffix, nr = m.group("prefix"), m.group("suffix"), m.group("nr")
             if kind == "D" and not (prefix or suffix):
                 continue
-            celex = act_celex(kind, m.group("a"), m.group("b"), bool(nr), max_year)
+            celex = act_celex(kind, m.group("a"), m.group("b"), bool(nr), max_year, prefix)
             if celex is None:
                 continue
             confidence = 0.95 if (prefix or suffix or (kind == "R" and nr)) else 0.85

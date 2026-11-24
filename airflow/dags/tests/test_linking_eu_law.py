@@ -45,12 +45,44 @@ def refs(text, decided=date(2024, 6, 1), profile="rs"):
         ("L", "2011", "0", False, None),
         ("R", "2016", "2015", False, "32016R2015"),  # year/number from 2015
         ("R", "604", "2016", True, None),  # number/year ended in 2014
-        ("L", "1993", "13", False, None),  # four-digit years from 1999
+        ("L", "1993", "13", False, "31993L0013"),  # four-digit years from 1952
+        ("L", "1951", "13", False, None),
         ("L", "99", "44", False, None),  # two-digit years before 1999 only
     ],
 )
 def test_act_celex(kind, a, b, nr, expected):
     assert eu_law.act_celex(kind, a, b, nr) == expected
+
+
+# Illustrative strings (review findings of 2026-11-24), not copied from judgments.
+@pytest.mark.parametrize(
+    "text, celex",
+    [
+        ("Richtlijn 2003/9/EG", "32003L0009"),  # act numbers 1-9
+        ("Directive 2011/7/EU", "32011L0007"),
+        ("Verordening (EU) 2015/1", "32015R0001"),
+        ("Richtlijn 1995/46/EG", "31995L0046"),  # four-digit years before 1999
+        ("Directive 1993/13/EEC", "31993L0013"),
+        ("Verordening (EEG) nr. 1408/1971", "31971R1408"),
+        ("Verordening (EU) nr. 2016/679", "32016R0679"),  # year/number despite "nr."
+        ("Verordening (EU) nr. 2016/2000", "32016R2000"),  # no (EU) act from 2000
+        ("Verordening (EG) nr. 2016/2000", "32000R2016"),  # number/year: both year-like
+        ("Verordening (EG) nr. 1408/71", "31971R1408"),
+    ],
+)
+def test_act_numbers_from_the_review(text, celex):
+    assert [h.celex for h in eu_law.scan(text, date(2024, 6, 1))] == [celex]
+
+
+def test_aeuv_is_the_tfeu():
+    """Illustrative (German abbreviation)."""
+    assert refs("Art. 267 AEUV") == [("12016E/TXT", "267")]
+
+
+def test_ec_treaty_versions_newest_first():
+    ec = eu_law.TREATIES["EC"]
+    assert (ec.raw_resource, ec.alternatives[:2]) == ("12006E/TXT", ("12006E", "12002E/TXT"))
+    assert eu_law.TREATIES["TEU_1997"].raw_resource == "12006M/TXT"
 
 
 def test_act_celex_rejects_acts_after_the_citing_decision():
@@ -183,19 +215,19 @@ def test_suffix_inside_an_act_number_is_not_the_ec_treaty():
 
 
 def test_ec_treaty_needs_the_article_right_before_it_and_follows_the_date():
-    assert refs("artikel 234 EG") == [("11997E/TXT", "234")]
+    assert refs("artikel 234 EG") == [("12006E/TXT", "234")]
     assert refs("artikel 177 EG-Verdrag", decided=date(1995, 1, 1)) == [("11992E/TXT", "177")]
     assert refs("artikel 234 van het EG") == []
 
 
 def test_ec_treaty_old_numbering_cue():
     assert refs("artikel 85 EG-Verdrag (oud)") == [("11992E/TXT", "85")]
-    assert refs("Article 81 EC") == [("11997E/TXT", "81")]
+    assert refs("Article 81 EC") == [("12006E/TXT", "81")]
     assert {h.confidence for h in eu_law.scan("artikel 81 EG", date(2005, 1, 1))} == {0.8}
 
 
 def test_teu_before_lisbon():
-    assert refs("artikel 6 VEU", decided=date(2005, 1, 1)) == [("11997M/TXT", "6")]
+    assert refs("artikel 6 VEU", decided=date(2005, 1, 1)) == [("12006M/TXT", "6")]
 
 
 def test_bare_charter_in_rechtspraak_text():
@@ -311,13 +343,13 @@ REAL_DUTCH = [
         date(1999, 6, 1),
         # read as Amsterdam art. 85(2); the author meant the old art. 85(2)
         # (competition), so this one is WRONG (see precision_eu_law.md)
-        [("11997E/TXT", "85(2)")],
+        [("12006E/TXT", "85(2)")],
     ),
     (
         "Hoogervorst, F.M.: Strijd met openbare orde wegens schending art. 81 EG; vernietiging "
         "arbitraal vonnis, Nederlands tijdschrift voor burgerlij",
         date(1999, 6, 1),
-        [("11997E/TXT", "81")],
+        [("12006E/TXT", "81")],
     ),
     (
         "Garben, Sacha; Janssen, Sally: Kaderbesluit 2002/584/JBZ - Europees aanhoudingsbevel - "
