@@ -14,6 +14,7 @@ Schemes (case_identifier.scheme):
     echr_appno        17341/03
     nl_zaaknummer     201012342/1/T1/V2 (also stored without the instance segment)
     ljn               BW3076
+    cellar_dossier_uuid  0d3ca4a0-39b6-11e9-8d04-01aa75ed71a1 (a Cellar resource URI's UUID)
 """
 
 import re
@@ -60,6 +61,10 @@ _ECLI_RE = re.compile(
 _CELEX_RE = re.compile(r"^(?P<sector>[0-9CE])(?P<year>\d{4})(?P<type>[A-Z]{1,2})(?P<number>\d{4})")
 _APPNO_RE = re.compile(r"^(?P<number>\d{1,6})/(?P<year>\d{2})$")
 _LJN_RE = re.compile(r"^[A-Z]{2}\d{4}$")
+_CELLAR_UUID_RE = re.compile(
+    r"(?:^|/|:)(?P<uuid>[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})"
+    r"(?:\.\d{4}(?:\.\d{2})?)?/?$"
+)
 
 
 def _clean(value):
@@ -177,6 +182,17 @@ def normalize_ljn(value):
     return text if _LJN_RE.match(text) else None
 
 
+def normalize_cellar_uuid(value):
+    """'http://publications.europa.eu/resource/cellar/0D3CA4A0-...-01aa75ed71a1.0001'
+    or 'cellar:0d3c...' -> '0d3ca4a0-39b6-11e9-8d04-01aa75ed71a1' (the work's
+    UUID, without a manifestation suffix)."""
+    text = _clean(value)
+    if text is None:
+        return None
+    match = _CELLAR_UUID_RE.search(text.lower().replace(" ", ""))
+    return match.group("uuid") if match else None
+
+
 NORMALIZERS = {
     "ecli": normalize_ecli,
     "celex": normalize_celex,
@@ -184,6 +200,7 @@ NORMALIZERS = {
     "echr_appno": normalize_echr_appno,
     "nl_zaaknummer": normalize_zaaknummer,
     "ljn": normalize_ljn,
+    "cellar_dossier_uuid": normalize_cellar_uuid,
 }
 
 
