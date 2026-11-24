@@ -45,6 +45,9 @@ def redirect_failure_log(tmp_path, monkeypatch):
     redirect that to a throwaway file so tests don't write into the repo."""
     failure_log = tmp_path / "failed.csv"
     monkeypatch.setattr(row_processors_module, "get_path_processed", lambda name: str(failure_log))
+    # Failures go beside the processed CSV; tests pass path="unused", so the
+    # report lands in the working directory: make that the temporary one.
+    monkeypatch.chdir(tmp_path)
     return failure_log
 
 

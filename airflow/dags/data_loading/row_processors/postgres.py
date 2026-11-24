@@ -1,4 +1,5 @@
 import logging
+import os
 import re
 from datetime import date
 
@@ -136,7 +137,12 @@ class _BaseRowProcessor:
 
     def _log_failure(self, key, error):
         logging.error(f"{error} {key} ; while upserting {self.detail_table} row into Postgres")
-        with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
+        # Beside the processed CSV, so the promoter's verifier can reject the
+        # exact month while the report stays on Airflow's data volume.
+        failure_path = os.path.join(
+            os.path.dirname(self.path), os.path.basename(get_path_processed(CSV_LOAD_FAILED))
+        )
+        with open(failure_path, "a") as f:
             f.write(f"{key}\n{error}\n")
 
     def upload_row(self, row: dict) -> int:
