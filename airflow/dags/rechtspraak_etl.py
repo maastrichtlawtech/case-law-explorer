@@ -96,9 +96,7 @@ def rechtspraak_etl(**kwargs):
             raise ValueError("RS_MODIFIED_LOOKBACK_DAYS must be positive")
         modified_end = end_date.date()
         modified_start = modified_end - timedelta(days=lookback_days - 1)
-        modified_dir = os.path.join(
-            _data_path, "raw", "modified", modified_end.isoformat()
-        )
+        modified_dir = os.path.join(_data_path, "raw", "modified", modified_end.isoformat())
         _, lido_sqlite_db_path = get_lido_sqlite_paths(_data_path)
         modified_paths = rechtspraak_extract_modified(
             starting_date=modified_start.isoformat(),
@@ -110,9 +108,7 @@ def rechtspraak_etl(**kwargs):
         modified_processed = data_transformer.transform_data(
             caselaw_type="RS",
             input_paths=[modified_paths["citations"]],
-            output_dir=os.path.join(
-                _data_path, "processed", "modified", modified_end.isoformat()
-            ),
+            output_dir=os.path.join(_data_path, "processed", "modified", modified_end.isoformat()),
         )
         data_loader.load_data(
             input_paths=modified_processed,
@@ -126,7 +122,7 @@ def rechtspraak_etl(**kwargs):
 
 
 with dag:
-    etl_tasks = build_monthly_task_group(dag, "rechtspraak_etl", "RS", rechtspraak_etl)
+    etl_tasks = build_monthly_task_group(dag, "rechtspraak_etl", "RS", rechtspraak_etl, links=True)
     terminal = etl_tasks
 
     # Only chain segmentation on when there is a segmentation service to call.

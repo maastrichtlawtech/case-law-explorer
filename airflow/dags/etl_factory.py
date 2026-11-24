@@ -13,6 +13,7 @@ import urllib.request
 from calendar import monthrange
 from datetime import date, datetime, timedelta
 
+import linking_tasks
 from airflow.models.variable import Variable
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
@@ -127,6 +128,22 @@ def resolve_run_window(var_prefix, context):
     return start, end, scheduled
 
 
+def iter_month_chunks(start, end):
+    """(chunk_start, chunk_end) dates of the month-sized chunks of a window.
+
+    The chunk start names the processed/raw folder, so run_monthly_window and
+    the link task (linking_tasks.py) must agree on it.
+    """
+    current = start
+    while current <= end:
+        chunk_end = min(
+            date(current.year, current.month, monthrange(current.year, current.month)[1]),
+            end,
+        )
+        yield current, chunk_end
+        current = chunk_end + timedelta(days=1)
+
+
 def run_monthly_window(var_prefix, etl_callable, **context):
     """Run one source window in sequential month-sized chunks."""
     start, end, scheduled = resolve_run_window(var_prefix, context)
@@ -139,14 +156,12 @@ def run_monthly_window(var_prefix, etl_callable, **context):
     }
     force_refresh = scheduled or requested_refresh
     logging.info("Resolved %s window %s to %s", var_prefix, start, end)
-    current = start
-    while current <= end:
-        chunk_end = min(
-            date(current.year, current.month, monthrange(current.year, current.month)[1]),
-            end,
-        )
+    for current, chunk_end in iter_month_chunks(start, end):
         marker = os.path.join(
-            get_data_path(), "processed", current.isoformat(), NO_SOURCE_DATA_MARKER.format(var_prefix)
+            get_data_path(),
+            "processed",
+            current.isoformat(),
+            NO_SOURCE_DATA_MARKER.format(var_prefix),
         )
         if os.path.exists(marker):
             os.remove(marker)
@@ -169,7 +184,6 @@ def run_monthly_window(var_prefix, etl_callable, **context):
             os.makedirs(os.path.dirname(marker), exist_ok=True)
             with open(marker, "w") as handle:
                 handle.write(f"{current} to {chunk_end}\n")
-        current = chunk_end + timedelta(days=1)
 
 
 def register_promotion(dag_id, var_prefix=None, **context):
@@ -232,18 +246,34 @@ def cleanup_raw_files(paths):
                 logging.warning(f"Could not remove {file_path}: {e}")
 
 
-def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable):
+def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=False):
     """
     One sequential task which resolves its window at run time and invokes the
     source callable in month-sized chunks. This keeps historical backfills and
     scheduled refreshes on the existing DAG without parallel source bursts.
+
+    With links=True and LINK_EXTRACTION_ENABLED set, a second task
+    (``extract_links``, linking_tasks.run_window_links) follows ``run_window``
+    in the group: it extracts and loads the cross-dataset links of the months
+    ``run_window`` loaded. As the group's last task it runs before anything
+    the DAG chains after the group (register_promotion), and a failure there
+    retries only the link step, not the source extraction. With the flag off
+    the group is exactly the single ``run_window`` task.
     """
     with TaskGroup(f"{task_prefix}_tasks", tooltip=f"{task_prefix} tasks", dag=dag) as task_group:
-        PythonOperator(
+        run_window = PythonOperator(
             task_id="run_window",
             python_callable=run_monthly_window,
             op_kwargs={"var_prefix": var_prefix, "etl_callable": etl_callable},
             dag=dag,
         )
+        if links and linking_tasks.enabled():
+            extract_links = PythonOperator(
+                task_id="extract_links",
+                python_callable=linking_tasks.run_window_links,
+                op_kwargs={"var_prefix": var_prefix},
+                dag=dag,
+            )
+            run_window >> extract_links
 
     return task_group
