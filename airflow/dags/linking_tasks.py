@@ -64,9 +64,11 @@ Cited authorities (roadmap Phase 4) run the same way behind their own flag:
                               nothing is added.
     AUTHORITY_RS_TEXT, AUTHORITY_RS_PUBLICATION, AUTHORITY_ECHR_TEXT,
     AUTHORITY_CELLAR          per extractor, default on when the master is on.
-    AUTHORITY_NL_OFFICIAL_PUBLICATIONS, AUTHORITY_CELLAR_DECISIONS
-                              content switches of authority_text and
-                              cellar_authority, default on.
+    AUTHORITY_NL_OFFICIAL_PUBLICATIONS
+                              content switch of authority_text, default on.
+    AUTHORITY_CELLAR_DECISIONS
+                              sector 3 decisions as authority documents,
+                              default off (R3.2 records them as legislation).
 
        rechtspraak  rs_text_authority (authority_text), rs_publication
        echr         echr_text_authority (authority_text)

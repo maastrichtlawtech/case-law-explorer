@@ -11,7 +11,9 @@ R4.4, and the Cellar part of R4.6). Source dataset 'cellar_authority'.
      sector 3, descriptor D       -> eu_decision (decisions of any institution:
                                      the CELEX does not say which, so they are
                                      not called Commission decisions);
-                                     AUTHORITY_CELLAR_DECISIONS, default on
+                                     AUTHORITY_CELLAR_DECISIONS, default OFF:
+                                     R3.2 records sector 3 acts, decisions
+                                     included, as legislation references
      sector 8 (national case law) -> national_court_decision, issuer the
                                      country code, date from the CELEX
                                      ("82018DE1114(51)": Germany, 2018-11-14);
@@ -426,7 +428,7 @@ def extract(
     """Write the cellar_authority artifact for the given CJEU cases (all when
     both selectors are None). Returns (records, stats)."""
     if decisions is None:
-        decisions = env_flag(DECISIONS_FLAG, True)
+        decisions = env_flag(DECISIONS_FLAG, False)
     stats = Counter()
     with AuthorityWriter(out_path) as writer:
         for ids in iter_case_batches(
