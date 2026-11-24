@@ -16,7 +16,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-
 from data_extraction.linking import cjeu_text
 from data_extraction.linking.artifact import CaseKey, read_jsonl
 from data_extraction.linking.resolver import Candidate
@@ -130,6 +129,44 @@ def test_cited_date_and_dec_cue_pick_among_several_documents():
         "Eur. Court H.R., A v. B, no. 1/10", appnos, source=Source(OPINION.key, date(2013, 6, 1))
     )
     assert summary(later)[0][0] == "ECLI:CE:ECHR:2013:X2"
+
+
+# Review round 3 (findings 11 and 14): illustrative constructions from the
+# review notes, not quoted case text.
+def _docs_1_10():
+    def doc(case_id, kind, day):
+        return Candidate(
+            case_id, f"ECLI:CE:ECHR:{day.year}:X{case_id}", None, None, day, kind, "1/10"
+        )
+
+    return {
+        "1/10": [
+            doc(2, "judgment", date(2013, 2, 1)),
+            doc(3, "judgment", date(2014, 3, 1)),
+        ]
+    }
+
+
+def test_illustrative_cited_date_before_the_application_number():
+    late = Source(OPINION.key, date(2020, 1, 1))
+    records = run("ECtHR, 1 March 2014, A v. B, no. 1/10", _docs_1_10(), source=late)
+    assert summary(records) == [
+        ("ECLI:CE:ECHR:2014:X3", "1/10", "appno/echr_judgment_cited_date", 0.95)
+    ]
+    # a date after the number still comes first
+    records = run(
+        "ECtHR, 1 February 2013, A v. B, no. 1/10, 1 March 2014", _docs_1_10(), source=late
+    )
+    assert summary(records)[0][0] == "ECLI:CE:ECHR:2014:X3"
+
+
+def test_illustrative_only_later_candidates_are_dropped_not_unresolved():
+    early = Source(OPINION.key, date(2012, 1, 1))
+    assert run("ECtHR, A v. B, no. 1/10", _docs_1_10(), source=early) == []
+    # a number nothing matches is still written unresolved
+    assert summary(run("ECtHR, A v. B, no. 9/10", _docs_1_10(), source=early)) == [
+        (None, "9/10", "appno", None)
+    ]
 
 
 def test_application_number_list():
@@ -290,3 +327,13 @@ def test_extract_name_date_from_database(conn, tmp_path):
         ("appno/echr_decision_cue", "ECLI:CE:ECHR:2004:0622DEC001734103")
     ]
     assert sorted(m.language for m in records[0].mentions) == ["en", "fr"]
+
+
+@needs_db
+def test_name_index_uses_the_utc_judgement_date(conn):
+    """judgement_date is timestamptz at midnight UTC; a session time zone west
+    of UTC must not move it to the day before."""
+    with conn.cursor() as cursor:
+        cursor.execute("SET TIME ZONE 'America/New_York'")
+        index = cjeu_text.fetch_name_index(cursor, {date(2004, 6, 22)})
+    assert [c.case_id for c in index[("F V UNITED KINGDOM", date(2004, 6, 22))]] == [900]
