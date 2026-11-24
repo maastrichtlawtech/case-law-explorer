@@ -25,7 +25,10 @@ ECtHR, source_dataset 'echr_status' (extract_echr), from echr_document:
                                judgment in the same application (owner
                                application number, echr_document_appno
                                source 'appno', never extractedappno), dated
-                               after it; related = the Grand Chamber judgment;
+                               after it; related = the earliest Grand Chamber
+                               merits judgment (a docname with "(JUST
+                               SATISFACTION)", "(REVISION)" or
+                               "(INTERPRETATION)" is no merits judgment);
                                status_date NULL (the referral date is not in
                                the data). E.g. M.E. v. Sweden, Chamber judgment
                                ECLI:CE:ECHR:2014:0626JUD007139812.
@@ -54,7 +57,9 @@ RS_DICTUM_ENABLED (it needs the dictum, see rs_dictum.py):
                  later decision, strictly later by date, is taken as the
                  appeal), when the appeal's dictum reads "quashed" and the
                  appeal has exactly one such earlier decision (several: not
-                 guessed). related = the appeal.
+                 guessed). related = the appeal. Both must be decisions: a
+                 document_type matching 'conclusie' (the Procureur-Generaal's
+                 conclusions, as rs_dictum leaves them out) is neither.
 
 CLI:
     python -m data_extraction.case_context.case_status {echr,cjeu,rs} \
@@ -93,6 +98,9 @@ CONFIDENCE = {
 }
 RS_APPEAL_RELATIONS = ("hogerberoep", "cassatie")
 _GC_DOCNAME = re.compile(r"[\[(]\s*GC\s*[\])]", re.I)
+# Grand Chamber judgments that are not the merits judgment a Chamber judgment
+# was referred for: just satisfaction (Article 41), revision, interpretation.
+_NOT_MERITS_DOCNAME = re.compile(r"\((?:JUST\s+SATISFACTION|REVISION|INTERPRETATION)\)", re.I)
 
 
 def _date(value) -> Optional[date]:
@@ -269,7 +277,13 @@ def echr_records(cursor, ids, stats: Counter) -> List[StatusRecord]:
     for doc in docs:
         stats["documents"] += 1
         records.extend(own_statuses(doc, stats))
-    grand = [d for d in docs if d.is_judgment and d.formation == "grand_chamber"]
+    grand = [
+        d
+        for d in docs
+        if d.is_judgment
+        and d.formation == "grand_chamber"
+        and not _NOT_MERITS_DOCNAME.search(d.docname or "")
+    ]
     if grand:
         items = [d.item_id for d in grand]
         cursor.execute(_ECHR_SAME_APPNO, {"items": items})
@@ -279,8 +293,20 @@ def echr_records(cursor, ids, stats: Counter) -> List[StatusRecord]:
         appnos = defaultdict(list)
         for item_id, appno in cursor.fetchall():
             appnos[item_id].append(appno)
-        for gc in grand:
-            found = referral_statuses(gc, others, appnos)
+        # A Chamber judgment is related to the earliest Grand Chamber merits
+        # judgment of its application (others: later GC judgments in the same
+        # application are not what it was referred for).
+        others = [
+            d
+            for d in others
+            if not (
+                d.formation == "grand_chamber" and _NOT_MERITS_DOCNAME.search(d.docname or "")
+            )
+        ]
+        referred = set()
+        for gc in sorted(grand, key=lambda d: (d.decided is None, d.decided, d.item_id)):
+            found = [r for r in referral_statuses(gc, others, appnos) if r.case not in referred]
+            referred.update(r.case for r in found)
             stats["referred_to_grand_chamber"] += len(found)
             records.extend(found)
     return _dedupe(records)
@@ -415,6 +441,7 @@ _RS_APPEALS = f"""
         ON u.id = CASE WHEN cc.source_case_id = a.id THEN cc.target_case_id
                        ELSE cc.source_case_id END
       JOIN {common.SCHEMA}.rs_document ud ON ud.case_id = u.id
+      JOIN {common.SCHEMA}.rs_document ad ON ad.case_id = a.id
       LEFT JOIN {common.SCHEMA}.case_text_canonical t ON t.case_id = a.id AND t.language = 'nl'
      WHERE a.id = ANY(%(ids)s)
        AND cc.source_dataset LIKE 'rs_formal_relation%%'
@@ -422,6 +449,10 @@ _RS_APPEALS = f"""
        AND cc.target_case_id IS NOT NULL
        AND cc.source_case_id <> cc.target_case_id
        AND u.date_decision < a.date_decision
+       -- decisions only: a conclusie of the Procureur-Generaal (as rs_dictum)
+       -- neither decides an appeal nor is overturned
+       AND coalesce(ad.document_type, '') !~* 'conclusie'
+       AND coalesce(ud.document_type, '') !~* 'conclusie'
      ORDER BY a.id, u.id
 """
 

@@ -409,6 +409,70 @@ def test_rs_dictum_and_overturned(scratch_db, tmp_path):  # noqa: F811
 
 
 @needs_db
+def test_rs_appeal_status_ignores_conclusies(scratch_db, tmp_path):  # noqa: F811
+    """A conclusie linked by a formal relation is neither the appeal nor the
+    decision under appeal (ILLUSTRATIVE ECLIs and texts as above)."""
+    conn = scratch_db
+    hof = add_rs(conn, "ECLI:NL:GHAMS:2020:1", date(2020, 3, 1), HOF_TEXT)
+    phr = add_rs(conn, "ECLI:NL:PHR:2021:1", date(2021, 2, 1), HR_TEXT, document_type="Conclusie")
+    hr = add_rs(conn, "ECLI:NL:HR:2021:1", date(2021, 6, 1), HR_TEXT)
+    add_link(conn, hof, phr, "cassatie", "rs_formal_relation")  # conclusie as the appeal
+    add_link(conn, phr, hr, "cassatie", "rs_formal_relation")  # conclusie as the earlier one
+
+    status_out = tmp_path / "rs_appeal_status.jsonl"
+    case_status.extract_rs(conn, case_ids=[phr, hr], out_path=status_out)
+    assert _records(status_out) == []
+
+
+@needs_db
+def test_referral_relates_to_the_earliest_grand_chamber_merits_judgment(
+    scratch_db, tmp_path  # noqa: F811
+):
+    """ILLUSTRATIVE ECLIs: a Chamber judgment, the Grand Chamber merits
+    judgment and a later Grand Chamber just-satisfaction judgment."""
+    conn = scratch_db
+    chamber = add_echr(
+        conn,
+        "ECLI:CE:ECHR:2010:0101JUD000000110",
+        "001-000011",
+        "HEJUD",
+        "CHAMBER",
+        date(2010, 1, 1),
+        appno="1/10",
+    )
+    merits = add_echr(
+        conn,
+        "ECLI:CE:ECHR:2012:0101JUD000000110",
+        "001-000012",
+        "HEJUD",
+        "GRANDCHAMBER",
+        date(2012, 1, 1),
+        appno="1/10",
+        docname="CASE OF A v. B",
+    )
+    satisfaction = add_echr(
+        conn,
+        "ECLI:CE:ECHR:2014:0101JUD000000110",
+        "001-000013",
+        "HEJUD",
+        "GRANDCHAMBER",
+        date(2014, 1, 1),
+        appno="1/10",
+        docname="CASE OF A v. B (JUST SATISFACTION)",
+    )
+    status_out = tmp_path / "echr_status.jsonl"
+    case_status.extract_echr(conn, case_ids=[satisfaction, merits], out_path=status_out)
+    case_status.extract_echr(conn, case_ids=[satisfaction], out_path=tmp_path / "only.jsonl")
+    referred = [r for r in _records(status_out) if r.status == "referred_to_grand_chamber"]
+    assert [(r.case.ecli, r.related.ecli) for r in referred] == [
+        ("ECLI:CE:ECHR:2010:0101JUD000000110", "ECLI:CE:ECHR:2012:0101JUD000000110")
+    ]
+    only = [r for r in _records(tmp_path / "only.jsonl") if r.status == "referred_to_grand_chamber"]
+    assert only == []
+    assert chamber
+
+
+@needs_db
 def test_rs_extractors_are_skipped_without_their_flag(scratch_db, tmp_path):  # noqa: F811
     conn = scratch_db
     add_rs(conn, "ECLI:NL:HR:2021:1", date(2021, 6, 1), HR_TEXT)
