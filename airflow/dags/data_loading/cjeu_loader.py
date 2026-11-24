@@ -20,6 +20,7 @@ from collections import defaultdict
 from data_loading import identifier_loader
 from data_loading.cjeu_mapping import NATIONAL_TARGETS, celex_well_formed, extractor_row, map_row
 from data_loading.clients.postgres import SCHEMA
+from data_loading.link_loader import link_dataset_sql
 
 S = SCHEMA
 
@@ -260,8 +261,8 @@ UPDATE {S}.case_citation cc
  WHERE cc.target_case_id IS NULL
    AND (left(cc.source_dataset, 3) = 'rs_' OR cc.source_dataset = 'echr_edge')
    -- Rows written by the cross-dataset link loader stay insert-only: late
-   -- binding resolves them as new rows (data_extraction/linking).
-   AND left(cc.source_dataset, 8) <> 'rs_text_'
+   -- binding resolves them as new rows (link_loader.resolve_late).
+   AND NOT {link_dataset_sql("cc.source_dataset")}
    AND cc.target_ecli_raw = ANY(%s::text[])
    AND t.ecli = cc.target_ecli_raw""" + _LINK_TWIN_GUARD
 

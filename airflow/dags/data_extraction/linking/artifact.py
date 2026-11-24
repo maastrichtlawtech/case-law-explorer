@@ -44,6 +44,18 @@ from typing import Iterable, Iterator, Optional
 CASE_KEYS = ("ecli", "celex", "item_id")
 REF_SCHEMES = ("cjeu_case_number", "echr_appno", "nl_zaaknummer", "ljn", "name_date")
 TEXT_FIELDS = ("fulltext", "summary", "national_judgement_xml", "metadata")
+# The source datasets this artifact may carry, as prefixes: what the link
+# loader writes and late binding (link_loader.resolve_late) resolves. Every
+# other dataset in case_citation is legacy and resolved by the corpus loaders
+# (cjeu_loader SQL_LINK_*), which leave these alone.
+LINK_DATASETS = (
+    "rs_text_",
+    "echr_text_",
+    "cjeu_text_",
+    "cellar_national_judgement",
+    "cjeu_ag_link",
+    "cellar_relation_resolved",
+)
 MATCH_METHODS = (
     "ecli",
     "celex",
@@ -59,6 +71,11 @@ MATCH_METHODS = (
 
 class ArtifactError(ValueError):
     """A link record that must not be loaded."""
+
+
+def is_link_dataset(name: Optional[str]) -> bool:
+    """Is this source_dataset one the link loader writes (LINK_DATASETS)?"""
+    return bool(name) and name.startswith(LINK_DATASETS)
 
 
 def match_method(method: str, rule: Optional[str] = None) -> str:
@@ -162,6 +179,8 @@ class LinkRecord:
         return record
 
     def validate(self):
+        if not is_link_dataset(self.source_dataset):
+            raise ArtifactError(f"{self.source_dataset!r} is not a link dataset (LINK_DATASETS)")
         if self.target is None and self.target_ref_raw is None:
             raise ArtifactError("record needs a target or a target_ref_raw")
         if self.target_ref_raw is not None and self.target_ref_scheme not in REF_SCHEMES:

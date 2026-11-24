@@ -291,3 +291,304 @@ def test_dataset_is_removed_with_one_delete(conn):
         )
     conn.commit()
     assert _rows(conn, "SELECT count(*) FROM cle_v2.case_citation_mention") == [(0,)]
+
+
+# ---------------------------------------------------------------------------
+# late binding (R2.9), against a real database
+# ---------------------------------------------------------------------------
+
+
+def _add_case(conn, ecli=None, celex=None, sources=("CJEU",), decided=None, item_id=None):
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """INSERT INTO cle_v2.cases (ecli, celex_id, item_id, date_decision, sources)
+               VALUES (%s, %s, %s, %s, %s) RETURNING id""",
+            (ecli, celex, item_id, decided, list(sources)),
+        )
+        (case_id,) = cursor.fetchone()
+    conn.commit()
+    return case_id
+
+
+def _identifier(conn, case_id, scheme, value, normalized=None):
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """INSERT INTO cle_v2.case_identifier (case_id, scheme, value, value_normalized, source)
+               VALUES (%s, %s, %s, %s, 'test')""",
+            (case_id, scheme, value, normalized or value),
+        )
+    conn.commit()
+
+
+def _ref(dataset, scheme, value, method, **overrides):
+    """An unresolved reference record from ECLI:NL:RVS:2020:423."""
+    return _record(
+        target=None,
+        target_ref_raw=value,
+        target_ref_scheme=scheme,
+        source_dataset=dataset,
+        match_method=method,
+        confidence=None,
+        **overrides,
+    )
+
+
+def _citations(conn):
+    return _rows(
+        conn,
+        """
+        SELECT cc.source_dataset, t.ecli, cc.target_ecli_raw, cc.target_celex_raw,
+               cc.target_ref_raw, cc.match_method, cc.confidence, cc.is_cross_jurisdiction,
+               cc.extractor_version, cc.weight,
+               (SELECT count(*) FROM cle_v2.case_citation_mention m WHERE m.citation_id = cc.id)
+          FROM cle_v2.case_citation cc
+          LEFT JOIN cle_v2.cases t ON t.id = cc.target_case_id
+         ORDER BY cc.source_dataset, cc.target_case_id NULLS FIRST, cc.id
+        """,
+    )
+
+
+@needs_db
+def test_late_binding_resolves_ecli_and_celex_rows_and_copies_mentions(conn):
+    from data_loading.link_loader import load_records, resolve_late
+
+    two_mentions = _record()["mentions"] + [
+        {"text_field": "summary", "language": "nl", "raw_text": "EU:C:2013:720"}
+    ]
+    load_records(
+        conn,
+        [
+            LinkRecord.from_dict(r)
+            for r in (
+                _record(
+                    target={"ecli": "ECLI:EU:C:2013:720"},
+                    target_ref_raw=None,
+                    target_ref_scheme=None,
+                    source_dataset="rs_text_ecli",
+                    match_method="ecli",
+                    confidence=1.0,
+                    mentions=two_mentions,
+                ),
+                _record(
+                    target={"celex": "62012CJ0199"},
+                    target_ref_raw=None,
+                    target_ref_scheme=None,
+                    source_dataset="cellar_relation_resolved",
+                    match_method="celex/uuid_celex",
+                    confidence=0.95,
+                    mentions=[],
+                ),
+                # an alias ECLI of the new case, through case_identifier
+                _record(
+                    target={"ecli": "ECLI:EU:C:2013:999"},
+                    target_ref_raw=None,
+                    target_ref_scheme=None,
+                    source_dataset="echr_text_cjeu",
+                    match_method="ecli",
+                    confidence=0.99,
+                ),
+            )
+        ],
+    )
+    new = _add_case(conn, "ECLI:EU:C:2013:720", "62012CJ0199", decided="2013-11-21")
+    _identifier(conn, new, "ecli", "ECLI:EU:C:2013:999")
+    unrelated = _add_case(conn, "ECLI:EU:C:2014:1", "62013CJ0001")
+
+    counts = resolve_late(conn, [new, unrelated])
+    assert counts == {
+        "rs_text_ecli": {"matched": 1, "resolved_inserted": 1, "mentions_copied": 2},
+        "cellar_relation_resolved": {"matched": 1, "resolved_inserted": 1},
+        "echr_text_cjeu": {"matched": 1, "resolved_inserted": 1, "mentions_copied": 1},
+    }
+    tag = "rs_text/test"
+    assert _citations(conn) == [
+        # the unresolved rows stay; each has a resolved twin
+        ("cellar_relation_resolved", None, None, "62012CJ0199", None, "celex/uuid_celex",
+         pytest.approx(0.95), True, tag, 1, 0),
+        ("cellar_relation_resolved", "ECLI:EU:C:2013:720", None, None, None, "celex/uuid_celex",
+         pytest.approx(0.95), True, tag, 1, 0),
+        ("echr_text_cjeu", None, "ECLI:EU:C:2013:999", None, None, "ecli",
+         pytest.approx(0.99), True, tag, 1, 1),
+        ("echr_text_cjeu", "ECLI:EU:C:2013:720", None, None, None, "ecli",
+         pytest.approx(0.99), True, tag, 1, 1),
+        ("rs_text_ecli", None, "ECLI:EU:C:2013:720", None, None, "ecli", 1.0, True, tag, 2, 2),
+        ("rs_text_ecli", "ECLI:EU:C:2013:720", None, None, None, "ecli", 1.0, True, tag, 2, 2),
+    ]  # fmt: skip
+    copied = _rows(
+        conn,
+        """SELECT m.text_field, m.raw_text, m.char_start, m.case_text_id IS NOT NULL
+             FROM cle_v2.case_citation_mention m
+             JOIN cle_v2.case_citation cc ON cc.id = m.citation_id
+            WHERE cc.source_dataset = 'rs_text_ecli' AND cc.target_case_id IS NOT NULL
+            ORDER BY m.text_field""",
+    )
+    assert copied == [("fulltext", "C‑221/17", 10, True), ("summary", "EU:C:2013:720", None, False)]
+
+    # idempotent: a second run (or an overlapping range) inserts nothing
+    again = resolve_late(conn, [new])
+    assert again == {
+        "rs_text_ecli": {"matched": 1},
+        "cellar_relation_resolved": {"matched": 1},
+        "echr_text_cjeu": {"matched": 1},
+    }
+    assert len(_citations(conn)) == 6
+
+
+@needs_db
+def test_late_binding_chooses_references_with_the_resolver(conn):
+    from data_loading.link_loader import load_records, resolve_late
+
+    _rows(conn, "UPDATE cle_v2.cases SET date_decision = '2020-03-01' RETURNING id")
+    load_records(
+        conn,
+        [
+            LinkRecord.from_dict(_ref("rs_text_cjeu_casenum", "cjeu_case_number", "C-5/18",
+                                      "case_number")),
+            LinkRecord.from_dict(_ref("rs_text_echr_appno", "echr_appno", "12345/67", "appno")),
+        ],
+    )  # fmt: skip
+    opinion = _add_case(conn, "ECLI:EU:C:2018:900", "62018CC0005", decided="2018-11-01")
+    judgment = _add_case(conn, "ECLI:EU:C:2019:300", "62018CJ0005", decided="2019-04-01")
+    interim = _add_case(conn, "ECLI:EU:C:2018:100", "62018CO0005", decided="2018-02-01")
+    _identifier(conn, opinion, "cjeu_case_number", "C-5/18")
+    _identifier(conn, judgment, "cjeu_case_number", "C-5/18")
+    _identifier(conn, interim, "cjeu_case_number", "C-5/18 R", "C-5/18")
+    echr = _add_case(conn, "ECLI:CE:ECHR:2010:0101JUD001234567", sources=("ECHR",),
+                     decided="2010-01-01", item_id="001-1")  # fmt: skip
+    _identifier(conn, echr, "echr_appno", "12345/67")
+    _rows(
+        conn,
+        f"""INSERT INTO cle_v2.echr_document (item_id, case_id, language, doctype)
+            VALUES ('001-1', {echr}, 'en', 'HEJUD') RETURNING item_id""",
+    )
+    conn.commit()
+
+    counts = resolve_late(conn, [opinion, judgment, interim, echr])
+    assert counts == {
+        "rs_text_cjeu_casenum": {"matched": 1, "resolved_inserted": 1, "mentions_copied": 1},
+        "rs_text_echr_appno": {"matched": 1, "resolved_inserted": 1, "mentions_copied": 1},
+    }
+    resolved = [row for row in _citations(conn) if row[1] is not None]
+    assert [row[:8] for row in resolved] == [
+        ("rs_text_cjeu_casenum", "ECLI:EU:C:2019:300", None, None, "C-5/18",
+         "case_number/cjeu_judgment", pytest.approx(0.95), True),
+        ("rs_text_echr_appno", "ECLI:CE:ECHR:2010:0101JUD001234567", None, None, "12345/67",
+         "appno/echr_judgment", pytest.approx(0.95), True),
+    ]  # fmt: skip
+    assert resolve_late(conn, [judgment, echr]) == {
+        "rs_text_cjeu_casenum": {"matched": 1},
+        "rs_text_echr_appno": {"matched": 1},
+    }
+
+
+@needs_db
+def test_late_binding_leaves_ambiguous_references_alone(conn):
+    from data_loading.link_loader import load_records, resolve_late
+
+    _rows(conn, "UPDATE cle_v2.cases SET date_decision = '2020-03-01' RETURNING id")
+    load_records(
+        conn,
+        [
+            LinkRecord.from_dict(r)
+            for r in (
+                # an LJN shared by two decisions: not guessed between
+                _ref("echr_text_rs", "ljn", "BK1234", "ljn"),
+                # the only document of the number is dated after the source
+                _ref("rs_text_cjeu_casenum", "cjeu_case_number", "C-8/21", "case_number"),
+                # the number has only an interim order
+                _ref("rs_text_cjeu_casenum", "cjeu_case_number", "C-9/19", "case_number"),
+            )
+        ],
+    )
+    ljn_a = _add_case(conn, "ECLI:NL:RBAMS:2010:BK1234", sources=("RS",), decided="2010-01-01")
+    ljn_b = _add_case(conn, "ECLI:NL:RBAMS:2010:1", sources=("RS",), decided="2010-01-01")
+    later = _add_case(conn, "ECLI:EU:C:2022:5", "62021CJ0008", decided="2022-01-01")
+    interim = _add_case(conn, "ECLI:EU:C:2019:5", "62019CO0009", decided="2019-01-01")
+    _identifier(conn, ljn_a, "ljn", "BK1234")
+    _identifier(conn, ljn_b, "ljn", "BK1234")
+    _identifier(conn, later, "cjeu_case_number", "C-8/21")
+    _identifier(conn, interim, "cjeu_case_number", "C-9/19 R", "C-9/19")
+
+    counts = resolve_late(conn, [ljn_a, ljn_b, later, interim])
+    assert counts == {
+        "echr_text_rs": {"ref_left_unresolved": 1},
+        "rs_text_cjeu_casenum": {"ref_left_unresolved": 2},
+    }
+    assert _rows(conn, "SELECT count(*), count(target_case_id) FROM cle_v2.case_citation") == [
+        (3, 0)
+    ]
+
+
+@needs_db
+def test_late_binding_ignores_legacy_datasets(conn):
+    from data_loading.link_loader import resolve_late
+
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO cle_v2.case_citation
+                (source_case_id, target_ecli_raw, target_celex_raw, relation_type, source_dataset)
+            SELECT id, 'ECLI:EU:C:2013:720', NULL, 'cites', 'rs_body_cite'
+              FROM cle_v2.cases WHERE ecli = 'ECLI:NL:RVS:2020:423'
+            UNION ALL
+            SELECT id, NULL, '62012CJ0199', 'cites', 'cellar_sparql'
+              FROM cle_v2.cases WHERE ecli = 'ECLI:NL:HR:2020:593'
+            """)
+    conn.commit()
+    new = _add_case(conn, "ECLI:EU:C:2013:720", "62012CJ0199")
+    assert resolve_late(conn, [new]) == {}
+    assert _rows(conn, "SELECT count(*), count(target_case_id) FROM cle_v2.case_citation") == [
+        (2, 0)
+    ]
+
+
+@needs_db
+def test_dataset_delete_cascades_after_late_binding(conn):
+    from data_loading.link_loader import load_records, resolve_late
+
+    load_records(
+        conn,
+        [
+            LinkRecord.from_dict(
+                _record(
+                    target={"ecli": "ECLI:EU:C:2013:720"},
+                    target_ref_raw=None,
+                    target_ref_scheme=None,
+                    source_dataset="rs_text_ecli",
+                    match_method="ecli",
+                    confidence=1.0,
+                )
+            )
+        ],
+    )
+    new = _add_case(conn, "ECLI:EU:C:2013:720")
+    assert resolve_late(conn, [new])["rs_text_ecli"]["resolved_inserted"] == 1
+    with conn.cursor() as cursor:
+        cursor.execute("DELETE FROM cle_v2.case_citation WHERE source_dataset = 'rs_text_ecli'")
+        assert cursor.rowcount == 2
+    conn.commit()
+    assert _rows(conn, "SELECT count(*) FROM cle_v2.case_citation_mention") == [(0,)]
+
+
+@needs_db
+def test_cli_load_and_resolve_late(conn, tmp_path, monkeypatch, capsys):
+    from data_loading import link_loader
+
+    base, _, _ = DSN.rpartition("/")
+    name = _rows(conn, "SELECT current_database()")[0][0]
+    monkeypatch.setenv("LINK_LOADER_TEST_DSN", f"{base}/{name}")
+    path = tmp_path / "links.jsonl"
+    record = _record(target={"ecli": "ECLI:EU:C:2013:720"}, target_ref_raw=None,
+                     target_ref_scheme=None, source_dataset="rs_text_ecli",
+                     match_method="ecli", confidence=1.0)  # fmt: skip
+    write_jsonl([LinkRecord.from_dict(record)], path)
+    assert link_loader.main(["load", "--dsn-env", "LINK_LOADER_TEST_DSN", str(path)]) == 0
+    loaded = json.loads(capsys.readouterr().out)
+    assert loaded == {
+        str(path): {"rs_text_ecli": {"inserted_unresolved": 1, "mentions_inserted": 1}}
+    }
+    new = _add_case(conn, "ECLI:EU:C:2013:720")
+    argv = ["resolve-late", "--dsn-env", "LINK_LOADER_TEST_DSN", "--from-id", str(new)]
+    assert link_loader.main(argv + ["--to-id", str(new)]) == 0
+    assert json.loads(capsys.readouterr().out) == {
+        "rs_text_ecli": {"matched": 1, "resolved_inserted": 1, "mentions_copied": 1}
+    }
