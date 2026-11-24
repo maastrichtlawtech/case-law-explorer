@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 
-from data_loading import case_enrichment, cjeu_loader
+from data_loading import case_enrichment, cjeu_loader, identifier_loader
 from data_loading.language_codes import normalize_language_code
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
 from definitions.terminology.attribute_names import (
@@ -213,6 +213,9 @@ class PostgresRSProcessor(_BaseRowProcessor):
         except Exception as error:
             for ecli, _ in pairs:
                 self._log_failure(ecli, f"case enrichment failed: {error}")
+        # One call per batch, after its transaction; no-op unless
+        # CASE_IDENTIFIER_ENABLED (needs migration 0009).
+        identifier_loader.maintain_for_keys(self.client, "ecli", [ecli for ecli, _ in pairs])
         return loaded
 
     def _detail_row(self, row, case_id):
@@ -415,6 +418,8 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
 
         loaded = 0
         lookups_ready = False
+        loaded_case_ids = []
+        owner_appnos = []
         for group_rows in groups.values():
             canonical = min(group_rows, key=self._canonical_rank)
             try:
@@ -437,7 +442,14 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
                     )
                 lookups_ready = True
                 loaded += len(group_rows)
+                loaded_case_ids.append(case_id)
+                owner_appnos.extend(
+                    (self._key(row), row.get(ECHR_APPLICANTS)) for row in group_rows
+                )
             except Exception as error:
                 for row in group_rows:
                     self._log_failure(self._key(row), error)
+        # Both no-ops unless CASE_IDENTIFIER_ENABLED (needs migration 0009).
+        identifier_loader.record_echr_owner_appnos(self.client, owner_appnos)
+        identifier_loader.maintain_for_keys(self.client, "id", loaded_case_ids)
         return loaded

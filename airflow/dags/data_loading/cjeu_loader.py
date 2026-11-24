@@ -17,6 +17,7 @@ Every statement is idempotent, so the promoter can replay a batch.
 import logging
 from collections import defaultdict
 
+from data_loading import identifier_loader
 from data_loading.cjeu_mapping import NATIONAL_TARGETS, celex_well_formed, extractor_row, map_row
 from data_loading.clients.postgres import SCHEMA
 
@@ -381,17 +382,20 @@ def load_rows(client, rows, log_failure) -> int:
         log_failure(key, reason)
     if not valid:
         return 0
+    loaded = []
     try:
         counts = write(client, valid)
         logging.info("CJEU batch of %s cases: %s", len(valid), counts)
-        return len(valid)
+        loaded = valid
     except Exception:
         logging.exception("CJEU batch of %s cases failed; retrying case by case", len(valid))
-    loaded = 0
-    for mapping in valid:
-        try:
-            write(client, [mapping])
-            loaded += 1
-        except Exception as exc:
-            log_failure(mapping.ecli, exc)
-    return loaded
+        for mapping in valid:
+            try:
+                write(client, [mapping])
+                loaded.append(mapping)
+            except Exception as exc:
+                log_failure(mapping.ecli, exc)
+    # After the batch's transaction (the joins rows are written by it); a no-op
+    # unless CASE_IDENTIFIER_ENABLED (needs migration 0009).
+    identifier_loader.maintain_for_keys(client, "ecli", [m.ecli for m in loaded])
+    return len(loaded)
