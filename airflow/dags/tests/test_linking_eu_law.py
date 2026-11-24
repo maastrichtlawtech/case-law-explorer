@@ -85,6 +85,12 @@ def test_ec_treaty_versions_newest_first():
     assert eu_law.TREATIES["TEU_1997"].raw_resource == "12006M/TXT"
 
 
+def test_charter_alternatives_end_with_the_2000_proclamation():
+    charter = eu_law.TREATIES["CHARTER"]
+    assert "12000P" not in charter.alternatives
+    assert charter.alternatives[-1] == "32000X1218(01)"
+
+
 def test_act_celex_rejects_acts_after_the_citing_decision():
     assert eu_law.act_celex("L", "2011", "95", False, max_year=2010) is None
     assert eu_law.act_celex("L", "2011", "95", False, max_year=2011) == "32011L0095"
@@ -99,10 +105,13 @@ def test_act_celex_rejects_acts_after_the_citing_decision():
         ("12012P/TXT", "12012P/TXT", ("12012P",), None, "1"),
         ("12008M", "12008M", ("12008M/TXT",), None, "1"),
         ("32011L0095", "32011L0095", (), None, "3"),
-        ("32004L0038R(01)", "32004L0038R(01)", (), None, "3"),
+        ("32004L0038R(01)", "32004L0038R(01)", ("32004L0038",), None, "3"),
         ("21994A1231(01)", "21994A1231(01)", (), None, "2"),
         ("41994X1231", "41994X1231", (), None, "4"),
         ("02016R0679-20160504", "02016R0679-20160504", ("32016R0679",), None, "0"),
+        ("02003D0048(01)-20100101", "02003D0048(01)-20100101", ("32003D0048(01)",), None, "0"),
+        ("32016R0679R(02)", "32016R0679R(02)", ("32016R0679",), None, "3"),  # corrigendum
+        ("41968A0927(01)R(01)", "41968A0927(01)R(01)", ("41968A0927(01)",), None, "4"),
         (" celex:32016r0679 ", "32016R0679", (), None, "3"),
     ],
 )
@@ -122,6 +131,9 @@ def test_treaty_fixture_is_consistent():
         assert treaty.raw_resource not in treaty.alternatives
         assert len(set(treaty.alternatives)) == len(treaty.alternatives)
         for celex in (treaty.raw_resource,) + treaty.alternatives:
+            if celex == "32000X1218(01)":  # the 2000 Charter: a proclamation
+                assert treaty.key == "CHARTER" and treaty.alternatives[-1] == celex
+                continue
             assert eu_law.cellar_target(celex).sector == "1"
 
 

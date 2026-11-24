@@ -7,7 +7,7 @@
    "United Nations Treaty Collection: depositary chapters IV (human rights) and V (refugees and stateless persons), MTDSG numbers and dates of adoption (https://treaties.un.org)"
   ],
   "checked_online": "On 2026-11-24 these were confirmed against the pages: CELEX 11997D (Treaty of Amsterdam); UN IV-2, IV-3, IV-8, IV-9, IV-11, IV-15, V-2, V-5 with their dates. EUR-Lex collection pages and the Council of Europe list refused automated fetches and UN IV-4 returned no content, so the other CELEX numbers, every CETS number and IV-4 were taken from the references above without that check. IV-2's date is the General Assembly adoption date (21 December 1965); the treaty page heads it with the opening for signature, 7 March 1966.",
-  "conventions": "scheme 'celex': CELEX number of the whole act (sector 1: sector, year and letter, e.g. 12016E); 'coe_treaty': CETS number, three digits; 'un_treaty': UN Treaty Collection MTDSG chapter-number. enacted_date is the date of signature or adoption where given, otherwise only enacted_year. Aliases go to the most recent consolidated version of a treaty (TFEU/TEU/Charter 2016, EC Treaty 2006). protocol_number is the ECHR protocol number used in HUDOC article codes (P1-1 = Protocol No. 1, article 1; 0 = the Convention).",
+  "conventions": "scheme 'celex': CELEX number of the whole act (sector 1: sector, year and letter, e.g. 12016E; the 2000 Charter, a proclamation published in OJ C 364 of 18.12.2000 and no treaty, is 32000X1218(01)); 'coe_treaty': CETS number, three digits; 'un_treaty': UN Treaty Collection MTDSG chapter-number. enacted_date is the date of signature or adoption where given, otherwise only enacted_year. Aliases go to the most recent consolidated version of a treaty (TFEU/TEU/Charter 2016, EC Treaty 2006). protocol_number is the ECHR protocol number used in HUDOC article codes (P1-1 = Protocol No. 1, article 1; 0 = the Convention).",
   "not_runtime": "Committed reference data; no code path downloads it."
  },
  "acts": [
@@ -276,7 +276,7 @@
   },
   {
    "scheme": "celex",
-   "identifier": "12000P",
+   "identifier": "32000X1218(01)",
    "jurisdiction": "EU",
    "document_type": "charter",
    "title": "Charter of Fundamental Rights of the European Union (2000)",

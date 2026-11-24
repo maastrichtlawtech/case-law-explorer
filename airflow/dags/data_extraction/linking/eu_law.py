@@ -95,8 +95,8 @@ def _versions(*bases):
     return tuple(out)
 
 
-def _treaty(key, bases, max_article):
-    versions = _versions(*bases)
+def _treaty(key, bases, max_article, more=()):
+    versions = _versions(*bases) + tuple(more)
     return Treaty(key, versions[0], versions[1:], max_article)
 
 
@@ -105,7 +105,9 @@ TREATIES = {
     for t in (
         _treaty("TFEU", ("12016E", "12012E", "12008E"), 358),
         _treaty("TEU", ("12016M", "12012M", "12008M"), 55),
-        _treaty("CHARTER", ("12016P", "12012P", "12007P", "12000P"), 54),
+        # The 2000 Charter was a proclamation (OJ C 364, 18.12.2000), not a
+        # treaty: CELEX 32000X1218(01), tried last.
+        _treaty("CHARTER", ("12016P", "12012P", "12007P"), 54, ("32000X1218(01)",)),
         # EC Treaty in the Amsterdam numbering (1 May 1999 to 30 November 2009)
         _treaty("EC", ("12006E", "12002E", "11997E"), 314),
         # EC Treaty before Amsterdam (Maastricht; EEC numbering)
@@ -152,7 +154,9 @@ LAW_SECTORS = ("0", "1", "2", "3", "4")
 
 _TREATY_ARTICLE_RE = re.compile(r"^1(\d{4})([A-Z]{1,2})(\d{3})([A-Z]{0,2})$")
 _TREATY_ACT_RE = re.compile(r"^1(\d{4})([A-Z]{1,2})(?:/TXT)?$")
-_CONSOLIDATED_RE = re.compile(r"^0(\d{4}[A-Z]\d{4})(?:-\d{8})?$")
+_CONSOLIDATED_RE = re.compile(r"^0(\d{4}[A-Z]{1,2}\d{4}(?:\(\d{2}\))?)(?:-\d{8})?$")
+# A corrigendum of an act of sectors 2-4: the act followed by R(nn).
+_CORRIGENDUM_RE = re.compile(r"^([234]\d{4}[A-Z]{1,2}\d{4}(?:\(\d{2}\))?)R\(\d{2}\)$")
 
 
 def clean_celex(value) -> Optional[str]:
@@ -175,7 +179,8 @@ def cellar_target(value) -> Optional[CellarTarget]:
     '12008E267'  -> article '267' of the TFEU 2008; also tried as '12008E/TXT', '12008E'
     '12012P/TXT' -> the Charter 2012; also tried as '12012P'
     '02016R0679-20160504' (consolidated) -> also tried as '32016R0679'
-    sectors 2, 3, 4: exact CELEX only
+    '32016R0679R(02)' (corrigendum) -> also tried as '32016R0679'
+    other CELEX of sectors 2, 3, 4: exact only
     """
     text = clean_celex(value)
     if not text or text[0] not in LAW_SECTORS:
@@ -200,6 +205,9 @@ def cellar_target(value) -> Optional[CellarTarget]:
         if match:
             return CellarTarget(sector, text, ("3" + match.group(1),))
         return CellarTarget(sector, text)
+    match = _CORRIGENDUM_RE.match(text)
+    if match:
+        return CellarTarget(sector, text, (match.group(1),))
     return CellarTarget(sector, text)
 
 

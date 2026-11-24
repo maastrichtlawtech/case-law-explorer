@@ -50,6 +50,10 @@ def clean_env(monkeypatch):
         ("12016P/TXT", "12016P", "1", "treaty", 2016, None),
         ("31977L0388", "31977L0388", "3", "directive", 1977, None),
         ("32004Z0001", "32004Z0001", "3", "celex_3Z", 2004, None),
+        # sector 4 (Brussels Convention) and a consolidated text's base act
+        ("41968A0927(01)", "41968A0927(01)", "4", "member_state_agreement", 1968, None),
+        ("02016R0679-20160504", "32016R0679", "3", "regulation", 2016, None),
+        ("02003D0048(01)-20100101", "32003D0048(01)", "3", "decision", 2003, None),
     ],
 )
 def test_parse_celex(value, act, sector, document_type, year, subdivision):
@@ -64,10 +68,26 @@ def test_parse_celex(value, act, sector, document_type, year, subdivision):
 
 
 @pytest.mark.parametrize(
-    "value", ["62019CJ0001", "52020PC0001", "02016R0679-20160504", "C-221/17", "", None, "3201R"]
+    "value", ["62019CJ0001", "52020PC0001", "02016R0679-2016", "C-221/17", "", None, "3201R"]
 )
 def test_parse_celex_refuses_everything_else(value):
     assert parse_celex(value) is None
+
+
+def test_act_for_sector_4_and_consolidated_texts():
+    stats = Counter()
+    convention = catalog.act_for("41968A0927(01)", stats)
+    base = catalog.act_for("02016R0679-20160504", stats)
+    assert convention.key == ("celex", "41968A0927(01)")
+    assert base.key == ("celex", "32016R0679") and base.document_type == "regulation"
+    assert stats == Counter(sector_4=1, sector_3=1, consolidated=1)
+
+
+def test_2000_charter_is_the_proclamation_celex():
+    by_key = acts.curated_by_key()
+    assert ("celex", "12000P") not in by_key
+    charter = by_key[("celex", "32000X1218(01)")]
+    assert charter.document_type == "charter" and charter.enacted_year == 2000
 
 
 def test_act_for_counts_what_it_skips():

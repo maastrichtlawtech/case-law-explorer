@@ -1,8 +1,8 @@
 """
 Acts for the EU law the database refers to (roadmap R3.1).
 
-Reads, for the selected source cases, every CELEX number of sectors 1-3 that
-Cellar data names:
+Reads, for the selected source cases, every CELEX number of sectors 1-4 (and
+consolidated texts, sector 0) that Cellar data names:
 
     case_citation.target_celex_raw   unresolved Cellar citations whose target
                                      is legislation or a treaty, not a case
@@ -11,14 +11,15 @@ Cellar data names:
     case_law_reference.raw_resource  rows with raw_scheme 'celex' (the CDM
                                      legal-resource predicates, cellar_sparql)
 
-maps each to the act it names (celex.parse_celex: ``12008E267`` -> ``12008E``)
+maps each to the act it names (celex.parse_celex: ``12008E267`` -> ``12008E``,
+``02016R0679-20160504`` -> ``32016R0679``)
 and writes one act record per distinct act: scheme 'celex', the CELEX number,
 document type from the type letter, enacted_year from the CELEX year, title
 NULL (the database holds no titles for them). The curated acts
 (external_acts.json) come first in the file, so the treaties, the Charter and
 the conventions get their titles and aliases whatever Cellar refers to.
 
-Values that are not CELEX numbers of sectors 1-3 are counted, by sector
+Values that are not CELEX numbers of sectors 0-4 are counted, by sector
 (``skipped_sector_<s>``) or as ``unparsed``, and left out.
 
 Read-only; the loader (data_loading/legislation_loader.py) inserts the acts.
@@ -41,11 +42,13 @@ log = logging.getLogger(__name__)
 SCHEMA = "cle_v2"
 EXTRACTOR_VERSION = "legislation_catalog/1.0.0"
 BATCH_SIZE = 5000
-# CELEX sectors that are not legislation or treaties (0 consolidated texts, 4
-# complementary legislation, 5 preparatory acts, 6 case law, 7 national
-# transposition, 8 national case law, 9 parliamentary questions, C OJ C
-# notices, E EFTA).
-OTHER_SECTORS = frozenset("0456789CE")
+# CELEX sectors that are not legislation or treaties (5 preparatory acts, 6
+# case law, 7 national transposition, 8 national case law, 9 parliamentary
+# questions, C OJ C notices, E EFTA). Sector 4 (complementary legislation:
+# conventions between Member States) is parsed like sectors 2 and 3, and a
+# consolidated text (sector 0) gives its base act (celex.parse_celex), as
+# cellar_law_refs extracts references of sectors 0-4.
+OTHER_SECTORS = frozenset("56789CE")
 
 # Cases that have anything to read: an unresolved Cellar citation or a CELEX
 # law reference. Two index scans (case_citation's source / case_law_reference's
@@ -80,6 +83,8 @@ def act_for(value, stats: Counter) -> Optional[acts.ActRecord]:
             stats["unparsed"] += 1
         return None
     stats[f"sector_{parsed.sector}"] += 1
+    if sector(value) == "0":
+        stats["consolidated"] += 1
     if parsed.subdivision:
         stats["with_subdivision"] += 1
     return acts.ActRecord(
