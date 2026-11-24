@@ -16,7 +16,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-
 from data_extraction.linking import rs_text
 from data_extraction.linking.artifact import read_jsonl
 from data_extraction.linking.resolver import Candidate
@@ -358,6 +357,136 @@ def test_appno_lists_and_unresolved():
 )
 def test_appno_rejections(text):
     assert run(text) == []
+
+
+# ---------------------------------------------------------------------------
+# Review round 3 (findings 5 and 11). Every string here is an illustrative
+# construction from the review notes, not quoted case text.
+# ---------------------------------------------------------------------------
+
+NBSP, THIN = "\u00a0", "\u2009"
+
+
+def test_illustrative_no_break_and_thin_spaces():
+    assert targets(run(f"zaak{NBSP}26/62")) == [VAN_GEND.ecli]
+    hits = rs_text.scan_cjeu_case_numbers(f"zaken C-199/12{NBSP}t/m{THIN}C-201/12")
+    assert [h.value for h in hits] == ["C-199/12", "C-200/12", "C-201/12"]
+    hits = rs_text.scan_cjeu_case_numbers(f"zaken C-199/12{NBSP}en{NBSP}C-200/12")
+    assert len(hits) == 2
+    (hit,) = rs_text.scan_echr_appnos(
+        f"EHRM 2{NBSP}februari{NBSP}2006, X tegen Nederland, nr.{NBSP}12345/00"
+    )
+    assert (hit.value, hit.cited_date) == ("12345/00", date(2006, 2, 2))
+    (hit,) = rs_text.scan_echr_appnos(f"EVRM. EHRM, klacht{NBSP}nr. 12345/00")
+    assert hit.value == "12345/00"
+
+
+def test_illustrative_generic_tegen_is_not_an_echr_cue():
+    text = "Artikel 8 EVRM. Het beroep tegen de Minister van Justitie, nr. 12/05, is ongegrond."
+    assert rs_text.scan_echr_appnos(text) == []
+    assert run(text) == []
+
+
+@pytest.mark.parametrize(
+    "text",
+    [
+        "Het EHRM oordeelde al zo. Besluit nr. 1/80 van de Associatieraad geldt.",
+        "Het EHRM oordeelde al zo. Verordening (EEG) nr. 1408/71 is van toepassing.",
+        "Het EHRM oordeelde al zo. Richtlijn nr. 2004/38 en Regeling nr. 12/05 gelden.",
+        "Het EHRM oordeelde al zo; zie het zaaknummer nr. 12/05.",
+        "EVRM. Het verzoekschrift nr. 12/05 is tijdig ingediend.",
+    ],
+)
+def test_illustrative_legislation_and_dutch_numbers_are_not_appnos(text):
+    assert rs_text.scan_echr_appnos(text) == []
+
+
+def test_illustrative_application_year_must_be_plausible():
+    base = "Artikel 6 EVRM. EHRM 1 januari 2020, X tegen Nederland, "
+    assert rs_text.scan_echr_appnos(base + "nr. 1234/30", max_year=2025) == []  # 2030
+    assert rs_text.scan_echr_appnos(base + "nr. 123/52", max_year=2025) == []  # 1952
+    assert [h.value for h in rs_text.scan_echr_appnos(base + "nr. 123/55", max_year=2025)] == [
+        "123/55"
+    ]
+    assert run(base + "nr. 1234/30") == []
+
+
+def test_illustrative_opinion_cue_covers_every_listed_number():
+    text = "conclusie van A-G Sharpston in de zaken C-199/12, C-200/12 en C-201/12"
+    hits = rs_text.scan_cjeu_case_numbers(text)
+    assert [(h.value, h.opinion_cue) for h in hits] == [
+        ("C-199/12", True),
+        ("C-200/12", True),
+        ("C-201/12", True),
+    ]
+    hits = rs_text.scan_cjeu_case_numbers("conclusie A-G bij C-199/12 tot en met C-201/12")
+    assert all(h.opinion_cue for h in hits) and len(hits) == 3
+    # a judgment cue on the next number ends the group
+    hits = rs_text.scan_cjeu_case_numbers("conclusie A-G in C-199/12; arrest C-200/12")
+    assert [h.opinion_cue for h in hits] == [True, False]
+
+
+def test_illustrative_range_and_list_words_ignore_case():
+    hits = rs_text.scan_cjeu_case_numbers("zaken C-199/12 T/M C-201/12")
+    assert [h.value for h in hits] == ["C-199/12", "C-200/12", "C-201/12"]
+    hits = rs_text.scan_cjeu_case_numbers("zaken C-6/90 EN 9/90")
+    assert [h.value for h in hits] == ["C-6/90", "C-9/90"]
+
+
+def test_illustrative_gc_cue_prefers_the_grand_chamber_judgment():
+    chamber = Candidate(
+        30, "ECLI:CE:ECHR:2004:0101JUD000100000", None, "001-30", date(2004, 1, 1),
+        "judgment", "1/00", "CHAMBER",
+    )  # fmt: skip
+    grand = Candidate(
+        31, "ECLI:CE:ECHR:2006:0202JUD000100000", None, "001-31", date(2006, 2, 2),
+        "judgment", "1/00", "GRANDCHAMBER",
+    )  # fmt: skip
+    source = rs_text.SourceCase(
+        "ECLI:NL:RVS:2020:1",
+        date(2020, 6, 1),
+        [("fulltext", "nl", "EVRM. X t. Nederland [GC], klachtnummer 1/00")],
+    )
+    (record,) = rs_text.extract_records(
+        source, rs_text.StaticLookup(echr={"1/00": [chamber, grand]})
+    )
+    assert record.target.ecli == grand.ecli
+    assert record.match_method == "appno/echr_judgment_grand_chamber"
+
+
+def test_illustrative_ecli_scope_cross_keeps_only_other_corpora():
+    text = "Zie ECLI:NL:HR:2020:593, ECLI:EU:C:2019:189 en ECLI:CE:ECHR:2004:0101JUD001234500."
+    source = rs_text.SourceCase("ECLI:NL:RVS:2020:1", date(2020, 6, 1), [("fulltext", "nl", text)])
+    stats = Counter()
+    records = rs_text.extract_records(source, lookup(), stats, ecli_scope="cross")
+    assert targets(records) == [ECHR_JUD_1.ecli, TJEBBES.ecli]
+    assert stats["ecli_out_of_scope"] == 1
+    assert "ECLI:NL:HR:2020:593" in targets(rs_text.extract_records(source, lookup()))
+    with pytest.raises(ValueError):
+        rs_text.extract_records(source, lookup(), ecli_scope="some")
+
+
+def test_cli_ecli_scope_defaults_to_cross_for_backfills(monkeypatch, tmp_path):
+    seen = {}
+
+    class Conn:
+        def set_session(self, **kw):
+            pass
+
+        def close(self):
+            pass
+
+    def fake_extract(conn, **kw):
+        seen.update(kw)
+        return 0, Counter()
+
+    monkeypatch.setattr(rs_text, "connect", lambda env: Conn())
+    monkeypatch.setattr(rs_text, "extract", fake_extract)
+    args = ["--dsn-env", "X", "--out", str(tmp_path / "o.jsonl")]
+    rs_text.main(args)
+    assert seen["ecli_scope"] == "cross"
+    rs_text.main(args + ["--ecli-scope", "all"])
+    assert seen["ecli_scope"] == "all"
 
 
 # ---------------------------------------------------------------------------

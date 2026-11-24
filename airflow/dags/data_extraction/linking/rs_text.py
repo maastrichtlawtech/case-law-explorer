@@ -7,7 +7,9 @@ HR:2022:637 cite only in the summary) and writes link records in three
 source datasets, all with relation 'cites':
 
   rs_text_ecli          full and short ECLIs of EU, ECtHR and Dutch decisions
-                        ("ECLI:EU:C:2019:189", "EU:C:2019:189", "NL:HR:2020:593")
+                        ("ECLI:EU:C:2019:189", "EU:C:2019:189", "NL:HR:2020:593");
+                        with ecli_scope 'cross' (--ecli-scope, the CLI default)
+                        only those of another corpus than the citing decision
   rs_text_cjeu_casenum  CJEU, General Court and Civil Service Tribunal case
                         numbers ("C-221/17", "zaak 26/62", joined cases and
                         "tot en met" ranges)
@@ -39,8 +41,12 @@ at all):
     postdate the citing decision are dropped.
   * Application numbers need a number cue ("nr.", "no.", "klachtnummer",
     "application") and, for the generic "nr."/"no.", an ECtHR cue in the same
-    citation; they resolve with resolver.choose_echr ("(dec.)" selects the
-    decision; cited date, then cited year; "[GC]" is recorded).
+    citation; legislation named just before the cue ("Besluit nr. 1/80",
+    "Verordening (EEG) nr. 1408/71"), Dutch case-number labels and an
+    application year outside 1955..the citing decision's year reject them.
+    They resolve with resolver.choose_echr ("(dec.)" selects the decision;
+    "[GC]" a Grand Chamber judgment when one is recorded; cited date, then
+    cited year).
 
 One record per (source, target or reference, dataset), with every mention
 (exact offsets into the stored text, the text as written, ~300 characters of
@@ -65,6 +71,7 @@ from data_extraction.linking.artifact import (
 )
 from data_extraction.linking.text_common import (
     BATCH_SIZE,
+    cjeu_year_ok,
     cli_args,
     connect,
     context,
@@ -82,11 +89,18 @@ DATASET_CJEU = "rs_text_cjeu_casenum"
 DATASET_ECHR = "rs_text_echr_appno"
 TEXT_FIELDS = ("fulltext", "summary")
 
+# Which ECLIs rs_text_ecli writes: 'all', or 'cross' for only those of another
+# corpus than the citing decision's (EU, ECtHR, other countries). Backfills use
+# 'cross' (the RS-RS ECLIs are in rs_body_cite / rs_lido_sqlite already); the
+# weekly run uses 'all' (new decisions have no rs_body_cite since July 2026).
+ECLI_SCOPE_ALL, ECLI_SCOPE_CROSS = "all", "cross"
+ECLI_SCOPES = (ECLI_SCOPE_ALL, ECLI_SCOPE_CROSS)
+
 NEAR_ECLI_CHARS = 80
 MAX_RANGE = 50  # "C-1/90 tot en met C-60/90" is not a range we expand
 
 _HYPHEN = "[" + re.escape(identifiers.HYPHENS) + "]"
-_SPACE = r"[    ]"
+_SPACE = identifiers.SPACE_CLASS
 
 # ---------------------------------------------------------------------------
 # Patterns
@@ -135,8 +149,19 @@ _CARIBBEAN_TEXT_RE = re.compile(r"Gemeenschappelijk(?:e)? Hof", re.I)
 _CARIBBEAN_COURTS = ("OGE", "OGH", "ORB")  # ECLI court codes of the Caribbean courts
 
 # Connectors between case numbers.
-_RANGE_RE = re.compile(r"^" + _SPACE + r"*(?:tot en met|t/m|t\.m\.|to|à|a|bis)" + _SPACE + r"*$")
-_LIST_RE = re.compile(r"^" + _SPACE + r"*(?:,|en|and|et|und|e|y|&)" + _SPACE + r"*$")
+_RANGE_RE = re.compile(
+    r"^"
+    + _SPACE
+    + r"*(?:tot"
+    + _SPACE
+    + r"+en"
+    + _SPACE
+    + r"+met|t/m|t\.m\.|to|à|a|bis)"
+    + _SPACE
+    + r"*$",
+    re.I,
+)
+_LIST_RE = re.compile(r"^" + _SPACE + r"*(?:,|en|and|et|und|e|y|&)" + _SPACE + r"*$", re.I)
 
 # An AG opinion cue in the same citation.
 _AG = (
@@ -166,7 +191,7 @@ _ECHR_TEXT_RE = re.compile(
 _APPNO_RE = re.compile(
     r"(?P<cue>\b(?:(?P<specific>klachtnummers?|klachtnrs?\.?|klacht" + _SPACE + r"nrs?\.?|"
     r"applications?" + _SPACE + r"(?:nos?|nrs?)\.?|application|appl\.|app\." + _SPACE + r"no\.?|"
-    r"requêtes?" + _SPACE + r"(?:nos?|n°)\.?|verzoekschrift" + _SPACE + r"nrs?\.?)"
+    r"requêtes?" + _SPACE + r"(?:nos?|n°)\.?)"
     r"|nrs?\.?|nos?\.|n°)" + _SPACE + r"?:?" + _SPACE + r"?)"
     r"(?P<num>\d{1,6}/\d{2})(?![\d/])",
     re.I,
@@ -175,15 +200,28 @@ _APPNO_NEXT_RE = re.compile(
     _SPACE + r"*(?:,|en|and|et|&)" + _SPACE + r"*(?P<num>\d{1,6}/\d{2})(?![\d/])"
 )
 # Citation-level ECtHR cues. Not "EVRM" (the Convention itself, cited in most
-# Dutch decisions) and no bare "tegen" ("bezwaar tegen het besluit nr. 12/34").
+# Dutch decisions) and no "tegen"/"versus"/"contre" ("beroep tegen de Minister,
+# nr. 12/05" is not an ECtHR citation; "X tegen Nederland" is cited with "EHRM").
 _ECHR_CITATION_CUE_RE = re.compile(
     r"EHRM|ECHR|ECtHR|EHRC|Europees Hof|European Court|Cour européenne|ECRM|EComHR|"
     r"Commissie voor de Rechten|Commission of Human Rights|Commission européenne des droits|"
     r"\b(?:v|vs|t|c)\.\s+(?:the\s+|het\s+|la\s+|le\s+|l')?[A-Z]|"
-    r"\b(?:tegen|versus|contre)\s+(?:the\s+|het\s+|de\s+|la\s+|le\s+|l')?[A-Z]|"
     r"\((?:dec|déc|ontv)\.\)|\[GC\]|Grote Kamer|Grand Chamber|Grande Chambre"
 )
-_NOT_ECHR_RE = re.compile(r"Kamerstukken|Stb\.|Stcrt\.|Trb\.|Handelingen|Bijl\.", re.I)
+# Parliamentary papers and Dutch case-number labels shortly before the number.
+_NOT_ECHR_RE = re.compile(
+    r"Kamerstukken|Stb\.|Stcrt\.|Trb\.|Handelingen|Bijl\.|zaaknummer|zaaknr|rolnummer|rolnr|"
+    r"parketnummer|parketnr|\bAWB\b",
+    re.I,
+)
+# Legislation named right before the number cue ("Besluit nr. 1/80",
+# "Verordening (EEG) nr. 1408/71"), as cjeu_text's legislation rule.
+_LEGISLATION_BEFORE_RE = re.compile(
+    r"\b(?:verordening|richtlijn|besluit|regeling|wet|protocol)\W{0,12}"
+    r"(?:\([A-Z]{2,4}\)" + _SPACE + r"*)?(?:[\w.°]+" + _SPACE + r"*){0,3}$",
+    re.I,
+)
+FIRST_APPLICATION_YEAR = 1955  # the Commission's first applications
 _DECISION_CUE_RE = re.compile(
     r"\((?:dec|déc|ontv)\.?\)|\(beslissing\)|ontvankelijkheidsbeslissing|"
     r"admissibility decision|decision as to the admissibility|décision sur la recevabilité",
@@ -287,22 +325,6 @@ def scan_eclis(text, text_field="fulltext", language=None):
     return hits
 
 
-def _year_ok(court, year2, max_year):
-    """Does a two-digit year fit the court's numbering, and not postdate the citation?"""
-    y = int(year2)
-    if court:
-        full = 1900 + y if y >= 50 else 2000 + y
-        if court == "F" and not 2005 <= full <= 2016:
-            return False
-        if court in ("C", "T") and full < 1989:
-            return False
-    else:
-        if not 53 <= y <= 88:
-            return False
-        full = 1900 + y
-    return max_year is None or full <= max_year
-
-
 def _clause_before(text, start, limit=120, stops=()):
     """Text before start, back to a newline, ';' or one of stops (offsets)."""
     lo = max(0, start - limit)
@@ -375,6 +397,7 @@ def scan_cjeu_case_numbers(
         )
 
     accepted = []  # (start, end, court, number, year2, suffix)
+    groups = []  # index of the list/range group of each accepted number
     previous = None
     for start, end, court, number, year2, has_hyphen, suffix in raw:
         before = text[max(0, start - 40) : start]
@@ -392,20 +415,31 @@ def scan_cjeu_case_numbers(
                 continue
         elif not has_hyphen and not (continues_list or _CJEU_CUE_RE.search(window)):
             continue
-        if not _year_ok(court, year2, max_year):
+        if not cjeu_year_ok(court, year2, max_year):
             continue
         if caribbean and not _STRONG_CJEU_CUE_RE.search(window):
             continue
         current = (start, end, court, number, year2, suffix)
+        joined = previous is not None and continues_list
+        groups.append(groups[-1] if joined else len(groups))
         accepted.append(current)
         previous = current
 
-    hits = []
+    # An opinion cue covers every number of its list or range ("conclusie ...
+    # in de zaken C-199/12, C-200/12 en C-201/12"): the clause before the first
+    # number and after the last.
     stops = [a[1] for a in accepted]
+    group_cue = {}
+    for group in sorted(set(groups)):
+        members = [a for a, g in zip(accepted, groups) if g == group]
+        first, last = members[0][0], members[-1][1]
+        before = _clause_before(text, first, stops=[s for s in stops if s <= first])
+        after = _clause_after(text, last, stops=[a[0] for a in accepted if a[0] >= last])
+        group_cue[group] = _has_opinion_cue(before, after)
+
+    hits = []
     for index, (start, end, court, number, year2, suffix) in enumerate(accepted):
-        before = _clause_before(text, start, stops=[s for s in stops if s <= start])
-        after = _clause_after(text, end, stops=[a[0] for a in accepted if a[0] >= end])
-        opinion = _has_opinion_cue(before, after)
+        opinion = group_cue[groups[index]]
         value = identifiers.normalize_cjeu_case_number(
             f"{court}-{number}/{year2}" if court else f"{number}/{year2}"
         )
@@ -464,8 +498,19 @@ def _cited_date(before, after):
         return None
 
 
-def scan_echr_appnos(text, text_field="fulltext", language=None):
-    """ECtHR application numbers, only in texts that mention the ECtHR or the ECHR."""
+def _appno_year_ok(value, max_year):
+    """Two-digit application year between 1955 and the citing decision's year."""
+    y = int(value.rsplit("/", 1)[1])
+    full = 1900 + y if y >= 55 else 2000 + y
+    return full >= FIRST_APPLICATION_YEAR and (max_year is None or full <= max_year)
+
+
+def scan_echr_appnos(text, text_field="fulltext", language=None, max_year=None):
+    """ECtHR application numbers, only in texts that mention the ECtHR or the ECHR.
+
+    max_year: the citing decision's year; a later application year is not an
+    application number.
+    """
     if not _ECHR_TEXT_RE.search(text):
         return []
     found = {}  # start -> (start, end, specific cue)
@@ -488,10 +533,10 @@ def scan_echr_appnos(text, text_field="fulltext", language=None):
     ends = [f[1] for f in found]
     for start, end, specific in found:
         value = identifiers.normalize_echr_appno(text[start:end])
-        if value is None:
+        if value is None or not _appno_year_ok(value, max_year):
             continue
         near_before = text[max(0, start - 60) : start]
-        if _NOT_ECHR_RE.search(near_before):
+        if _NOT_ECHR_RE.search(near_before) or _LEGISLATION_BEFORE_RE.search(near_before):
             continue
         citation_before = text[max(0, start - 200) : start]
         citation_after = text[end : end + 100]
@@ -537,7 +582,7 @@ def scan_case(source: SourceCase) -> List[Hit]:
         hits.extend(
             scan_cjeu_case_numbers(text, text_field, language, source.ecli, max_year=max_year)
         )
-        hits.extend(scan_echr_appnos(text, text_field, language))
+        hits.extend(scan_echr_appnos(text, text_field, language, max_year=max_year))
     return hits
 
 
@@ -645,8 +690,21 @@ def _is_source(candidate, source: SourceCase):
     return bool(key) and CaseKey(**key) == source.key()
 
 
-def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) -> List[LinkRecord]:
-    """Turn one decision's hits into link records (one per target or reference)."""
+def _ecli_corpus(ecli):
+    """'ECLI:NL:HR:2020:593' -> 'NL', 'ECLI:CE:ECHR:...' -> 'CE'."""
+    parts = (ecli or "").split(":")
+    return parts[1] if len(parts) > 1 else None
+
+
+def resolve_case(
+    source: SourceCase, hits: Sequence[Hit], lookup, stats=None, ecli_scope=ECLI_SCOPE_ALL
+) -> List[LinkRecord]:
+    """Turn one decision's hits into link records (one per target or reference).
+
+    ecli_scope 'cross' leaves out the ECLIs of the citing decision's own corpus.
+    """
+    if ecli_scope not in ECLI_SCOPES:
+        raise ValueError(f"ecli_scope must be one of {ECLI_SCOPES}")
     stats = stats if stats is not None else Counter()
     pending: Dict[tuple, _Pending] = {}
     source_key = source.key()
@@ -676,6 +734,10 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
     for hit in (h for h in hits if h.scheme == "ecli"):
         if source.ecli and hit.value == source.ecli:
             stats["ecli_self"] += 1
+            continue
+        own_corpus = _ecli_corpus(hit.value) == _ecli_corpus(source.ecli)
+        if ecli_scope == ECLI_SCOPE_CROSS and own_corpus:
+            stats["ecli_out_of_scope"] += 1
             continue
         candidate = lookup.ecli(hit.value)
         if candidate is None:
@@ -748,6 +810,7 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
             decision_cue=hit.decision_cue,
             cited_date=hit.cited_date,
             cited_year=hit.cited_year,
+            grand_chamber=hit.grand_chamber,
         )
         if choice is None:
             if any(c.kind != resolver.ECHR_COMMUNICATED for c in candidates):
@@ -760,8 +823,9 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
             continue
         rule, confidence = choice.rule, choice.confidence
         if hit.grand_chamber and rule.endswith("_earliest_of_several"):
-            # "[GC]" with several judgments and no date: the earliest may be the
-            # Chamber judgment the Grand Chamber reviewed. Keep it, but say so.
+            # "[GC]" with several judgments, no date and no judgment recorded as
+            # the Grand Chamber's: the earliest may be the Chamber judgment the
+            # Grand Chamber reviewed. Keep it, but say so.
             rule, confidence = rule + "_gc_cited", round(confidence - 0.1, 2)
         stats["echr_resolved"] += 1
         add(
@@ -800,11 +864,13 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
     return records
 
 
-def extract_records(source: SourceCase, lookup, stats=None) -> List[LinkRecord]:
+def extract_records(
+    source: SourceCase, lookup, stats=None, ecli_scope=ECLI_SCOPE_ALL
+) -> List[LinkRecord]:
     """Pure entry point: one decision's texts and metadata -> link records."""
     hits = scan_case(source)
     lookup.prefetch(hits)
-    return resolve_case(source, hits, lookup, stats)
+    return resolve_case(source, hits, lookup, stats, ecli_scope)
 
 
 # ---------------------------------------------------------------------------
@@ -851,7 +917,14 @@ def iter_batches(conn, case_ids=None, id_range=None, batch_size=BATCH_SIZE):
             yield _sources(cursor.fetchall())
 
 
-def extract(conn, case_ids=None, id_range=None, out_path=None, batch_size=BATCH_SIZE):
+def extract(
+    conn,
+    case_ids=None,
+    id_range=None,
+    out_path=None,
+    batch_size=BATCH_SIZE,
+    ecli_scope=ECLI_SCOPE_ALL,
+):
     """Scan the RS texts of the given cases (all when both are None) and write
     the link artifact to out_path. Returns (records written, stats Counter)."""
     stats = Counter()
@@ -864,7 +937,7 @@ def extract(conn, case_ids=None, id_range=None, out_path=None, batch_size=BATCH_
             lookup = DbLookup(cursor)
             lookup.prefetch([hit for _source, hits in scanned for hit in hits])
             for source, hits in scanned:
-                records.extend(resolve_case(source, hits, lookup, stats))
+                records.extend(resolve_case(source, hits, lookup, stats, ecli_scope))
         conn.rollback()  # read-only; end the snapshot between batches
     for record in records:
         stats["records_" + record.source_dataset] += 1
@@ -875,7 +948,16 @@ def extract(conn, case_ids=None, id_range=None, out_path=None, batch_size=BATCH_
 
 
 def main(argv=None):
-    args = cli_args(__doc__.split("\n\n")[0].strip(), argv)
+    def scope_option(parser):
+        parser.add_argument(
+            "--ecli-scope",
+            choices=ECLI_SCOPES,
+            default=ECLI_SCOPE_CROSS,
+            help="rs_text_ecli: 'cross' (default, for backfills) writes only ECLIs of another "
+            "corpus than the citing decision; 'all' writes every ECLI (weekly run)",
+        )
+
+    args = cli_args(__doc__.split("\n\n")[0].strip(), argv, extra=scope_option)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     conn = connect(args.dsn_env)
     try:
@@ -889,6 +971,7 @@ def main(argv=None):
             id_range=id_range,
             out_path=args.out,
             batch_size=args.batch_size,
+            ecli_scope=args.ecli_scope,
         )
     finally:
         conn.close()
