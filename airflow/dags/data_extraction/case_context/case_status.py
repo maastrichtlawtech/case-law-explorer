@@ -299,9 +299,7 @@ def echr_records(cursor, ids, stats: Counter) -> List[StatusRecord]:
         others = [
             d
             for d in others
-            if not (
-                d.formation == "grand_chamber" and _NOT_MERITS_DOCNAME.search(d.docname or "")
-            )
+            if not (d.formation == "grand_chamber" and _NOT_MERITS_DOCNAME.search(d.docname or ""))
         ]
         referred = set()
         for gc in sorted(grand, key=lambda d: (d.decided is None, d.decided, d.item_id)):

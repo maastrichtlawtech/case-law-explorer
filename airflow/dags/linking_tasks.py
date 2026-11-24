@@ -742,9 +742,7 @@ def extract_legislation(
         module = importlib.import_module(f"data_extraction.legislation.{output.extractor}")
         path = _legislation_path(out_dir, output, month_layout)
         os.makedirs(os.path.dirname(path), exist_ok=True)
-        written, stats = module.extract(
-            conn, case_ids=case_ids, id_range=id_range, out_path=path
-        )
+        written, stats = module.extract(conn, case_ids=case_ids, id_range=id_range, out_path=path)
         results[output.name] = {"records": written, "stats": dict(stats)}
     return results
 
@@ -773,9 +771,7 @@ def run_legislation_month(conn, source: Source, data_path, month_folder) -> Opti
         raise FileNotFoundError(f"processed artifact missing for legislation: {csv_path}")
     keys = read_processed_keys(csv_path, source.key_column)
     case_ids = case_ids_for_keys(conn, source, keys)
-    outputs = extract_legislation(
-        conn, source, processed_dir, case_ids=case_ids, month_layout=True
-    )
+    outputs = extract_legislation(conn, source, processed_dir, case_ids=case_ids, month_layout=True)
     for name, load in load_legislation(conn, source, processed_dir, month_layout=True).items():
         outputs[name]["load"] = load
     counts = {
@@ -787,9 +783,7 @@ def run_legislation_month(conn, source: Source, data_path, month_folder) -> Opti
     }
     counts_dir = os.path.join(processed_dir, LINKS_DIR)
     os.makedirs(counts_dir, exist_ok=True)
-    _write_counts(
-        os.path.join(counts_dir, LEGISLATION_COUNTS_FILE.format(source.prefix)), counts
-    )
+    _write_counts(os.path.join(counts_dir, LEGISLATION_COUNTS_FILE.format(source.prefix)), counts)
     for name, values in outputs.items():
         log.info(
             "legislation %s %s %s: %s records, load %s",

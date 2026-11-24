@@ -174,9 +174,7 @@ class CaseOutcomes:
                 continue
             self.add("article", article, outcome, f"{field}: {token}", True)
 
-    def add_conclusion(
-        self, conclusion: Optional[str], stats: Counter, judgment: bool = False
-    ):
+    def add_conclusion(self, conclusion: Optional[str], stats: Counter, judgment: bool = False):
         for item in split_items(conclusion):
             outcome, article, reason = parse_conclusion_item(item)
             stats[f"item_{reason}"] += 1

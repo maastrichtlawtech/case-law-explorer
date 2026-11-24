@@ -333,7 +333,15 @@ def handelingen_hits(text: str) -> List[AuthorityHit]:
 
 OFFICIAL_RE = re.compile(
     r"(?<![\w.])(?P<pub>Stb|Stcrt|Trb|Staatsblad|Staatscourant|Tractatenblad)\.?"
-    r"" + _SP + r"*(?P<year>(?:18|19|20)\d{2})(?!\d)" + _SP + r"*,?" + _SP + r"*(?:nr\.?" + _SP + r"*)?"
+    r""
+    + _SP
+    + r"*(?P<year>(?:18|19|20)\d{2})(?!\d)"
+    + _SP
+    + r"*,?"
+    + _SP
+    + r"*(?:nr\.?"
+    + _SP
+    + r"*)?"
     r"(?P<nr>\d{1,6})(?![\d/,.]\d)(?![\w/])"
 )
 _OFFICIAL_CODE = {

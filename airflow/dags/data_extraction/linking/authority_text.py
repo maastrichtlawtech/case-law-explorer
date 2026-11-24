@@ -14,10 +14,10 @@ What is found (see authority_patterns for the identifiers): Dutch
 parliamentary papers (Kamerstukken, Handelingen), Staatsblad / Staatscourant /
 Tractatenblad numbers (AUTHORITY_NL_OFFICIAL_PUBLICATIONS, default on), the
 Vreemdelingencirculaire 2000, WBV, decrees cited by date and reference
-number (AUTHORITY_NL_DECREES, default off), full ECLIs of courts outside the three collections, UN treaty body
-documents and communications, and Council of Europe documents (Venice
-Commission, CPT, GRECO, ECRI, Committee of Ministers, Commissioner for Human
-Rights). Every pattern runs on both corpora.
+number (AUTHORITY_NL_DECREES, default off), full ECLIs of courts outside the
+three collections, UN treaty body documents and communications, and Council
+of Europe documents (Venice Commission, CPT, GRECO, ECRI, Committee of
+Ministers, Commissioner for Human Rights). Every pattern runs on both corpora.
 
 Each record names the citing case by ECLI (else CELEX, else item_id), the
 document by (kind, identifier_scheme, identifier) with the attributes the
