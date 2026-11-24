@@ -547,6 +547,199 @@ def run_window_links(var_prefix, **context):
 
 
 # ---------------------------------------------------------------------------
+# case outcomes and status (roadmap R5.1, R5.2)
+# ---------------------------------------------------------------------------
+#
+# With OUTCOME_EXTRACTION_ENABLED (default off), build_monthly_task_group adds
+# an ``extract_outcomes`` task as the group's last task (after
+# ``extract_links`` when that runs too, because the CJEU appeal status reads
+# the appeal_of rows the links task loads). For every month folder it writes
+# ``processed/<month>/outcomes/<source_dataset>.jsonl`` (empty when an
+# extractor is switched off or found nothing), loads each file with
+# data_loading.outcome_loader (insert-only) and writes the counts to
+# ``processed/<month>/outcomes/_counts.<PREFIX>.json``. Flag off: the task is
+# not added and the DAGs are exactly as before.
+#
+#     rechtspraak  rs_dictum, rs_appeal_status    only with RS_DICTUM_ENABLED
+#                                                 (default off: the dictum rules
+#                                                 have no real-text sample yet)
+#     echr         echr_conclusion, echr_status
+#     cellar       cjeu_proc_type, cjeu_appeal_status
+#
+# Backfill: ``python -m linking_tasks outcomes --dsn-env VAR --source S
+# --from-id N --to-id M --out DIR [--load]`` (read-only without --load; the
+# master flag does not apply, RS_DICTUM_ENABLED does).
+
+OUTCOME_FLAG = "OUTCOME_EXTRACTION_ENABLED"
+RS_DICTUM_FLAG = "RS_DICTUM_ENABLED"
+OUTCOMES_DIR = "outcomes"
+
+
+def outcomes_enabled() -> bool:
+    """OUTCOME_EXTRACTION_ENABLED is set to a true value (default off)."""
+    return env_flag(OUTCOME_FLAG, False)
+
+
+@dataclass(frozen=True)
+class ContextExtractor:
+    dataset: str  # the one source_dataset it writes; also the file name
+    module: str
+    function: str
+    flag: Optional[str] = None  # an extra flag it needs (default off)
+
+
+CONTEXT_EXTRACTORS: Dict[str, Tuple[ContextExtractor, ...]] = {
+    "rechtspraak": (
+        ContextExtractor(
+            "rs_dictum", "data_extraction.case_context.rs_dictum", "extract", RS_DICTUM_FLAG
+        ),
+        ContextExtractor(
+            "rs_appeal_status",
+            "data_extraction.case_context.case_status",
+            "extract_rs",
+            RS_DICTUM_FLAG,
+        ),
+    ),
+    "echr": (
+        ContextExtractor(
+            "echr_conclusion", "data_extraction.case_context.echr_outcomes", "extract"
+        ),
+        ContextExtractor("echr_status", "data_extraction.case_context.case_status", "extract_echr"),
+    ),
+    "cellar": (
+        ContextExtractor("cjeu_proc_type", "data_extraction.case_context.cjeu_outcomes", "extract"),
+        ContextExtractor(
+            "cjeu_appeal_status", "data_extraction.case_context.case_status", "extract_cjeu"
+        ),
+    ),
+}
+
+
+def outcome_artifact_paths(source: Source, month_folder: str) -> List[str]:
+    """Paths (relative to DATA_PATH) of the outcome/status files a weekly run
+    writes for one month, in load order; every one exists after the task,
+    possibly empty. The promoter registers these with their own role
+    (e.g. 'case_context'), replayed after 'links'."""
+    return [
+        f"processed/{month_folder}/{OUTCOMES_DIR}/{e.dataset}.jsonl"
+        for e in CONTEXT_EXTRACTORS[source.name]
+    ]
+
+
+def extract_outcomes(conn, source: Source, out_dir, case_ids=None, id_range=None):
+    """Write out_dir/<source_dataset>.jsonl for every outcome/status dataset
+    of source; returns ({dataset: status}, {dataset: {"records": n}})."""
+    from data_extraction.linking.artifact import ArtifactWriter
+
+    os.makedirs(out_dir, exist_ok=True)
+    statuses, datasets = {}, {}
+    for extractor in CONTEXT_EXTRACTORS[source.name]:
+        path = os.path.join(out_dir, f"{extractor.dataset}.jsonl")
+        reason = None
+        if extractor.flag and not env_flag(extractor.flag, False):
+            reason = f"{extractor.flag} is off"
+        if reason or (case_ids is not None and not case_ids):
+            with ArtifactWriter(path):
+                pass  # an empty file, so the promoter finds every path
+            statuses[extractor.dataset] = (
+                {"status": "skipped", "reason": reason} if reason else {"status": "no_cases"}
+            )
+            if reason:
+                log.info("outcomes: skipping %s (%s)", extractor.dataset, reason)
+            datasets[extractor.dataset] = {"records": 0}
+            continue
+        function = getattr(importlib.import_module(extractor.module), extractor.function)
+        written, _stats = function(conn, case_ids=case_ids, id_range=id_range, out_path=path)
+        statuses[extractor.dataset] = {"status": "ran"}
+        datasets[extractor.dataset] = {"records": written}
+    return statuses, datasets
+
+
+def load_outcomes(conn, source: Source, out_dir) -> Dict[str, dict]:
+    """Load every outcome/status file of source from out_dir; {dataset: counts}."""
+    from data_loading import outcome_loader
+
+    loaded = {}
+    for extractor in CONTEXT_EXTRACTORS[source.name]:
+        result = outcome_loader.load_artifact(
+            conn, os.path.join(out_dir, f"{extractor.dataset}.jsonl")
+        )
+        loaded[extractor.dataset] = result.get(extractor.dataset, {})
+    return loaded
+
+
+def run_month_outcomes(conn, source: Source, data_path, month_folder) -> Optional[dict]:
+    """Extract and load the outcomes and statuses of one month's batch."""
+    processed_dir = os.path.join(data_path, "processed", month_folder)
+    if os.path.exists(os.path.join(processed_dir, NO_SOURCE_DATA_MARKER.format(source.prefix))):
+        log.info("outcomes: %s %s has no source data", source.name, month_folder)
+        return None
+    csv_path = os.path.join(processed_dir, source.processed_csv)
+    if not os.path.exists(csv_path):
+        raise FileNotFoundError(f"processed artifact missing for outcome extraction: {csv_path}")
+    keys = read_processed_keys(csv_path, source.key_column)
+    case_ids = case_ids_for_keys(conn, source, keys)
+    out_dir = os.path.join(processed_dir, OUTCOMES_DIR)
+    statuses, datasets = extract_outcomes(conn, source, out_dir, case_ids=case_ids)
+    for dataset, load in load_outcomes(conn, source, out_dir).items():
+        datasets[dataset]["load"] = load
+    counts = {
+        "source": source.name,
+        "month": month_folder,
+        "case_keys": len(keys),
+        "case_ids": len(case_ids),
+        "extractors": statuses,
+        "datasets": datasets,
+    }
+    _write_counts(os.path.join(out_dir, COUNTS_FILE.format(source.prefix)), counts)
+    _log_counts(f"outcomes {source.name} {month_folder}", counts)
+    return counts
+
+
+def run_window_outcomes(var_prefix, **context):
+    """Airflow callable: outcomes and statuses for every month chunk of the
+    run's window. A no-op unless OUTCOME_EXTRACTION_ENABLED."""
+    if not outcomes_enabled():
+        log.info("outcomes: %s is off; nothing to do", OUTCOME_FLAG)
+        return None
+    from data_loading.clients.postgres import PostgresCLEClient
+    from etl_factory import get_data_path, iter_month_chunks, resolve_run_window
+
+    source = SOURCE_BY_PREFIX[var_prefix]
+    start, end, _ = resolve_run_window(var_prefix, context)
+    data_path = get_data_path()
+    summary = {}
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        for chunk_start, _chunk_end in iter_month_chunks(start, end):
+            folder = chunk_start.isoformat()
+            counts = run_month_outcomes(conn, source, data_path, folder)
+            summary[folder] = (
+                None if counts is None else {d: v["records"] for d, v in counts["datasets"].items()}
+            )
+    return summary
+
+
+def backfill_outcomes(conn, source: Source, from_id, to_id, out_dir, load=False) -> dict:
+    """Extract (and optionally load) outcomes and statuses over cases.id
+    from_id..to_id (inclusive, either may be None) into out_dir."""
+    statuses, datasets = extract_outcomes(conn, source, out_dir, id_range=(from_id, to_id))
+    if load:
+        for dataset, result in load_outcomes(conn, source, out_dir).items():
+            datasets[dataset]["load"] = result
+    counts = {
+        "source": source.name,
+        "from_id": from_id,
+        "to_id": to_id,
+        "extractors": statuses,
+        "datasets": datasets,
+    }
+    _write_counts(os.path.join(out_dir, COUNTS_FILE.format(source.prefix)), counts)
+    _log_counts(f"outcomes {source.name} {from_id}..{to_id}", counts)
+    return counts
+
+
+# ---------------------------------------------------------------------------
 # backfill CLI
 # ---------------------------------------------------------------------------
 
@@ -596,6 +789,15 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         default=None,
         help="rs_text ECLIs: cross-court only (backfill default) or all",
     )
+    outcomes = commands.add_parser(
+        "outcomes", help="extract (and load) case outcomes and status over a cases.id range"
+    )
+    outcomes.add_argument("--dsn-env", required=True, help="environment variable holding the DSN")
+    outcomes.add_argument("--source", required=True, choices=sorted(SOURCES))
+    outcomes.add_argument("--from-id", type=int, default=None, help="first cases.id (inclusive)")
+    outcomes.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
+    outcomes.add_argument("--out", required=True, help="directory for <source_dataset>.jsonl")
+    outcomes.add_argument("--load", action="store_true", help="also load the files into the DSN")
     args = parser.parse_args(argv)
     dsn = os.environ.get(args.dsn_env)
     if not dsn:
@@ -607,15 +809,20 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     try:
         if not args.load:
             conn.set_session(readonly=True)
-        counts = backfill(
-            conn,
-            SOURCES[args.source],
-            args.from_id,
-            args.to_id,
-            args.out,
-            load=args.load,
-            ecli_scope=args.ecli_scope,
-        )
+        if args.command == "outcomes":
+            counts = backfill_outcomes(
+                conn, SOURCES[args.source], args.from_id, args.to_id, args.out, load=args.load
+            )
+        else:
+            counts = backfill(
+                conn,
+                SOURCES[args.source],
+                args.from_id,
+                args.to_id,
+                args.out,
+                load=args.load,
+                ecli_scope=args.ecli_scope,
+            )
     finally:
         conn.close()
     print(json.dumps(_json_safe(counts), indent=2, sort_keys=True))

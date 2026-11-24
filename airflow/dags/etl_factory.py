@@ -259,6 +259,11 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
     the DAG chains after the group (register_promotion), and a failure there
     retries only the link step, not the source extraction. With the flag off
     the group is exactly the single ``run_window`` task.
+
+    With links=True and OUTCOME_EXTRACTION_ENABLED set, ``extract_outcomes``
+    (linking_tasks.run_window_outcomes: case outcomes and status, roadmap
+    R5.1/R5.2) becomes the group's last task, after ``extract_links`` when
+    that runs too. With both flags off the group is unchanged.
     """
     with TaskGroup(f"{task_prefix}_tasks", tooltip=f"{task_prefix} tasks", dag=dag) as task_group:
         run_window = PythonOperator(
@@ -267,6 +272,7 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
             op_kwargs={"var_prefix": var_prefix, "etl_callable": etl_callable},
             dag=dag,
         )
+        last = run_window
         if links and linking_tasks.enabled():
             extract_links = PythonOperator(
                 task_id="extract_links",
@@ -274,6 +280,15 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            run_window >> extract_links
+            last >> extract_links
+            last = extract_links
+        if links and linking_tasks.outcomes_enabled():
+            extract_outcomes = PythonOperator(
+                task_id="extract_outcomes",
+                python_callable=linking_tasks.run_window_outcomes,
+                op_kwargs={"var_prefix": var_prefix},
+                dag=dag,
+            )
+            last >> extract_outcomes
 
     return task_group
