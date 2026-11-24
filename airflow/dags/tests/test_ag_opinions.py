@@ -148,3 +148,13 @@ def test_extract_and_load(scratch_db, tmp_path):  # noqa: F811
     assert execute(
         conn, "SELECT count(*) FROM cle_v2.cjeu_ag_opinion WHERE parent_case_id IS NOT NULL"
     ) == [(0,)]
+
+
+def test_first_judgment_skips_separate_document_suffixes():
+    """Illustrative: the earliest judgment carrying the number is a revision
+    ('REV'), a separate document; the opinion belongs to the plain judgment."""
+    opinion = ag.Opinion(1, None, "62020CC0001", date(2021, 1, 1), ("C-1/20",))
+    revision = cand(5, "62020CJ0001(01)", date(2021, 2, 1), value="C-1/20 REV")
+    judgment = cand(6, "62020CJ0001", date(2021, 3, 1))
+    resolution, reason = ag.resolve_opinion(opinion, {}, {"C-1/20": [revision, judgment]})
+    assert reason == "ok" and resolution.target.case_id == 6

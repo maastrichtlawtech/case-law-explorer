@@ -43,8 +43,8 @@ Matching a line to a Rechtspraak decision, in order:
        ("201012342/T1/V2" = "201012342/1/V2": the Raad van State reuses the
        referral's number for the decision after the ruling) when it has at
        least six digits -> 'metadata';
-    4. with REFERRAL_DATE_COURT_FALLBACK (off by default; precision not
-       measured): the only decision of a compatible court on that date
+    4. with REFERRAL_DATE_COURT_FALLBACK (off by default, read when extract()
+       runs; precision not measured): the only decision of a compatible court on that date
        -> 'metadata' with confidence 0.6.
 
 Rules:
@@ -62,7 +62,9 @@ Rules:
     conclusie; then only the Parket.
   * Duplicate publications (decision D2). Decisions of one court on one date
     with the same zaaknummer are one decision published more than once
-    (RVS:2012:BW3076 = RVS:2012:4057, and 4059 its English translation).
+    (RVS:2012:BW3076 = RVS:2012:4057, and 4059 its English translation);
+    each number of one must match a number of the other in some written form
+    ('201012342/1/T1/V2' = '201012342/T1/V2', 'Nr. 16.300' = '16.300').
     They resolve to one canonical case: drop translations (rs_document.language
     other than Dutch) first, then take the ECLI with an LJN-style number (the
     original publication; numeric ECLIs for decisions before 2013 are
@@ -109,12 +111,14 @@ EXTRACTOR_VERSION = "cellar_referrals/1.0.0"
 TEXT_FIELD = "national_judgement_xml"
 BATCH_SIZE = 500
 
-# Off by default: matching on date + court alone was not hand-checked.
-REFERRAL_DATE_COURT_FALLBACK = os.environ.get("REFERRAL_DATE_COURT_FALLBACK", "").lower() in (
-    "1",
-    "true",
-    "yes",
-)
+# Off by default: matching on date + court alone was not hand-checked. Read when
+# extract() runs, so the flag can be set after import.
+DATE_COURT_FALLBACK_FLAG = "REFERRAL_DATE_COURT_FALLBACK"
+
+
+def date_court_fallback_enabled() -> bool:
+    return os.environ.get(DATE_COURT_FALLBACK_FLAG, "").strip().lower() in ("1", "true", "yes")
+
 
 PRELIMINARY_REFERENCE = "preliminary_reference"
 EARLIER_INSTANCE = "earlier_instance"
@@ -496,6 +500,24 @@ def _ljn_style(ecli):
     return bool(re.fullmatch(r"[A-Z]{2}\d{4}", (ecli or "").rsplit(":", 1)[-1]))
 
 
+def _number_groups(candidate):
+    """The forms of each zaaknummer of a decision, one set per number."""
+    raw = _TOKEN_SPLIT_RE.split(candidate.zaaknummer or "") + list(candidate.identifiers)
+    return [forms for forms in (number_forms(part) for part in raw) if forms]
+
+
+def _same_numbers(a, b):
+    """Do two publications carry the same case numbers, each possibly written
+    with or without the instance segment ('201012342/1/T1/V2' = '201012342/T1/V2')?
+    Every number of one must match a number of the other."""
+    groups_a, groups_b = _number_groups(a), _number_groups(b)
+    if not groups_a or not groups_b:
+        return False
+    return all(any(x & y for y in groups_b) for x in groups_a) and all(
+        any(x & y for x in groups_a) for y in groups_b
+    )
+
+
 def canonical(candidates: Sequence[RsCandidate]) -> Tuple[Optional[RsCandidate], int]:
     """One decision from candidates that are publications of the same
     decision (decision D2), with the number of publications; (None, n) when
@@ -510,8 +532,7 @@ def canonical(candidates: Sequence[RsCandidate]) -> Tuple[Optional[RsCandidate],
     same_decision = all(
         (c.instance or "").lower() == (first.instance or "").lower()
         and c.decided == first.decided
-        and c.numbers() == first.numbers()
-        and c.numbers()
+        and _same_numbers(c, first)
         for c in pool
     )
     if not same_decision:
@@ -831,7 +852,7 @@ def extract(
     """Write the artifact for the CJEU documents selected by case_ids or
     id_range (cases.id, inclusive); returns (records written, stats)."""
     if date_court_fallback is None:
-        date_court_fallback = REFERRAL_DATE_COURT_FALLBACK
+        date_court_fallback = date_court_fallback_enabled()
     stats: Counter = Counter()
     records: List[LinkRecord] = []
     for batch in iter_documents(conn, case_ids, id_range, batch_size):
@@ -860,8 +881,9 @@ def main(argv=None):
     parser.add_argument(
         "--date-court-fallback",
         action="store_true",
-        default=REFERRAL_DATE_COURT_FALLBACK,
-        help="also match on date + court alone (precision not measured)",
+        default=None,
+        help="also match on date + court alone (precision not measured; default: "
+        "the REFERRAL_DATE_COURT_FALLBACK environment variable)",
     )
     args = parser.parse_args(argv)
     import psycopg2

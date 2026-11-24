@@ -132,9 +132,11 @@ def _by_case_number(opinion, by_case_number):
         return None, "no_opinion_date"
     firsts = set()
     for number in opinion.case_numbers:
+        # Never a separate document of the case (revision, interpretation,
+        # costs, ...: a 'REV'/'INT'/'DEP' suffix), whatever its date.
         judgments = [
             c
-            for c in by_case_number.get(number, ())
+            for c in resolver.filter_cjeu_suffix(by_case_number.get(number, ()), None)
             if c.kind == resolver.CJEU_JUDGMENT
             and c.case_id != opinion.case_id
             and c.date is not None

@@ -25,11 +25,12 @@ lowest ECLI".
 
 ## Run over the whole research set
 
-2,487 tagged lines; 821 records written:
+2,487 tagged lines; 823 records written (821 before the publication rule was
+relaxed on 2026-11-24, see below):
 
 | Relation | match_method (method part) | Records |
 |---|---|---|
-| preliminary_reference | metadata | 448 |
+| preliminary_reference | metadata | 450 |
 | preliminary_reference | ecli | 27 |
 | preliminary_reference | ljn | 2 |
 | national_follow_up | metadata | 183 |
@@ -41,7 +42,7 @@ The run counted methods only; written today these are `metadata/<rule>`
 (`zaaknummer`, `zaaknummer_core`, `zaaknummer_base`), `ecli` (or
 `ecli/ecli_inconsistent`) and `ljn`.
 
-Lines skipped: 426 foreign or unrecognised court, 32 interim (`*I*`), 10
+Lines skipped: 426 foreign or unrecognised court, 32 interim (`*I*`), 8
 ambiguous (different decisions), 1,126 no candidate that day (expected: the
 candidate file only has decisions sharing a number), 67 no zaaknummer match,
 2 no date.
@@ -50,14 +51,28 @@ Against the research resolution (`resolved.json`, 634 unique pairs from
 substring matching with court checks): 624 of the 634 are produced; the 10
 not produced are all `*I*` interim lines, which this module skips. 197 pairs
 are new: 140 from an ECLI written in the line or in the rechtspraak.nl link
-after it, and 57 that the research left ambiguous (`resolved.json` `amb`)
-and that the duplicate-publication rule (D2) resolves to one case. The 10
+after it, and 59 that the research left ambiguous (`resolved.json` `amb`)
+and that the duplicate-publication rule (D2) resolves to one case. The 8
 lines this module still finds ambiguous are candidates that differ in
 instance or zaaknummer.
 
+Publications count as one decision when they have the same instance and date
+and every case number of one matches a number of the other in some written
+form (with or without the Raad van State instance segment, with or without a
+letter prefix). Before 2026-11-24 the sets of forms had to be equal, which
+left two `amb` pairs ambiguous that this rule now resolves, both checked on
+the metadata: `ECLI:NL:HR:1997:AG1530` (`Nr. 16.300`) = `ECLI:NL:HR:1997:AG7243`
+(`16.300`), Hoge Raad 06/06/1997, -> ECLI:EU:C:1999:437 (metadata/zaaknummer
+0.92); and `ECLI:NL:CBB:2013:37` (`AWB 11/780 AWB 13/243`) =
+`ECLI:NL:CBB:2013:39` (`AWBB 11/780 AWB 13/243`, a typo of the prefix), CBB
+04/07/2013, -> ECLI:EU:C:2014:2296 (metadata/zaaknummer_core 0.87). Both go to
+the lowest ECLI, as for the other duplicate publications.
+
 ## Hand check
 
-25 records drawn with `random.seed(20261124)`; `random.sample(records, 25)`.
+25 records drawn with `random.seed(20261124)`; `random.sample(records, 25)`
+from the 821 records of the run before the publication rule change (the two
+records it added are checked above).
 For each: the line's court is the candidate's instance (same court seat for
 district courts and courts of appeal), the line's date is the decision date,
 and the line's number is the decision's zaaknummer (exactly, or its numeric
