@@ -16,7 +16,6 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-
 SOURCE_DAG_IDS = (
     "rechtspraak_etl",
     "cellar_etl",
@@ -34,9 +33,7 @@ def _positive_int(name, default):
 
 def client_settings():
     return {
-        "url": os.getenv(
-            "ETL_PROMOTER_INTERNAL_URL", "http://etl-promoter:8080"
-        ).rstrip("/"),
+        "url": os.getenv("ETL_PROMOTER_INTERNAL_URL", "http://etl-promoter:8080").rstrip("/"),
         "token": os.getenv("ETL_PROMOTER_INTERNAL_TOKEN", "").strip(),
         "request_timeout": _positive_int("ETL_PROMOTER_API_TIMEOUT_SECONDS", 30),
         "wait_seconds": _positive_int("ETL_PROMOTION_DAG_WAIT_SECONDS", 21600),
@@ -100,14 +97,15 @@ def _supersedes(later, earlier):
 
     LIDO batches carry no window: each one is a full rebuild of the database.
     """
-    if not earlier.get("window_start") or not earlier.get("window_end"):
+    earlier_start = _timestamp(earlier.get("window_start"))
+    earlier_end = _timestamp(earlier.get("window_end"))
+    if earlier_start is None or earlier_end is None:
         return True
-    if not later.get("window_start") or not later.get("window_end"):
+    later_start = _timestamp(later.get("window_start"))
+    later_end = _timestamp(later.get("window_end"))
+    if later_start is None or later_end is None:
         return False
-    return (
-        later["window_start"] <= earlier["window_start"]
-        and later["window_end"] >= earlier["window_end"]
-    )
+    return later_start <= earlier_start and later_end >= earlier_end
 
 
 def select_batches_for_run(batches, minimum_age_hours, now=None):
@@ -177,7 +175,14 @@ def select_batches_for_run(batches, minimum_age_hours, now=None):
         # A batch verified again after a failed promotion keeps its old
         # created_at, so maturity is measured from verification only.
         verified_at = _timestamp(batch.get("verified_at"))
-        if status != "verified" or not verified_at or now - verified_at < minimum_age:
+        if status == "verified" and verified_at is None:
+            # The promoter records verified_at whenever it marks a batch
+            # verified; without it the batch would never mature and would
+            # hold back every later batch without a word.
+            raise RuntimeError(
+                f"Verified promotion batch {batch.get('batch_id')} has no verified_at"
+            )
+        if status != "verified" or now - verified_at < minimum_age:
             logging.info(
                 "Batch %s is %s and not yet %s hours past verification; "
                 "later batches wait for it",
@@ -255,18 +260,25 @@ def promote_source_batches(source_dag_id, **_context):
             # The promoter only promotes verified batches. Register the run
             # again so it is verified against its current artifacts; it is
             # promoted once it has matured, and later batches wait for it.
-            promoter_json(
-                "/v1/batches",
-                method="POST",
-                payload={
-                    "dag_id": summary.get("dag_id") or source_dag_id,
-                    "run_id": summary["run_id"],
-                    "window_start": summary.get("window_start"),
-                    "window_end": summary.get("window_end"),
-                    "requested_by": summary.get("requested_by") or "airflow",
-                },
-                cfg=cfg,
-            )
+            # Same payload as etl_factory.register_promotion: LIDO batches
+            # have no window, so the window keys are left out.
+            payload = {
+                "dag_id": summary.get("dag_id") or source_dag_id,
+                "run_id": summary["run_id"],
+                "requested_by": summary.get("requested_by") or "airflow",
+            }
+            for key in ("window_start", "window_end"):
+                if summary.get(key):
+                    payload[key] = summary[key]
+            # HTTP errors raise in promoter_json. The promoter answers with
+            # the batch it now holds: the same batch_id (derived from dag_id
+            # and run_id), verifying again or already past that.
+            accepted = promoter_json("/v1/batches", method="POST", payload=payload, cfg=cfg)
+            if accepted.get("batch_id") != batch_id or accepted.get("status") == "failed":
+                raise RuntimeError(
+                    f"ETL promoter did not accept batch {batch_id} for verification: "
+                    f"{accepted.get('batch_id')} is {accepted.get('status')}"
+                )
             raise RuntimeError(
                 f"Promotion batch {batch_id} failed at promotion "
                 f"({summary.get('error') or 'unknown error'}); it is being "
