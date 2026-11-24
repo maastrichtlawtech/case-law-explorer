@@ -119,6 +119,30 @@ def test_rs_processor_writes_one_case_citation_per_target_ecli(client, hook):
     assert resolved["source_dataset"] == "rs_lido_sqlite" == unresolved["source_dataset"]
 
 
+def test_rs_processor_skips_formal_relation_labels_in_citations_outgoing(client, hook):
+    """The live-API fallback puts dcterms:relation labels in citations_outgoing;
+    they are not citations and must not end up in target_ecli_raw."""
+    processor = PostgresRSProcessor(path="unused", client=client)
+    hook.get_first_return = lambda sql, parameters: None
+    row = {
+        ECLI: "ECLI:NL:HR:2024:5",
+        RS_TITLE: "Some title",
+        RS_CITING: (
+            "Eerste aanleg: ECLI:NL:RBAMS:2019:123, Bekrachtiging/bevestiging; "
+            "ecli:nl:hr:2024:102; ECLI:NL:HR:2024:102\n"
+            "Cassatie: ECLI:NL:HR:2025:1\nnot an ecli"
+        ),
+    }
+
+    result = processor.upload_row(row)
+
+    conn = client._get_conn()
+    assert result == 1
+    citation_calls = [params for _, params in conn.executed[3:]]
+    assert [p["target_ecli_raw"] for p in citation_calls] == ["ECLI:NL:HR:2024:102"]
+    assert citation_calls[0]["source_dataset"] == "rs_lido_sqlite"
+
+
 def test_rs_processor_writes_no_citation_rows_when_citations_outgoing_absent(client):
     processor = PostgresRSProcessor(path="unused", client=client)
     row = {ECLI: "ECLI:NL:HR:2024:4", RS_TITLE: "Some title"}
@@ -270,7 +294,9 @@ def test_item_id_processor_groups_language_variants_by_ecli(client):
     _, case_params = conn.executed[ECHR_LOOKUP_STATEMENTS]
     assert case_params["item_id"] == "001-eng"
     assert case_params["ecli"] == "ECLI:CE:ECHR:2026:1"
-    detail_case_ids = {params["case_id"] for _, params in conn.executed[ECHR_LOOKUP_STATEMENTS + 1:-1]}
+    detail_case_ids = {
+        params["case_id"] for _, params in conn.executed[ECHR_LOOKUP_STATEMENTS + 1 : -1]
+    }
     assert len(detail_case_ids) == 1
     enrichment_sql, enrichment_params = conn.executed[-1]
     assert "UPDATE cle_v2.cases k SET" in enrichment_sql

@@ -1,6 +1,8 @@
 import logging
+import re
 from datetime import date
 
+from data_extraction.linking.identifiers import normalize_ecli
 from data_loading import case_enrichment, cjeu_loader
 from data_loading.language_codes import normalize_language_code
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
@@ -55,6 +57,32 @@ def _split_set(value):
     if not value:
         return None
     return [v for v in value.split(SET_SEP) if v]
+
+
+def _citing_eclis(value):
+    """The cited ECLIs in citations_outgoing, in order, without duplicates.
+
+    Only an item that is an ECLI and nothing else is a citation. lido.db gives
+    one ECLI per item, but rechtspraak_extractor's live-API fallback fills
+    citations_outgoing from dcterms:relation, i.e. the formal relation's label
+    ("Eerste aanleg: ECLI:NL:RBAMS:2019:123, Bekrachtiging/bevestiging"):
+    a procedural relation with its psi:type dropped, not a citation. Those
+    items were stored verbatim as target_ecli_raw; they are now left out.
+    Splits on newlines as well as SET_SEP, in case a value arrives without
+    the transformer's newline-to-'; ' formatting.
+    """
+    out = []
+    for item in re.split(r"; |\n", value or ""):
+        item = item.strip()
+        if not item:
+            continue
+        ecli = normalize_ecli(item)
+        if ecli is None:
+            logging.debug("citations_outgoing item is not an ECLI, skipped: %r", item)
+            continue
+        if ecli not in out:
+            out.append(ecli)
+    return out
 
 
 class _BaseRowProcessor:
@@ -267,7 +295,7 @@ class PostgresRSProcessor(_BaseRowProcessor):
         convention citation_update.py already uses, since citations_incoming
         is just the mirror of another case's own outgoing edge."""
         rows = []
-        for target_ecli in _split_set(row.get(RS_CITING)) or []:
+        for target_ecli in _citing_eclis(row.get(RS_CITING)):
             target_case_id = self.client.resolve_case_id(ecli=target_ecli)
             rows.append(
                 {
