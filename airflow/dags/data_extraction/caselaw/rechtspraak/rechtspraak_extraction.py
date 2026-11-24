@@ -4,6 +4,7 @@ Main RS extraction routine. Used by the rechtspaark_extraction DAG.
 
 import logging
 import os
+import sqlite3
 from datetime import datetime, timedelta
 
 import pandas as pd
@@ -159,11 +160,59 @@ def _cap_base_extraction(base_extraction: pd.DataFrame | None, amount: int):
 
 def _lido_sqlite_db_path(lido_sqlite_db_path: str | None) -> str:
     if lido_sqlite_db_path:
-        return lido_sqlite_db_path
-    from lido_sqlite_paths import get_lido_sqlite_paths
+        db_path = lido_sqlite_db_path
+    else:
+        from lido_sqlite_paths import get_lido_sqlite_paths
 
-    _, db_path = get_lido_sqlite_paths()
-    return str(db_path)
+        db_path = str(get_lido_sqlite_paths()[1])
+    _log_lido_db_status(db_path)
+    return db_path
+
+
+def _log_lido_db_status(db_path: str) -> None:
+    """Log once per run whether lido.db can answer lookups at all.
+
+    rechtspraak_extractor only logs "SQLite returned 0/N" per day, which reads
+    the same for a missing, empty or stale lido.db as for ECLIs that are newer
+    than the monthly LIDO export. lido.db was once built from the HTML error
+    page served at the export's old URL and held no cases, so every ECLI went
+    to the live API without any error.
+    """
+    if not os.path.exists(db_path):
+        logging.warning(
+            "LIDO_DB status=missing path=%s: all Rechtspraak metadata comes from the live API",
+            db_path,
+        )
+        return
+    try:
+        connection = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+        try:
+            cases, newest = connection.execute(
+                "SELECT COUNT(*), MAX(date_decision) FROM metadata"
+            ).fetchone()
+        finally:
+            connection.close()
+    except sqlite3.Error as error:
+        logging.warning(
+            "LIDO_DB status=unreadable path=%s error=%s: all Rechtspraak metadata "
+            "comes from the live API",
+            db_path,
+            error,
+        )
+        return
+    if not cases:
+        logging.warning(
+            "LIDO_DB status=empty path=%s: all Rechtspraak metadata comes from the live API",
+            db_path,
+        )
+        return
+    logging.info(
+        "LIDO_DB status=ok path=%s cases=%s newest_decision=%s "
+        "(ECLIs published after the export are fetched live)",
+        db_path,
+        cases,
+        newest,
+    )
 
 
 def _fetch_extra_sqlite_columns(eclis: list, sqlite_db_path: str) -> pd.DataFrame:
