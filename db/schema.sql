@@ -1344,8 +1344,8 @@ ALTER TABLE "cle_v2"."case_law_reference"
 -- Provenance columns on case_law_reference for the law-reference extractors
 -- (cjeu-migration docs/CROSS_DATASET_ROADMAP.md, R3.2-R3.4).
 --
--- NUMBER PROVISIONAL: 0011 is left to feature/eu-legislation-schema (R3.1);
--- the coordinator confirms the final numbers before merging.
+-- extractor_version may already exist (0011 adds it for the ECHR article
+-- references); ADD COLUMN IF NOT EXISTS keeps this file safe either way.
 --
 -- Ground rule 5 of the roadmap: every link carries its extractor version,
 -- match method and confidence. case_citation got them in 0009; this does the
@@ -1359,7 +1359,7 @@ ALTER TABLE "cle_v2"."case_law_reference"
 --   * one CHECK, NOT VALID: no scan of existing rows (all NULL in the new
 --     column anyway); enforced for new and updated rows.
 --
--- The unique index the new datasets need is in 0013: built here, it would scan
+-- The unique index the new datasets need is in 0014: built here, it would scan
 -- case_law_reference while this file holds ACCESS EXCLUSIVE on it.
 
 -- (migration only) SET LOCAL lock_timeout = '5s';
