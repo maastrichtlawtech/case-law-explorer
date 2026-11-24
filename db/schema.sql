@@ -529,9 +529,11 @@ CREATE INDEX "case_law_reference_idx_legislation" ON "cle_v2"."case_law_referenc
 CREATE INDEX "case_law_reference_idx_provision" ON "cle_v2"."case_law_reference" ("provision_id");
 CREATE INDEX "case_law_reference_idx_raw" ON "cle_v2"."case_law_reference" ("raw_scheme","raw_resource");
 CREATE INDEX "case_law_reference_idx_raw_label" ON "cle_v2"."case_law_reference" ("raw_label_id");
-CREATE UNIQUE INDEX "case_law_reference_uk_legislation" ON "cle_v2"."case_law_reference" ("case_id","legislation_id","role","source_dataset");
-CREATE UNIQUE INDEX "case_law_reference_uk_provision" ON "cle_v2"."case_law_reference" ("case_id","provision_id","role","source_dataset");
-CREATE UNIQUE INDEX "case_law_reference_uk_raw" ON "cle_v2"."case_law_reference" ("case_id","raw_scheme","raw_resource",COALESCE(raw_subdivision, ''::text),"role","source_dataset");
+-- Partial like caselaw-coolify 0001 (the deployed schema), so local loads see
+-- the same arbiters as db-dev and production.
+CREATE UNIQUE INDEX "case_law_reference_uk_legislation" ON "cle_v2"."case_law_reference" ("case_id","legislation_id","role","source_dataset") WHERE "provision_id" IS NULL AND "legislation_id" IS NOT NULL AND "raw_resource" IS NULL;
+CREATE UNIQUE INDEX "case_law_reference_uk_provision" ON "cle_v2"."case_law_reference" ("case_id","provision_id","role","source_dataset") WHERE "provision_id" IS NOT NULL AND "raw_resource" IS NULL;
+CREATE UNIQUE INDEX "case_law_reference_uk_raw" ON "cle_v2"."case_law_reference" ("case_id","raw_scheme","raw_resource",COALESCE(raw_subdivision, ''::text),"role","source_dataset") WHERE "provision_id" IS NULL AND "legislation_id" IS NULL AND "raw_resource" IS NOT NULL;
 CREATE INDEX "case_network_metric_idx_case" ON "cle_v2"."case_network_metric" ("case_id");
 CREATE INDEX "case_party_idx_party" ON "cle_v2"."case_party" ("party_id");
 CREATE INDEX "case_segment_idx_case_id" ON "cle_v2"."case_segment" ("case_id");
@@ -666,8 +668,9 @@ CREATE VIEW "cle_v2"."rs_v_document_with_text" AS (SELECT d.case_id, d.date_deci
 
 -- =============================================================================
 -- Mirrored from MaastrichtU-BISS/caselaw-coolify db/migrations (the deployed
--- schema): 0008_case_text_document_kind, 0009_cross_dataset_links and
--- 0010_case_citation_link_indexes. Keep in step with those files.
+-- schema): 0008_case_text_document_kind, 0009_cross_dataset_links,
+-- 0010_case_citation_link_indexes, 0012_case_law_reference_provenance and
+-- 0013_case_law_reference_link_index. Keep in step with those files.
 -- =============================================================================
 
 -- ---- 0008_case_text_document_kind.sql ----
@@ -1247,3 +1250,29 @@ CREATE INDEX IF NOT EXISTS "case_citation_idx_target_ref" ON "cle_v2"."case_cita
 
 CREATE INDEX IF NOT EXISTS "case_citation_idx_source_dataset" ON "cle_v2"."case_citation"
     ("source_dataset");
+
+-- ---- 0012_case_law_reference_provenance.sql ----
+-- Provenance columns on case_law_reference for the law-reference extractors
+-- (roadmap R3.2-R3.4): nullable, no default; the CHECK is NOT VALID.
+
+ALTER TABLE "cle_v2"."case_law_reference"
+    ADD COLUMN IF NOT EXISTS "extractor_version" text,
+    ADD COLUMN IF NOT EXISTS "match_method"      text,
+    ADD COLUMN IF NOT EXISTS "confidence"        real;
+
+ALTER TABLE "cle_v2"."case_law_reference"
+    DROP CONSTRAINT IF EXISTS "case_law_reference_confidence_check";
+ALTER TABLE "cle_v2"."case_law_reference"
+    ADD CONSTRAINT "case_law_reference_confidence_check"
+    CHECK ("confidence" IS NULL OR "confidence" BETWEEN 0 AND 1) NOT VALID;
+
+-- ---- 0013_case_law_reference_link_index.sql ----
+-- Resolved law references that keep their raw identifier, idempotent under
+-- ON CONFLICT DO NOTHING (data_loading/law_reference_loader.py).
+
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_resolved_ref"
+    ON "cle_v2"."case_law_reference"
+    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
+    WHERE "raw_resource" IS NOT NULL
+      AND ("legislation_id" IS NOT NULL OR "provision_id" IS NOT NULL)
+      AND "source_dataset" IN ('cellar_sparql', 'cellar_law_ref', 'rs_text_eu_law', 'echr_text_eu_law');

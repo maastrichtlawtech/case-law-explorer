@@ -13,10 +13,11 @@ import urllib.request
 from calendar import monthrange
 from datetime import date, datetime, timedelta
 
-import linking_tasks
 from airflow.models.variable import Variable
 from airflow.operators.python import PythonOperator
 from airflow.utils.task_group import TaskGroup
+
+import linking_tasks
 
 DEFAULT_ARGS = {"owner": "none", "retries": 1, "retry_delay": timedelta(minutes=2)}
 
@@ -257,8 +258,11 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
     in the group: it extracts and loads the cross-dataset links of the months
     ``run_window`` loaded. As the group's last task it runs before anything
     the DAG chains after the group (register_promotion), and a failure there
-    retries only the link step, not the source extraction. With the flag off
-    the group is exactly the single ``run_window`` task.
+    retries only the link step, not the source extraction. With
+    LAW_REFERENCE_EXTRACTION_ENABLED set, ``extract_law_references``
+    (linking_tasks.run_window_law_references) follows as the group's last
+    task. With both flags off the group is exactly the single ``run_window``
+    task.
     """
     with TaskGroup(f"{task_prefix}_tasks", tooltip=f"{task_prefix} tasks", dag=dag) as task_group:
         run_window = PythonOperator(
@@ -267,6 +271,7 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
             op_kwargs={"var_prefix": var_prefix, "etl_callable": etl_callable},
             dag=dag,
         )
+        last = run_window
         if links and linking_tasks.enabled():
             extract_links = PythonOperator(
                 task_id="extract_links",
@@ -274,6 +279,15 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            run_window >> extract_links
+            last >> extract_links
+            last = extract_links
+        if links and linking_tasks.law_enabled():
+            extract_law_references = PythonOperator(
+                task_id="extract_law_references",
+                python_callable=linking_tasks.run_window_law_references,
+                op_kwargs={"var_prefix": var_prefix},
+                dag=dag,
+            )
+            last >> extract_law_references
 
     return task_group

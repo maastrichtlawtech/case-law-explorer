@@ -15,9 +15,10 @@ import types
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+
 import etl_factory
 import linking_tasks
-import pytest
 from tests.linking_db import DSN, add_case, execute, needs_db, scratch_db  # noqa: F401
 
 LINK_ENV = (
@@ -31,6 +32,10 @@ LINK_ENV = (
     "LINK_CELLAR_UUID_CACHE",
     "LINK_CELLAR_UUID_CELEX_CACHE",
     "CASE_IDENTIFIER_ENABLED",
+    "LAW_REFERENCE_EXTRACTION_ENABLED",
+    "LAW_RS_TEXT",
+    "LAW_ECHR_TEXT",
+    "LAW_CELLAR_REFS",
 )
 
 
@@ -292,6 +297,62 @@ def test_links_run_after_the_load_and_before_promotion(monkeypatch, dag_id, pref
     assert graph.edges == {(run_window, links), (links, "register_promotion")}
     assert graph.tasks[links].kwargs["python_callable"] is linking_tasks.run_window_links
     assert graph.tasks[links].kwargs["op_kwargs"] == {"var_prefix": prefix}
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+def test_law_references_run_after_the_load_and_before_promotion(monkeypatch, dag_id, prefix):
+    monkeypatch.setenv("LAW_REFERENCE_EXTRACTION_ENABLED", "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    run_window = f"{dag_id}_tasks.run_window"
+    law = f"{dag_id}_tasks.extract_law_references"
+    assert set(graph.tasks) == {run_window, law, "register_promotion"}
+    assert graph.edges == {(run_window, law), (law, "register_promotion")}
+    assert graph.tasks[law].kwargs["python_callable"] is linking_tasks.run_window_law_references
+    assert graph.tasks[law].kwargs["op_kwargs"] == {"var_prefix": prefix}
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+def test_links_then_law_references_with_both_flags(monkeypatch, dag_id, prefix):
+    monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
+    monkeypatch.setenv("LAW_REFERENCE_EXTRACTION_ENABLED", "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    run_window = f"{dag_id}_tasks.run_window"
+    links = f"{dag_id}_tasks.extract_links"
+    law = f"{dag_id}_tasks.extract_law_references"
+    assert graph.edges == {(run_window, links), (links, law), (law, "register_promotion")}
+
+
+def test_law_flags_default_off_and_the_window_callable_is_a_no_op(monkeypatch):
+    assert not linking_tasks.law_enabled()
+
+    def boom(*args, **kwargs):
+        raise AssertionError("must not run")
+
+    monkeypatch.setattr(linking_tasks, "run_month_law", boom)
+    assert linking_tasks.run_window_law_references("CELLAR", dag_run=None) is None
+    monkeypatch.setenv("LAW_REFERENCE_EXTRACTION_ENABLED", "yes")
+    assert linking_tasks.law_enabled()
+
+
+def test_law_dataset_names_match_the_extractor_modules():
+    from data_extraction.linking import cellar_law_refs, echr_eu_law, law_artifact, rs_eu_law
+
+    ex = linking_tasks.LAW_EXTRACTORS
+    assert ex["rechtspraak"].datasets == rs_eu_law.DATASETS
+    assert ex["echr"].datasets == echr_eu_law.DATASETS
+    assert ex["cellar"].datasets == cellar_law_refs.DATASETS
+    assert {d for e in ex.values() for d in e.datasets} == set(law_artifact.LAW_DATASETS)
+    for extractor in ex.values():
+        assert importlib.import_module(extractor.module).extract
+    assert linking_tasks.law_artifact_paths(linking_tasks.SOURCES["rechtspraak"], "2026-09-01") == [
+        "processed/2026-09-01/law_references/rs_text_eu_law.jsonl"
+    ]
+    assert (
+        linking_tasks.LAW_MASTER_FLAG
+        == __import__("data_loading.law_reference_loader", fromlist=["FLAG"]).FLAG
+    )
 
 
 def test_segmentation_trigger_also_waits_for_links(monkeypatch):
