@@ -839,7 +839,8 @@ VALUES
     ('national_follow_up', 'A national decision given after a CJEU ruling, to that ruling (procedural; a text citation is a separate cites row).', false, false, false, false, true),
     ('opinion_of', 'An Advocate General''s opinion to the judgment it was delivered in.', false, false, false, false, true),
     ('appeal_of', 'A CJEU appeal judgment to the General Court decision under appeal.', false, false, false, false, true),
-    ('earlier_instance', 'A decision to an earlier decision in the same national proceedings.', false, false, false, false, true)
+    ('earlier_instance', 'A decision to an earlier decision in the same national proceedings.', false, false, false, false, true),
+    ('cites_in_domestic_law', 'An ECtHR judgment refers to the decision only where it reports the domestic proceedings or law (decision D4, pending).', false, false, false, false, true)
 ON CONFLICT ("code") DO NOTHING;
 
 -- ---------------------------------------------------------------------------
