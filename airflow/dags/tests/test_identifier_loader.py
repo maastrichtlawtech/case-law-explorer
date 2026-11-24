@@ -12,9 +12,6 @@ points at a server where the test may create and drop a scratch database
 """
 
 import json
-import os
-import uuid
-from pathlib import Path
 
 import pytest
 
@@ -32,8 +29,7 @@ from data_loading.identifier_loader import (
     split_ljns,
     split_zaaknummers,
 )
-
-SCHEMA_SQL = Path(__file__).resolve().parents[3] / "db" / "schema.sql"
+from tests.linking_db import DSN, execute, needs_db, scratch_db  # noqa: F401
 
 # ---------------------------------------------------------------------------
 # splitting, pure
@@ -225,9 +221,6 @@ def test_maintenance_is_off_by_default(monkeypatch):
 # loader, against a real database
 # ---------------------------------------------------------------------------
 
-DSN = os.environ.get("CLE_TEST_PG_DSN")
-needs_db = pytest.mark.skipif(not DSN, reason="CLE_TEST_PG_DSN not set")
-
 DOSSIER_200 = "http://publications.europa.eu/resource/cellar/aaaaaaaa-0000-0000-0000-000000000200"
 DOSSIER_UNKNOWN = (
     "http://publications.europa.eu/resource/cellar/bbbbbbbb-0000-0000-0000-000000000999"
@@ -254,7 +247,9 @@ INSERT INTO cle_v2.case_citation (source_case_id, target_case_id, target_celex_r
   (1, NULL, '{DOSSIER_200}', 'joins', 'cellar_sparql'),
   (1, NULL, '62012CJ0201', 'joins', 'cellar_sparql'),
   (1, NULL, '{DOSSIER_UNKNOWN}', 'joins', 'cellar_sparql'),
-  (1, 3, '62017CJ0221', 'cites', 'cellar_sparql');
+  (1, 3, '62017CJ0221', 'cites', 'cellar_sparql'),
+  -- a 'joins' row of another dataset is not Cellar's join
+  (1, NULL, '62012CJ0202', 'joins', 'cellar_relation_resolved');
 INSERT INTO cle_v2.echr_document (item_id, case_id, language, extractedappno) VALUES
   ('001-1', 10, 'en', '17341/03;12345/99');
 INSERT INTO cle_v2.echr_document_appno (item_id, appno, source) VALUES
@@ -267,27 +262,11 @@ INSERT INTO cle_v2.rs_document (case_id, zaaknummer, replaces_identifier) VALUES
 
 
 @pytest.fixture
-def conn():
-    psycopg2 = pytest.importorskip("psycopg2")
-    name = "cle_ident_test_" + uuid.uuid4().hex[:8]
-    admin = psycopg2.connect(DSN)
-    admin.autocommit = True
-    with admin.cursor() as cursor:
-        cursor.execute(f'CREATE DATABASE "{name}"')
-    base, _, _ = DSN.rpartition("/")
-    db = psycopg2.connect(f"{base}/{name}")
-    try:
-        sql = SCHEMA_SQL.read_text().replace('CREATE SCHEMA "public";', "")
-        with db.cursor() as cursor:
-            cursor.execute(sql)
-            cursor.execute(FIXTURE_SQL)
-        db.commit()
-        yield db
-    finally:
-        db.close()
-        with admin.cursor() as cursor:
-            cursor.execute(f'DROP DATABASE IF EXISTS "{name}"')
-        admin.close()
+def conn(scratch_db):  # noqa: F811
+    with scratch_db.cursor() as cursor:
+        cursor.execute(FIXTURE_SQL)
+    scratch_db.commit()
+    yield scratch_db
 
 
 def _identifiers(conn, case_id=None):
@@ -320,8 +299,9 @@ def test_cjeu_case_numbers_celex_ecli_and_joins(conn):
     assert cn["inserted"] == 3
     assert cn["unresolved"] == 1
     assert result["examples"]["cjeu_case_number:unresolved"][0]["value"] == DOSSIER_UNKNOWN
-    # the 'cites' row is not a join
+    # the 'cites' row is not a join, nor a 'joins' row of another dataset
     assert "C-221/17" not in [row[3] for row in _identifiers(conn, 1)]
+    assert "C-202/12" not in [row[3] for row in _identifiers(conn, 1)]
 
 
 @needs_db
@@ -457,6 +437,20 @@ def test_weekly_maintenance_behind_flag(conn, monkeypatch):
     identifier_loader.maintain_for_keys(client, "id", [10])
     appnos = sorted(row[3] for row in _identifiers(conn, 10) if row[1] == "echr_appno")
     assert appnos == ["17341/03", "55555/05"]
+
+    # stored normalised (as case_identifier reads them), unparsable pieces skipped
+    assert (
+        identifier_loader.record_echr_owner_appnos(
+            client, [("001-1", "no. 017341/03; 066666/06 ;n/a")]
+        )
+        == 1
+    )
+    assert sorted(
+        row[0]
+        for row in execute(
+            conn, "SELECT appno FROM cle_v2.echr_document_appno WHERE source = 'appno'"
+        )
+    ) == ["17341/03", "55555/05", "66666/06"]
 
 
 # ---------------------------------------------------------------------------

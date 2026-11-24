@@ -103,7 +103,13 @@ from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import unquote
 
 from data_extraction.linking import identifiers, resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, match_method, write_jsonl
+from data_extraction.linking.artifact import (
+    ArtifactWriter,
+    CaseKey,
+    LinkRecord,
+    Mention,
+    match_method,
+)
 
 log = logging.getLogger(__name__)
 
@@ -604,6 +610,87 @@ def iter_rows(conn, case_ids=None, id_range=None, batch_size=BATCH_SIZE):
         yield batch
 
 
+# For a weekly batch: the old rows that may now resolve to one of the batch's
+# cases although their source is outside it. subject_to_appeal is filed on the
+# older General Court decision and names the appeal, which arrives months
+# later; a preliminary reference's national decision names a ruling that may
+# be loaded after it. Every unresolved old row is read (one sweep, parsed
+# here), plus the rows the corpus loader resolved to one of the cases.
+_SWEEP_UNRESOLVED = f"""
+    SELECT DISTINCT cc.source_case_id, coalesce(cc.target_celex_raw, cc.target_ecli_raw)
+      FROM {SCHEMA}.case_citation cc
+     WHERE cc.source_dataset = '{OLD_DATASET}'
+       AND cc.relation_type = ANY(%(types)s)
+       AND cc.target_case_id IS NULL
+       AND cc.source_case_id IS NOT NULL
+       AND coalesce(cc.target_celex_raw, cc.target_ecli_raw) IS NOT NULL
+"""
+_SOURCES_RESOLVED_TO = f"""
+    SELECT DISTINCT cc.source_case_id
+      FROM {SCHEMA}.case_citation cc
+     WHERE cc.source_dataset = '{OLD_DATASET}'
+       AND cc.relation_type = ANY(%(types)s)
+       AND cc.target_case_id = ANY(%(ids)s)
+       AND cc.source_case_id IS NOT NULL
+"""
+_KEYS_OF = f"""
+    SELECT c.ecli, c.celex_id,
+           ARRAY(SELECT ci.value_normalized FROM {SCHEMA}.case_identifier ci
+                  WHERE ci.case_id = c.id AND ci.scheme = 'cjeu_case_number')
+      FROM {SCHEMA}.cases c
+     WHERE c.id = ANY(%(ids)s)
+"""
+
+
+def _names_one_of(raw, uuid_dossier, uuid_celex, eclis, celexes, numbers) -> bool:
+    """May this old row's target token name one of the cases (by ECLI, CELEX
+    or case number, directly or through the UUID maps)?"""
+    ref = parse_reference(raw)
+    if ref.kind == "uuid":
+        if any(
+            (parsed := parse_dossier(v)) is not None and parsed.value in numbers
+            for v in uuid_dossier.get(ref.value, ())
+        ):
+            return True
+        return any(identifiers.normalize_celex(v) in celexes for v in uuid_celex.get(ref.value, ()))
+    if ref.kind == "ecli":
+        return ref.value in eclis
+    if ref.kind == "celex":
+        return ref.value in celexes
+    if ref.kind == "case_number":
+        return ref.value in numbers
+    return False
+
+
+def with_related_sources(conn, case_ids, uuid_dossier=None, uuid_celex=None) -> List[int]:
+    """case_ids and the sources of the old rows that may resolve to one of
+    them (_SWEEP_UNRESOLVED, _SOURCES_RESOLVED_TO)."""
+    ids = sorted({int(i) for i in case_ids})
+    if not ids:
+        return ids
+    uuid_dossier, uuid_celex = uuid_dossier or {}, uuid_celex or {}
+    params = {"types": sorted(RELATIONS), "ids": ids}
+    with conn.cursor() as cursor:
+        cursor.execute(_KEYS_OF, params)
+        eclis, celexes, numbers = set(), set(), set()
+        for ecli, celex, case_numbers in cursor.fetchall():
+            eclis.add(ecli)
+            celexes.add(identifiers.normalize_celex(celex))
+            numbers.update(case_numbers or ())
+        eclis.discard(None)
+        celexes.discard(None)
+        cursor.execute(_SOURCES_RESOLVED_TO, params)
+        related = {row[0] for row in cursor.fetchall()}
+        cursor.execute(_SWEEP_UNRESOLVED, params)
+        for source_id, raw in cursor.fetchall():
+            if source_id not in related and _names_one_of(
+                raw, uuid_dossier, uuid_celex, eclis, celexes, numbers
+            ):
+                related.add(source_id)
+    conn.rollback()
+    return sorted(set(ids) | related)
+
+
 def build_lookups(cursor, rows: Sequence[CellarRow], uuid_dossier, uuid_celex) -> Lookups:
     numbers, celexes, eclis = set(), set(), set()
     for row in rows:
@@ -650,19 +737,30 @@ def extract(
 ):
     """Write the artifact for the cellar_sparql rows whose source case is
     selected by case_ids or id_range (cases.id, inclusive). uuid_dossier /
-    uuid_celex map UUID -> values (load_uuid_map); returns (records, stats)."""
+    uuid_celex map UUID -> values (load_uuid_map); returns (records, stats).
+
+    With case_ids (a weekly batch), the sources of old rows that may resolve
+    to one of those cases are selected too (with_related_sources), so an
+    appeal or a ruling loaded after the decision that names it is linked when
+    it arrives. Those records can have both cases outside the batch's sources:
+    appeal_of points from the appeal (in the batch) to the older decision,
+    preliminary_reference from the national decision to the ruling (in the
+    batch)."""
     uuid_dossier = uuid_dossier or {}
     uuid_celex = uuid_celex or {}
     stats: Counter = Counter()
-    records: List[LinkRecord] = []
     idents: List[dict] = []
-    for batch in iter_rows(conn, case_ids, id_range, batch_size):
-        with conn.cursor() as cursor:
-            lookups = build_lookups(cursor, batch, uuid_dossier, uuid_celex)
-        batch_records, batch_idents = links_for_rows(batch, lookups, stats)
-        records.extend(batch_records)
-        idents.extend(batch_idents)
-    written = write_jsonl(records, out_path) if out_path else len(records)
+    if case_ids is not None:
+        case_ids = with_related_sources(conn, case_ids, uuid_dossier, uuid_celex)
+    with ArtifactWriter(out_path) as writer:
+        for batch in iter_rows(conn, case_ids, id_range, batch_size):
+            with conn.cursor() as cursor:
+                lookups = build_lookups(cursor, batch, uuid_dossier, uuid_celex)
+            conn.rollback()  # read-only; end the snapshot between batches
+            batch_records, batch_idents = links_for_rows(batch, lookups, stats)
+            writer.write(batch_records)
+            idents.extend(batch_idents)  # one per resolved dossier UUID; small
+    written = writer.count
     if identifiers_out:
         lines = sorted({json.dumps(i, sort_keys=True, ensure_ascii=False) for i in idents})
         with open(identifiers_out, "w", encoding="utf-8") as handle:
@@ -793,7 +891,9 @@ def main(argv=None):
             return
         if not args.out:
             parser.error("--out is required")
-        id_range = (args.from_id, args.to_id) if args.from_id or args.to_id else None
+        id_range = None
+        if args.from_id is not None or args.to_id is not None:
+            id_range = (args.from_id, args.to_id)
         written, stats = extract(
             conn,
             id_range=id_range,

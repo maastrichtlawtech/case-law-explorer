@@ -62,7 +62,10 @@ def corpus_of_ecli(ecli):
 
 def _cases_by_key(cursor, records):
     """Map ('ecli'|'celex'|'item_id', value) -> (case_id, sources) for every
-    case named in records, in one query."""
+    case named in records, in one query. An item_id is looked up in
+    cases.item_id and, failing that, in echr_document.item_id: HUDOC language
+    variants and related documents share one case row, which carries only the
+    canonical item's id."""
     eclis, celexes, item_ids = set(), set(), set()
     for record in records:
         for key in (record.source, record.target):
@@ -79,20 +82,31 @@ def _cases_by_key(cursor, records):
         return found
     cursor.execute(
         f"""
-        SELECT id, ecli, celex_id, item_id, sources
+        SELECT id, ecli, celex_id, item_id, sources, false
           FROM {SCHEMA}.cases
-         WHERE ecli = ANY(%s) OR celex_id = ANY(%s) OR item_id = ANY(%s)
+         WHERE ecli = ANY(%(eclis)s) OR celex_id = ANY(%(celexes)s) OR item_id = ANY(%(items)s)
+        UNION ALL
+        SELECT c.id, NULL, NULL, d.item_id, c.sources, true
+          FROM {SCHEMA}.echr_document d
+          JOIN {SCHEMA}.cases c ON c.id = d.case_id
+         WHERE d.item_id = ANY(%(items)s)
         """,
-        (sorted(eclis), sorted(celexes), sorted(item_ids)),
+        {"eclis": sorted(eclis), "celexes": sorted(celexes), "items": sorted(item_ids)},
     )
-    for case_id, ecli, celex, item_id, sources in cursor.fetchall():
+    by_document = {}
+    for case_id, ecli, celex, item_id, sources, via_document in cursor.fetchall():
         value = (case_id, list(sources or []))
+        if via_document:
+            by_document[item_id] = value
+            continue
         if ecli in eclis:
             found[("ecli", ecli)] = value
         if celex in celexes:
             found[("celex", celex)] = value
         if item_id in item_ids:
             found[("item_id", item_id)] = value
+    for item_id, value in by_document.items():
+        found.setdefault(("item_id", item_id), value)
     return found
 
 
@@ -112,65 +126,124 @@ _INSERT_COLUMNS = (
     "target_ref_scheme, relation_type, source_dataset, weight, is_cross_jurisdiction, "
     "extractor_version, match_method, confidence"
 )
-_INSERT_VALUES = (
-    "%(source_case_id)s, %(target_case_id)s, %(target_ecli_raw)s, %(target_celex_raw)s, "
-    "%(target_ref_raw)s, %(target_ref_scheme)s, %(relation_type)s, %(source_dataset)s, "
-    "%(weight)s, %(is_cross_jurisdiction)s, %(extractor_version)s, %(match_method)s, "
-    "%(confidence)s"
+# The row fields in _INSERT_COLUMNS order, with their SQL types (VALUES lists
+# need them: a column of NULLs has no type otherwise).
+_ROW_FIELDS = (
+    ("source_case_id", "bigint"),
+    ("target_case_id", "bigint"),
+    ("target_ecli_raw", "text"),
+    ("target_celex_raw", "text"),
+    ("target_ref_raw", "text"),
+    ("target_ref_scheme", "text"),
+    ("relation_type", "text"),
+    ("source_dataset", "text"),
+    ("weight", "integer"),
+    ("is_cross_jurisdiction", "boolean"),
+    ("extractor_version", "text"),
+    ("match_method", "text"),
+    ("confidence", "real"),
 )
+
+
+def _template(types):
+    return "(" + ", ".join(f"%s::{t}" for t in types) + ")"
+
+
+# Every statement below takes one VALUES list per batch (execute_values with
+# the whole batch as one page) and keeps the batch's order through ``ord``:
+# rows are inserted in artifact order, so within a batch the first of two
+# conflicting records is the one inserted, as when they went in one by one.
+_ROW_TEMPLATE = _template(["integer"] + [t for _f, t in _ROW_FIELDS])
+_ROW_ALIASES = "ord, " + ", ".join(f for f, _t in _ROW_FIELDS)
 
 # Resolved rows: one arbiter, named with its predicate so the statement works
 # against the deployed (partial) and the local (plain) unique index alike.
 _INSERT_RESOLVED = f"""
     INSERT INTO {SCHEMA}.case_citation ({_INSERT_COLUMNS})
-    VALUES ({_INSERT_VALUES})
+    SELECT {_INSERT_COLUMNS} FROM (VALUES %s) AS v({_ROW_ALIASES})
+     ORDER BY ord
     ON CONFLICT (source_case_id, target_case_id, relation_type, source_dataset)
         WHERE target_case_id IS NOT NULL
     DO NOTHING
-    RETURNING id
+    RETURNING id, source_case_id, target_case_id, relation_type, source_dataset
 """
 # Unresolved rows can fall under two unique indexes at once (an ECLI and a
 # case number), so any conflict means "already there".
 _INSERT_UNRESOLVED = f"""
     INSERT INTO {SCHEMA}.case_citation ({_INSERT_COLUMNS})
-    VALUES ({_INSERT_VALUES})
+    SELECT {_INSERT_COLUMNS} FROM (VALUES %s) AS v({_ROW_ALIASES})
+     ORDER BY ord
     ON CONFLICT DO NOTHING
-    RETURNING id
+    RETURNING id, source_case_id, target_ecli_raw, target_celex_raw, target_ref_raw,
+              target_ref_scheme, relation_type, source_dataset
 """
 
 _FIND_RESOLVED = f"""
-    SELECT id FROM {SCHEMA}.case_citation
-     WHERE source_case_id = %(source_case_id)s AND target_case_id = %(target_case_id)s
-       AND relation_type = %(relation_type)s AND source_dataset = %(source_dataset)s
+    SELECT c.id, c.source_case_id, c.target_case_id, c.relation_type, c.source_dataset
+      FROM (VALUES %s) AS v(source_case_id, target_case_id, relation_type, source_dataset)
+      JOIN {SCHEMA}.case_citation c
+        ON c.source_case_id = v.source_case_id AND c.target_case_id = v.target_case_id
+       AND c.relation_type = v.relation_type AND c.source_dataset = v.source_dataset
 """
-_FIND_UNRESOLVED = f"""
-    SELECT id FROM {SCHEMA}.case_citation
-     WHERE target_case_id IS NULL
-       AND source_case_id = %(source_case_id)s
-       AND relation_type = %(relation_type)s AND source_dataset = %(source_dataset)s
-       AND (   (%(target_ecli_raw)s::text IS NOT NULL AND target_ecli_raw = %(target_ecli_raw)s)
-            OR (%(target_celex_raw)s::text IS NOT NULL AND target_celex_raw = %(target_celex_raw)s)
-            OR (%(target_ref_raw)s::text IS NOT NULL AND target_ref_raw = %(target_ref_raw)s
-                AND target_ref_scheme = %(target_ref_scheme)s))
-     ORDER BY id
-     LIMIT 1
-"""
+_FIND_RESOLVED_TEMPLATE = "(%s::bigint, %s::bigint, %s::text, %s::text)"
 
-_INSERT_MENTION = f"""
-    INSERT INTO {SCHEMA}.case_citation_mention
-        (citation_id, case_text_id, text_field, language, char_start, char_end,
-         raw_text, context, segment_id, section, extractor_version)
-    VALUES
-        (%(citation_id)s,
-         (SELECT id FROM {SCHEMA}.case_text
-           WHERE case_id = %(source_case_id)s AND language = %(language)s
-             AND source = %(text_source)s),
-         %(text_field)s, %(language)s, %(char_start)s, %(char_end)s,
-         %(raw_text)s, %(context)s,
-         (SELECT id FROM {SCHEMA}.case_segment
-           WHERE case_id = %(source_case_id)s AND segment_hash = %(segment_hash)s),
-         %(section)s, %(extractor_version)s)
+# The oldest unresolved row a record conflicted with. ``bound`` is the first
+# id inserted by a later record of the same batch: a row-by-row load would not
+# have seen those rows yet.
+_FIND_UNRESOLVED = f"""
+    SELECT v.ord,
+           (SELECT c.id FROM {SCHEMA}.case_citation c
+             WHERE c.target_case_id IS NULL
+               AND c.source_case_id = v.source_case_id
+               AND c.relation_type = v.relation_type AND c.source_dataset = v.source_dataset
+               AND (   (v.target_ecli_raw IS NOT NULL AND c.target_ecli_raw = v.target_ecli_raw)
+                    OR (v.target_celex_raw IS NOT NULL
+                        AND c.target_celex_raw = v.target_celex_raw)
+                    OR (v.target_ref_raw IS NOT NULL AND c.target_ref_raw = v.target_ref_raw
+                        AND c.target_ref_scheme = v.target_ref_scheme))
+               AND (v.bound IS NULL OR c.id < v.bound)
+             ORDER BY c.id
+             LIMIT 1)
+      FROM (VALUES %s) AS v(ord, source_case_id, target_ecli_raw, target_celex_raw,
+                            target_ref_raw, target_ref_scheme, relation_type,
+                            source_dataset, bound)
+"""
+_FIND_UNRESOLVED_TEMPLATE = _template(
+    ["integer", "bigint", "text", "text", "text", "text", "text", "text", "bigint"]
+)
+
+_MENTION_FIELDS = (
+    ("citation_id", "bigint"),
+    ("case_text_id", "bigint"),
+    ("text_field", "text"),
+    ("language", "text"),
+    ("char_start", "integer"),
+    ("char_end", "integer"),
+    ("raw_text", "text"),
+    ("context", "text"),
+    ("segment_id", "bigint"),
+    ("section", "text"),
+    ("extractor_version", "text"),
+)
+_MENTION_COLUMNS = ", ".join(f for f, _t in _MENTION_FIELDS)
+_INSERT_MENTIONS = f"""
+    INSERT INTO {SCHEMA}.case_citation_mention ({_MENTION_COLUMNS})
+    SELECT {_MENTION_COLUMNS} FROM (VALUES %s) AS v(ord, {_MENTION_COLUMNS})
+     ORDER BY ord
     ON CONFLICT DO NOTHING
+    RETURNING citation_id
+"""
+_MENTION_TEMPLATE = _template(["integer"] + [t for _f, t in _MENTION_FIELDS])
+
+# case_text is unique on (case_id, language, source), case_segment on
+# (case_id, segment_hash).
+_CASE_TEXTS = f"""
+    SELECT case_id, language, source, id FROM {SCHEMA}.case_text
+     WHERE case_id = ANY(%s) AND source = ANY(%s)
+"""
+_CASE_SEGMENTS = f"""
+    SELECT case_id, segment_hash, id FROM {SCHEMA}.case_segment
+     WHERE case_id = ANY(%s) AND segment_hash = ANY(%s)
 """
 
 
@@ -205,25 +278,179 @@ def _row(record: LinkRecord, source, target):
     return row
 
 
-def _insert(cursor, row, resolved):
-    cursor.execute(_INSERT_RESOLVED if resolved else _INSERT_UNRESOLVED, row)
-    returned = cursor.fetchone()
-    if returned:
-        return returned[0], True
-    cursor.execute(_FIND_RESOLVED if resolved else _FIND_UNRESOLVED, row)
-    existing = cursor.fetchone()
-    if existing is None:
-        # Conflicted on an index this lookup does not cover; leave it alone.
-        return None, False
-    return existing[0], False
+_RESOLVED_KEY = ("source_case_id", "target_case_id", "relation_type", "source_dataset")
+_UNRESOLVED_KEY = (
+    "source_case_id",
+    "target_ecli_raw",
+    "target_celex_raw",
+    "target_ref_raw",
+    "target_ref_scheme",
+    "relation_type",
+    "source_dataset",
+)
+
+
+def _values(cursor, sql, rows, template):
+    """One statement for all rows; the rows it returns."""
+    if not rows:
+        return []
+    from psycopg2.extras import execute_values
+
+    return execute_values(cursor, sql, rows, template=template, page_size=len(rows), fetch=True)
+
+
+def _insert_rows(cursor, rows, resolved):
+    """Insert rows (dicts, in batch order) in one statement; returns one
+    (citation_id or None, inserted?) per row, as inserting them one at a
+    time and looking up the existing row after a conflict would."""
+    key_fields = _RESOLVED_KEY if resolved else _UNRESOLVED_KEY
+    returned = _values(
+        cursor,
+        _INSERT_RESOLVED if resolved else _INSERT_UNRESOLVED,
+        [(i,) + tuple(row[f] for f, _t in _ROW_FIELDS) for i, row in enumerate(rows)],
+        _ROW_TEMPLATE,
+    )
+    # A returned row is the first record of the batch with its values: later
+    # identical records conflicted with it.
+    new_ids = defaultdict(list)
+    for citation_id, *key in returned:
+        new_ids[tuple(key)].append(citation_id)
+    results = [None] * len(rows)
+    for i, row in enumerate(rows):
+        ids = new_ids.get(tuple(row[f] for f in key_fields))
+        if ids:
+            results[i] = (ids.pop(0), True)
+    missing = [i for i, result in enumerate(results) if result is None]
+    if not missing:
+        return results
+    if resolved:
+        found = {
+            tuple(key): citation_id
+            for citation_id, *key in _values(
+                cursor,
+                _FIND_RESOLVED,
+                sorted({tuple(rows[i][f] for f in _RESOLVED_KEY) for i in missing}),
+                _FIND_RESOLVED_TEMPLATE,
+            )
+        }
+        for i in missing:
+            results[i] = (found.get(tuple(rows[i][f] for f in _RESOLVED_KEY)), False)
+        return results
+    bounds, first_later = {}, None
+    for i in range(len(rows) - 1, -1, -1):
+        if results[i] is None:
+            bounds[i] = first_later
+        else:
+            first_later = results[i][0] if first_later is None else min(first_later, results[i][0])
+    found = dict(
+        _values(
+            cursor,
+            _FIND_UNRESOLVED,
+            [(i,) + tuple(rows[i][f] for f in _UNRESOLVED_KEY) + (bounds[i],) for i in missing],
+            _FIND_UNRESOLVED_TEMPLATE,
+        )
+    )
+    for i in missing:
+        results[i] = (found.get(i), False)
+    return results
+
+
+def _mention_targets(cursor, pending):
+    """case_text and case_segment ids for the mentions of pending
+    [(citation_id, row, record)], in two queries."""
+    case_ids = sorted({row["source_case_id"] for _c, row, record in pending if record.mentions})
+    sources = sorted({m.text_source for _c, _r, rec in pending for m in rec.mentions} - {None})
+    hashes = sorted({m.segment_hash for _c, _r, rec in pending for m in rec.mentions} - {None})
+    texts, segments = {}, {}
+    if case_ids and sources:
+        cursor.execute(_CASE_TEXTS, (case_ids, sources))
+        texts = {(c, lang, src): i for c, lang, src, i in cursor.fetchall()}
+    if case_ids and hashes:
+        cursor.execute(_CASE_SEGMENTS, (case_ids, hashes))
+        segments = {(c, h): i for c, h, i in cursor.fetchall()}
+    return texts, segments
+
+
+def _insert_mentions(cursor, pending, counts):
+    texts, segments = _mention_targets(cursor, pending)
+    dataset_of, values = {}, []
+    for citation_id, row, record in pending:
+        dataset_of[citation_id] = record.source_dataset
+        source_id = row["source_case_id"]
+        for mention in record.mentions:
+            values.append(
+                (
+                    len(values),
+                    citation_id,
+                    texts.get((source_id, mention.language, mention.text_source)),
+                    mention.text_field,
+                    mention.language,
+                    mention.char_start,
+                    mention.char_end,
+                    mention.raw_text,
+                    mention.context,
+                    segments.get((source_id, mention.segment_hash)),
+                    mention.section,
+                    record.extractor_version,
+                )
+            )
+    for (citation_id,) in _values(cursor, _INSERT_MENTIONS, values, _MENTION_TEMPLATE):
+        counts[dataset_of[citation_id]]["mentions_inserted"] += 1
+
+
+def _load_batch(cursor, batch, counts):
+    """One batch in a fixed number of statements: case lookup, insert and
+    find for resolved and for unresolved rows, case_text/case_segment ids,
+    mentions."""
+    found = _cases_by_key(cursor, batch)
+    planned = []  # (record, row, resolved?)
+    for record in batch:
+        c = counts[record.source_dataset]
+        source = _resolve(found, record.source)
+        if source is None:
+            c["source_missing"] += 1
+            continue
+        target = _resolve(found, record.target)
+        if target is None and record.target is not None:
+            if not (record.target.ecli or record.target.celex or record.target_ref_raw):
+                # Named by item_id only and absent here: no column can hold it.
+                c["target_unwritable"] += 1
+                continue
+        planned.append((record, _row(record, source, target), target is not None))
+    outcome = {}
+    for resolved in (True, False):
+        # Resolved and unresolved rows never conflict with each other (the
+        # unique indexes are partial on target_case_id), so the two groups
+        # can go in separately.
+        group = [(i, row) for i, (_rec, row, res) in enumerate(planned) if res == resolved]
+        results = _insert_rows(cursor, [row for _i, row in group], resolved)
+        outcome.update({i: result for (i, _row), result in zip(group, results)})
+    pending = []
+    for i, (record, row, resolved) in enumerate(planned):
+        c = counts[record.source_dataset]
+        citation_id, inserted = outcome[i]
+        if citation_id is None:
+            c["conflict_elsewhere"] += 1
+            continue
+        if inserted:
+            c["inserted" if resolved else "inserted_unresolved"] += 1
+        else:
+            c["existing"] += 1
+        if record.mentions:
+            pending.append((citation_id, row, record))
+    if pending:
+        _insert_mentions(cursor, pending, counts)
 
 
 def load_records(conn, records: Iterable[LinkRecord], batch_size: int = BATCH_SIZE):
     """Insert records batch by batch, one transaction per batch.
 
+    Each batch takes a fixed number of statements (see _load_batch), whatever
+    its size; records are read lazily, so an artifact of any size streams.
+
     Returns {source_dataset: Counter} with inserted, existing,
-    inserted_unresolved, source_missing, target_unwritable and
-    mentions_inserted.
+    inserted_unresolved, source_missing, target_unwritable, conflict_elsewhere
+    and mentions_inserted (zero counts left out).
     """
     counts = defaultdict(Counter)
     batch = []
@@ -232,47 +459,7 @@ def load_records(conn, records: Iterable[LinkRecord], batch_size: int = BATCH_SI
         if not batch:
             return
         with conn.cursor() as cursor:
-            found = _cases_by_key(cursor, batch)
-            for record in batch:
-                c = counts[record.source_dataset]
-                source = _resolve(found, record.source)
-                if source is None:
-                    c["source_missing"] += 1
-                    continue
-                target = _resolve(found, record.target)
-                if target is None and record.target is not None:
-                    if not (record.target.ecli or record.target.celex or record.target_ref_raw):
-                        # Named by item_id only and absent here: no column can hold it.
-                        c["target_unwritable"] += 1
-                        continue
-                row = _row(record, source, target)
-                citation_id, inserted = _insert(cursor, row, resolved=target is not None)
-                if citation_id is None:
-                    c["conflict_elsewhere"] += 1
-                    continue
-                if inserted:
-                    c["inserted" if target is not None else "inserted_unresolved"] += 1
-                else:
-                    c["existing"] += 1
-                for mention in record.mentions:
-                    cursor.execute(
-                        _INSERT_MENTION,
-                        {
-                            "citation_id": citation_id,
-                            "source_case_id": row["source_case_id"],
-                            "text_field": mention.text_field,
-                            "language": mention.language,
-                            "text_source": mention.text_source,
-                            "char_start": mention.char_start,
-                            "char_end": mention.char_end,
-                            "raw_text": mention.raw_text,
-                            "context": mention.context,
-                            "segment_hash": mention.segment_hash,
-                            "section": mention.section,
-                            "extractor_version": record.extractor_version,
-                        },
-                    )
-                    c["mentions_inserted"] += cursor.rowcount
+            _load_batch(cursor, batch, counts)
         conn.commit()
         batch.clear()
 
@@ -430,7 +617,8 @@ _LATE_COPY_MENTIONS = f"""
       FROM late_binding_pair p
       JOIN {SCHEMA}.case_citation r
         ON r.source_case_id = p.source_case_id AND r.target_case_id = p.target_case_id
-       AND r.relation_type = p.relation_type AND r.source_dataset = p.source_dataset
+       AND r.relation_type IS NOT DISTINCT FROM p.relation_type
+       AND r.source_dataset = p.source_dataset
       JOIN {SCHEMA}.case_citation_mention m ON m.citation_id = p.unresolved_id
      ORDER BY r.id, m.id
     ON CONFLICT DO NOTHING

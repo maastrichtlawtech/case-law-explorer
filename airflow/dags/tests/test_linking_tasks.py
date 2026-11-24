@@ -29,6 +29,7 @@ LINK_ENV = (
     "LINK_AG_OPINIONS",
     "LINK_CELLAR_RELATIONS",
     "LINK_CELLAR_UUID_CACHE",
+    "LINK_CELLAR_UUID_CELEX_CACHE",
     "CASE_IDENTIFIER_ENABLED",
 )
 
@@ -570,3 +571,108 @@ def test_backfill_cli(scratch_db, tmp_path, monkeypatch):  # noqa: F811
     assert execute(conn, "SELECT count(*) FROM cle_v2.case_citation") == [(1,)]
     counts = json.loads((out / "_counts.CELLAR.json").read_text())
     assert counts["datasets"]["cjeu_ag_link"] == {"records": 1, "load": {"inserted": 1}}
+
+
+# ---------------------------------------------------------------------------
+# streaming split, Cellar caches (no database)
+# ---------------------------------------------------------------------------
+
+
+def _rs_record(i, dataset):
+    from data_extraction.linking.artifact import LinkRecord
+
+    value = {
+        "source": {"ecli": f"ECLI:NL:HR:2022:{i}"},
+        "relation_type": "cites",
+        "source_dataset": dataset,
+        "extractor_version": "rs_text/test",
+    }
+    if dataset == "rs_text_ecli":
+        value.update(target={"ecli": f"ECLI:EU:C:2019:{i}"}, match_method="ecli")
+    else:
+        value.update(target_ref_raw=f"C-{i}/17", target_ref_scheme="cjeu_case_number")
+    return LinkRecord.from_dict(value)
+
+
+def test_extract_links_splits_the_stream_in_the_extractors_order(tmp_path, monkeypatch):
+    from data_extraction.linking.artifact import ArtifactWriter
+
+    datasets = ("rs_text_ecli", "rs_text_cjeu_casenum")
+    batches = [[_rs_record(b * 10 + i, datasets[i % 2]) for i in range(6)] for b in range(3)]
+
+    def fake_run(conn, extractor, out_path, case_ids=None, id_range=None):
+        with ArtifactWriter(out_path) as writer:
+            for batch in batches:
+                writer.write(batch)
+        fake_run.raw = open(out_path, encoding="utf-8").read().splitlines()
+
+    monkeypatch.setattr(linking_tasks, "_run_extractor", fake_run)
+    out = tmp_path / "links"
+    statuses, counts = linking_tasks.extract_links(
+        None, linking_tasks.SOURCES["rechtspraak"], str(out), case_ids=[1]
+    )
+    assert statuses == {"rs_text": {"status": "ran"}}
+    assert counts == {
+        "rs_text_ecli": {"records": 9},
+        "rs_text_cjeu_casenum": {"records": 9},
+        "rs_text_echr_appno": {"records": 0},
+    }
+    for dataset in datasets:
+        expected = [line for line in fake_run.raw if f'"source_dataset": "{dataset}"' in line]
+        assert (out / f"{dataset}.jsonl").read_text().splitlines() == expected
+    assert sorted(p.name for p in out.iterdir()) == sorted(f"{d}.jsonl" for d in counts)
+
+
+def test_extract_links_refuses_a_foreign_dataset_and_keeps_old_files(tmp_path, monkeypatch):
+    from data_extraction.linking.artifact import write_jsonl
+
+    out = tmp_path / "links"
+    out.mkdir()
+    (out / "rs_text_ecli.jsonl").write_text("previous run\n")
+
+    def fake_run(conn, extractor, out_path, case_ids=None, id_range=None):
+        write_jsonl([_rs_record(1, "rs_text_ecli")], out_path)
+        with open(out_path, "a", encoding="utf-8") as handle:
+            line = json.dumps(_rs_record(2, "rs_text_ecli").to_dict())
+            handle.write(line.replace("rs_text_ecli", "echr_text_rs", 1) + "\n")
+
+    monkeypatch.setattr(linking_tasks, "_run_extractor", fake_run)
+    with pytest.raises(ValueError, match="rs_text: .*echr_text_rs"):
+        linking_tasks.extract_links(
+            None, linking_tasks.SOURCES["rechtspraak"], str(out), case_ids=[1]
+        )
+    assert (out / "rs_text_ecli.jsonl").read_text() == "previous run\n"
+    assert sorted(p.name for p in out.iterdir()) == ["rs_text_ecli.jsonl"]
+
+
+@pytest.mark.parametrize("celex_cache", ["unset", "missing", "present"])
+def test_cellar_relations_gets_the_optional_uuid_celex_cache(
+    tmp_path, monkeypatch, caplog, celex_cache
+):
+    from data_extraction.linking import cellar_relations
+
+    dossier = tmp_path / "uuid_dossier.json"
+    dossier_uri = "http://x/resource/cellar/aaaaaaaa-1111-2222-3333-bbbbbbbbbbbb"
+    dossier.write_text(json.dumps({dossier_uri: ["C-1/20 P"]}))
+    monkeypatch.setenv("LINK_CELLAR_UUID_CACHE", str(dossier))
+    celex = tmp_path / "uuid_celex.json"
+    if celex_cache == "present":
+        work_uri = "cellar:cccccccc-1111-2222-3333-dddddddddddd"
+        celex.write_text(json.dumps({work_uri: ["62020CJ0646"]}))
+    if celex_cache != "unset":
+        monkeypatch.setenv("LINK_CELLAR_UUID_CELEX_CACHE", str(celex))
+    seen = {}
+    fake = SimpleNamespace(
+        load_uuid_map=cellar_relations.load_uuid_map,
+        extract=lambda conn, **kwargs: seen.update(kwargs),
+    )
+    monkeypatch.setattr(linking_tasks.importlib, "import_module", lambda name: fake)
+    linking_tasks._run_extractor(
+        None, linking_tasks.EXTRACTORS["cellar_relations"], "out.jsonl", case_ids=[1]
+    )
+    assert len(seen["uuid_dossier"]) == 1
+    if celex_cache == "present":
+        assert list(seen["uuid_celex"].values()) == [["62020CJ0646"]]
+    else:
+        assert seen["uuid_celex"] == {}
+    assert ("does not exist" in caplog.text) == (celex_cache == "missing")

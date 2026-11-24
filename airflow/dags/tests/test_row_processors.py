@@ -95,7 +95,7 @@ def test_rs_processor_upload_row_skips_rows_without_ecli(client):
 def test_rs_processor_writes_one_case_citation_per_target_ecli(client, hook):
     processor = PostgresRSProcessor(path="unused", client=client)
     hook.get_first_return = lambda sql, parameters: (
-        (7,) if parameters["val"] == "ECLI:NL:HR:2024:100" else None
+        (7, ["RS"]) if parameters["val"] == "ECLI:NL:HR:2024:100" else None
     )
     row = {
         ECLI: "ECLI:NL:HR:2024:3",
@@ -141,6 +141,55 @@ def test_rs_processor_skips_formal_relation_labels_in_citations_outgoing(client,
     citation_calls = [params for _, params in conn.executed[3:]]
     assert [p["target_ecli_raw"] for p in citation_calls] == ["ECLI:NL:HR:2024:102"]
     assert citation_calls[0]["source_dataset"] == "rs_lido_sqlite"
+
+
+def test_citing_eclis_splits_on_semicolons_with_any_spacing():
+    """Finding 12: 'A;B' and 'A ;B' used to stay one item, which is no ECLI,
+    so both citations were lost."""
+    value = "ECLI:NL:HR:2024:1;ECLI:NL:HR:2024:2 ; ECLI:NL:HR:2024:3;\nECLI:NL:HR:2024:4"
+    assert row_processors_module._citing_eclis(value) == [
+        "ECLI:NL:HR:2024:1",
+        "ECLI:NL:HR:2024:2",
+        "ECLI:NL:HR:2024:3",
+        "ECLI:NL:HR:2024:4",
+    ]
+
+
+def test_rs_processor_sets_cross_jurisdiction_on_new_citation_rows(client, hook):
+    """R2.7: resolved from the target's sources (the source is RS), unresolved
+    from the cited ECLI's corpus."""
+    processor = PostgresRSProcessor(path="unused", client=client)
+    found = {
+        "ECLI:NL:HR:2024:100": (7, ["RS"]),
+        "ECLI:EU:C:2019:189": (8, ["CJEU"]),
+        "ECLI:NL:RVS:2020:1": (9, ["Rechtspraak"]),  # legacy label, still RS
+    }
+    hook.get_first_return = lambda sql, parameters: found.get(parameters["val"])
+    row = {
+        ECLI: "ECLI:NL:HR:2024:3",
+        RS_TITLE: "Some title",
+        RS_CITING: "; ".join(
+            list(found)
+            + [
+                "ECLI:CE:ECHR:2019:0101JUD001234517",
+                "ECLI:NL:HR:2099:1",
+                "ECLI:BE:CASS:2019:ARR.1",
+            ]
+        ),
+    }
+
+    assert processor.upload_row(row) == 1
+
+    calls = [params for _, params in client._get_conn().executed[3:]]
+    flags = {p["target_case_id"] or p["target_ecli_raw"]: p["is_cross_jurisdiction"] for p in calls}
+    assert flags == {
+        7: False,
+        8: True,
+        9: False,
+        "ECLI:CE:ECHR:2019:0101JUD001234517": True,
+        "ECLI:NL:HR:2099:1": False,
+        "ECLI:BE:CASS:2019:ARR.1": False,  # unknown corpus: as in link_loader
+    }
 
 
 def test_rs_processor_writes_no_citation_rows_when_citations_outgoing_absent(client):

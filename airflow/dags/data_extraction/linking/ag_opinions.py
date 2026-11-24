@@ -51,7 +51,7 @@ from datetime import date
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord, match_method, write_jsonl
+from data_extraction.linking.artifact import ArtifactWriter, CaseKey, LinkRecord, match_method
 
 log = logging.getLogger(__name__)
 
@@ -218,9 +218,41 @@ _OPINIONS = f"""
      LIMIT %(limit)s
 """
 
+# The opinions that may resolve to one of the given cases: an opinion is
+# usually loaded months before its judgment, so a weekly run that sees only the
+# judgment has to go back to it. Those are the opinions whose CELEX swaps to
+# the case's (62012CJ0199 <- 62012CC0199, also from a CO, suffix kept) and the
+# opinions sharing a case number with it (which covers suffixed opinion CELEX
+# numbers and opinions without a CELEX). Filtered to opinions by _OPINIONS.
+_RELATED_OPINIONS = f"""
+    SELECT o.id
+      FROM {SCHEMA}.cases j
+      JOIN {SCHEMA}.cases o
+        ON o.celex_id = regexp_replace(j.celex_id, '^(6[0-9]{{4}})C[JO]', '\\1CC')
+     WHERE j.id = ANY(%(ids)s) AND j.celex_id ~ '^6[0-9]{{4}}C[JO]'
+    UNION
+    SELECT o.case_id
+      FROM {SCHEMA}.case_identifier j
+      JOIN {SCHEMA}.case_identifier o
+        ON o.scheme = 'cjeu_case_number' AND o.value_normalized = j.value_normalized
+     WHERE j.case_id = ANY(%(ids)s) AND j.scheme = 'cjeu_case_number'
+"""
+
 _BY_CELEX = f"""
     SELECT id, ecli, celex_id, date_decision FROM {SCHEMA}.cases WHERE celex_id = ANY(%s)
 """
+
+
+def with_related_opinions(conn, case_ids: Sequence[int]) -> List[int]:
+    """case_ids and the opinions that may belong to them (_RELATED_OPINIONS)."""
+    ids = sorted({int(i) for i in case_ids})
+    if not ids:
+        return ids
+    with conn.cursor() as cursor:
+        cursor.execute(_RELATED_OPINIONS, {"ids": ids})
+        related = {row[0] for row in cursor.fetchall()}
+    conn.rollback()
+    return sorted(set(ids) | related)
 
 
 def iter_opinions(conn, case_ids=None, id_range=None, batch_size=BATCH_SIZE):
@@ -285,13 +317,22 @@ def links_for_batch(cursor, opinions: Iterable[Opinion], stats: Counter) -> List
 
 def extract(conn, case_ids=None, id_range=None, out_path=None, batch_size: int = BATCH_SIZE):
     """Write the artifact for the opinions selected by case_ids or id_range
-    (cases.id, inclusive); returns (records written, stats)."""
+    (cases.id, inclusive); returns (records written, stats).
+
+    With case_ids (a weekly batch), the opinions of those cases' judgments
+    are selected too (with_related_opinions): the judgment usually arrives
+    months after the opinion, which was extracted, without a target, then.
+    Their records name an opinion outside the batch as the source."""
     stats: Counter = Counter()
-    records: List[LinkRecord] = []
-    for batch in iter_opinions(conn, case_ids, id_range, batch_size):
-        with conn.cursor() as cursor:
-            records.extend(links_for_batch(cursor, batch, stats))
-    written = write_jsonl(records, out_path) if out_path else len(records)
+    if case_ids is not None:
+        case_ids = with_related_opinions(conn, case_ids)
+    with ArtifactWriter(out_path) as writer:
+        for batch in iter_opinions(conn, case_ids, id_range, batch_size):
+            with conn.cursor() as cursor:
+                records = links_for_batch(cursor, batch, stats)
+            conn.rollback()  # read-only; end the snapshot between batches
+            writer.write(records)
+    written = writer.count
     stats["records"] = written
     log.info("ag_opinions: %s", dict(sorted(stats.items())))
     return written, stats
@@ -310,7 +351,9 @@ def main(argv=None):
     conn = psycopg2.connect(os.environ[args.dsn_env])
     try:
         conn.set_session(readonly=True)
-        id_range = (args.from_id, args.to_id) if args.from_id or args.to_id else None
+        id_range = None
+        if args.from_id is not None or args.to_id is not None:
+            id_range = (args.from_id, args.to_id)
         written, stats = extract(conn, id_range=id_range, out_path=args.out)
     finally:
         conn.close()

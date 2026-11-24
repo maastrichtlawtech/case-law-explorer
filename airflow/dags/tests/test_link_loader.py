@@ -12,23 +12,21 @@ The schema is built from db/schema.sql, which mirrors the deployed migrations.
 """
 
 import json
-import os
-import uuid
-from pathlib import Path
 
 import pytest
 
 from data_extraction.linking.artifact import (
     ArtifactError,
+    ArtifactWriter,
     CaseKey,
+    DatasetWriters,
     LinkRecord,
     Mention,
     match_method,
     read_jsonl,
     write_jsonl,
 )
-
-SCHEMA_SQL = Path(__file__).resolve().parents[3] / "db" / "schema.sql"
+from tests.linking_db import DSN, needs_db, scratch_db  # noqa: F401
 
 
 def _record(**overrides):
@@ -76,6 +74,64 @@ def test_write_is_sorted_and_stable(tmp_path):
     write_jsonl([a, b], first)
     write_jsonl([b, a], second)
     assert first.read_bytes() == second.read_bytes()
+
+
+def _streamed(path, batches):
+    with ArtifactWriter(path) as writer:
+        for batch in batches:
+            writer.write(batch)
+    return writer.count
+
+
+def test_streamed_artifact_is_the_same_bytes_whatever_the_order_within_a_batch(tmp_path):
+    """Finding 6: extractors write batch by batch (cases in id order). The same
+    records arriving in another order within their batch give the same file."""
+    records = [
+        LinkRecord.from_dict(
+            _record(source={"ecli": f"ECLI:NL:RVS:2020:{i}"}, extractor_version=f"v{i % 3}")
+        )
+        for i in range(12)
+    ]
+    batches = [records[:5], records[5:9], records[9:]]
+    first, second = tmp_path / "1.jsonl", tmp_path / "2.jsonl"
+    assert _streamed(first, batches) == 12
+    reordered = [list(reversed(batches[0])), batches[1][2:] + batches[1][:2], batches[2][::-1]]
+    assert _streamed(second, reordered) == 12
+    assert first.read_bytes() == second.read_bytes()
+    lines = first.read_text().splitlines()
+    # sorted within each batch, batches in the order given
+    assert lines[:5] == sorted(lines[:5]) and lines[5:9] == sorted(lines[5:9])
+    assert {json.loads(line)["source"]["ecli"] for line in lines[:5]} == {
+        r.source.ecli for r in batches[0]
+    }
+    assert {json.loads(line)["source"]["ecli"] for line in lines[5:9]} == {
+        r.source.ecli for r in batches[1]
+    }
+
+
+def test_streamed_artifact_is_complete_or_absent(tmp_path):
+    path = tmp_path / "links.jsonl"
+    with pytest.raises(RuntimeError):
+        with ArtifactWriter(path) as writer:
+            writer.write([LinkRecord.from_dict(_record())])
+            raise RuntimeError("extractor failed")
+    assert list(tmp_path.iterdir()) == []
+    assert ArtifactWriter(None).write([LinkRecord.from_dict(_record())]) == 1  # counts only
+
+
+def test_dataset_writers_split_and_refuse_unknown_datasets(tmp_path):
+    a = LinkRecord.from_dict(_record(source_dataset="rs_text_cjeu_casenum"))
+    b = LinkRecord.from_dict(_record(source_dataset="rs_text_ecli", match_method="ecli"))
+    paths = {d: str(tmp_path / f"{d}.jsonl") for d in ("rs_text_ecli", "rs_text_cjeu_casenum")}
+    paths["rs_text_echr_appno"] = str(tmp_path / "rs_text_echr_appno.jsonl")
+    with DatasetWriters(paths) as writers:
+        assert writers.write([a, b]) == 2
+    assert writers.counts == {"rs_text_ecli": 1, "rs_text_cjeu_casenum": 1, "rs_text_echr_appno": 0}
+    assert (tmp_path / "rs_text_echr_appno.jsonl").read_text() == ""
+    with pytest.raises(ArtifactError, match="not expected"):
+        with DatasetWriters({"rs_text_ecli": str(tmp_path / "x.jsonl")}) as writers:
+            writers.write([a])
+    assert not (tmp_path / "x.jsonl").exists()
 
 
 @pytest.mark.parametrize(
@@ -143,40 +199,21 @@ def test_case_key_drops_empty_fields():
 # loader, against a real database
 # ---------------------------------------------------------------------------
 
-DSN = os.environ.get("CLE_TEST_PG_DSN")
-needs_db = pytest.mark.skipif(not DSN, reason="CLE_TEST_PG_DSN not set")
-
 
 @pytest.fixture
-def conn():
-    psycopg2 = pytest.importorskip("psycopg2")
-    name = "cle_link_test_" + uuid.uuid4().hex[:8]
-    admin = psycopg2.connect(DSN)
-    admin.autocommit = True
-    with admin.cursor() as cursor:
-        cursor.execute(f'CREATE DATABASE "{name}"')
-    base, _, _ = DSN.rpartition("/")
-    db = psycopg2.connect(f"{base}/{name}")
-    try:
-        sql = SCHEMA_SQL.read_text().replace('CREATE SCHEMA "public";', "")
-        with db.cursor() as cursor:
-            cursor.execute(sql)
-            cursor.execute("""
-                INSERT INTO cle_v2.cases (ecli, celex_id, sources) VALUES
-                  ('ECLI:NL:RVS:2020:423', NULL, '{RS}'),
-                  ('ECLI:EU:C:2019:189', '62017CJ0221', '{CJEU}'),
-                  ('ECLI:NL:HR:2020:593', NULL, '{RS}');
-                INSERT INTO cle_v2.case_text (case_id, language, source, fulltext)
-                SELECT id, 'nl', 'RECHTSPRAAK', 'tekst' FROM cle_v2.cases
-                 WHERE ecli = 'ECLI:NL:RVS:2020:423';
-                """)
-        db.commit()
-        yield db
-    finally:
-        db.close()
-        with admin.cursor() as cursor:
-            cursor.execute(f'DROP DATABASE IF EXISTS "{name}"')
-        admin.close()
+def conn(scratch_db):  # noqa: F811
+    with scratch_db.cursor() as cursor:
+        cursor.execute("""
+            INSERT INTO cle_v2.cases (ecli, celex_id, sources) VALUES
+              ('ECLI:NL:RVS:2020:423', NULL, '{RS}'),
+              ('ECLI:EU:C:2019:189', '62017CJ0221', '{CJEU}'),
+              ('ECLI:NL:HR:2020:593', NULL, '{RS}');
+            INSERT INTO cle_v2.case_text (case_id, language, source, fulltext)
+            SELECT id, 'nl', 'RECHTSPRAAK', 'tekst' FROM cle_v2.cases
+             WHERE ecli = 'ECLI:NL:RVS:2020:423';
+            """)
+    scratch_db.commit()
+    yield scratch_db
 
 
 def _rows(conn, sql):
@@ -592,3 +629,188 @@ def test_cli_load_and_resolve_late(conn, tmp_path, monkeypatch, capsys):
     assert json.loads(capsys.readouterr().out) == {
         "rs_text_ecli": {"matched": 1, "resolved_inserted": 1, "mentions_copied": 1}
     }
+
+
+# ---------------------------------------------------------------------------
+# bulk loading: same result as one record at a time
+# ---------------------------------------------------------------------------
+
+
+def _bulk_records(n):
+    """n records full of conflicts: the same resolved pair again and again,
+    unresolved rows overlapping on their ECLI and on their case number, missing
+    sources, item_id-only targets, repeated mentions."""
+    out = []
+    for i in range(n):
+        source = {"ecli": f"ECLI:NL:RVS:2021:{i % 50}"}
+        if i % 13 == 0:
+            source = {"ecli": f"ECLI:NL:RVS:1999:{i}"}  # not in the database
+        mentions = [
+            {
+                "text_field": "fulltext",
+                "language": "nl",
+                "text_source": "RECHTSPRAAK" if i % 3 else None,
+                "char_start": 10 * j + i % 5,
+                "char_end": 10 * j + i % 5 + 8,
+                "raw_text": f"ref {i % 7}",
+                "segment_hash": f"h{i % 4}" if j else None,
+            }
+            for j in range(i % 3)
+        ]
+        value = {
+            "source": source,
+            "relation_type": "cites" if i % 11 else "applies",
+            "extractor_version": f"bulk/{i % 2}",
+            "mentions": mentions,
+        }
+        kind = i % 5
+        if kind == 0:  # resolved, pairs repeat across and within batches
+            value.update(
+                target={"ecli": f"ECLI:EU:C:2019:{i % 300}"},
+                source_dataset="rs_text_ecli",
+                match_method="ecli",
+                confidence=round(0.5 + (i % 5) / 10, 2),
+            )
+        elif kind == 1:  # target not loaded: unresolved by ECLI, sometimes with a case number
+            value.update(
+                target={"ecli": f"ECLI:EU:C:2099:{i % 200}"},
+                source_dataset="rs_text_cjeu_casenum",
+                match_method="case_number/cjeu_judgment",
+                confidence=0.9,
+            )
+            if i % 2:
+                value.update(target_ref_raw=f"C-{i % 70}/17", target_ref_scheme="cjeu_case_number")
+        elif kind == 2:  # a reference only, overlapping the case numbers above
+            value.update(
+                target=None,
+                target_ref_raw=f"C-{i % 70}/17",
+                target_ref_scheme="cjeu_case_number",
+                source_dataset="rs_text_cjeu_casenum",
+                match_method="case_number",
+            )
+        elif kind == 3:  # target by CELEX, absent
+            value.update(
+                target={"celex": f"62099CJ{i % 90:04d}"},
+                source_dataset="rs_text_ecli",
+                match_method="celex",
+                confidence=0.8,
+            )
+        else:  # every fourth one names its target by an item_id nothing has
+            item = f"001-{i % 400}" if i % 4 else f"001-absent-{i}"
+            value.update(
+                target={"item_id": item}, source_dataset="echr_text_rs", match_method="ecli"
+            )
+        out.append(LinkRecord.from_dict(value))
+    return out
+
+
+def _bulk_seed(conn):
+    with conn.cursor() as cursor:
+        cursor.execute("""
+            TRUNCATE cle_v2.case_citation, cle_v2.case_citation_mention RESTART IDENTITY CASCADE;
+            INSERT INTO cle_v2.cases (ecli, sources)
+            SELECT 'ECLI:NL:RVS:2021:' || g, '{RS}' FROM generate_series(0, 49) g
+            ON CONFLICT DO NOTHING;
+            INSERT INTO cle_v2.cases (ecli, sources)
+            SELECT 'ECLI:EU:C:2019:' || g, '{CJEU}' FROM generate_series(0, 299) g
+            ON CONFLICT DO NOTHING;
+            INSERT INTO cle_v2.cases (item_id, sources)
+            SELECT '001-' || g, '{ECHR}' FROM generate_series(0, 399) g
+            ON CONFLICT DO NOTHING;
+            INSERT INTO cle_v2.case_text (case_id, language, source, fulltext)
+            SELECT id, 'nl', 'RECHTSPRAAK', 'tekst' FROM cle_v2.cases
+             WHERE ecli LIKE 'ECLI:NL:RVS:2021:%'
+            ON CONFLICT DO NOTHING;
+            INSERT INTO cle_v2.case_segment (case_id, segment_hash)
+            SELECT c.id, 'h' || g FROM cle_v2.cases c, generate_series(0, 2) g
+             WHERE c.ecli LIKE 'ECLI:NL:RVS:2021:%'
+            ON CONFLICT DO NOTHING;
+            """)
+    conn.commit()
+
+
+def _bulk_state(conn):
+    """Citation and mention rows without their ids (a batch inserts its
+    resolved rows before its unresolved ones, so ids are numbered
+    differently), each mention with its citation's values."""
+    citations = {
+        row[0]: row[1:]
+        for row in _rows(
+            conn,
+            """SELECT id, source_case_id, target_case_id, target_ecli_raw, target_celex_raw,
+                      target_ref_raw, target_ref_scheme, relation_type, source_dataset, weight,
+                      is_cross_jurisdiction, extractor_version, match_method, confidence
+                 FROM cle_v2.case_citation""",
+        )
+    }
+    mentions = [
+        (citations[row[0]],) + row[1:]
+        for row in _rows(
+            conn,
+            """SELECT citation_id, case_text_id, text_field, language, char_start, char_end,
+                      raw_text, context, segment_id, section, extractor_version
+                 FROM cle_v2.case_citation_mention""",
+        )
+    ]
+    return sorted(citations.values(), key=repr), sorted(mentions, key=repr)
+
+
+@needs_db
+def test_bulk_load_matches_loading_one_record_at_a_time(conn):
+    """2,400 records in batches of 700 give the same counts and the same rows
+    as batches of one, i.e. as inserting record by record."""
+    from data_loading.link_loader import load_records
+
+    records = _bulk_records(2400)
+    results = []
+    for batch_size in (1, 700):
+        _bulk_seed(conn)
+        before = load_records(conn, records[:300], batch_size=1)  # rows that already exist
+        counts = load_records(conn, records, batch_size=batch_size)
+        results.append((before, counts, _bulk_state(conn)))
+    assert results[0] == results[1]
+    _before, counts, (citations, mentions) = results[1]
+    totals = {}
+    for dataset_counts in counts.values():
+        for key, value in dataset_counts.items():
+            totals[key] = totals.get(key, 0) + value
+    for key in (
+        "inserted",
+        "inserted_unresolved",
+        "existing",
+        "source_missing",
+        "target_unwritable",
+        "mentions_inserted",
+    ):
+        assert totals.get(key), key
+    assert len(citations) > 300 and len(mentions) > 300
+    assert any(m[1] is not None for m in mentions) and any(m[8] is not None for m in mentions)
+
+
+@needs_db
+def test_loader_finds_echr_variants_by_echr_document_item_id(conn):
+    """A HUDOC variant's item_id is in echr_document, not in cases.item_id."""
+    from data_loading.link_loader import load_records
+
+    case_id = _add_case(conn, item_id="001-100", sources=("ECHR",))
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """INSERT INTO cle_v2.echr_document (item_id, case_id, language)
+               VALUES ('001-100', %s, 'en'), ('001-200', %s, 'fr')""",
+            (case_id, case_id),
+        )
+    conn.commit()
+    record = _record(
+        source={"item_id": "001-200"},
+        target={"ecli": "ECLI:NL:HR:2020:593"},
+        source_dataset="echr_text_rs",
+        match_method="ecli",
+        target_ref_raw=None,
+        target_ref_scheme=None,
+        mentions=[],
+    )
+    counts = load_records(conn, [LinkRecord.from_dict(record)])
+    assert counts == {"echr_text_rs": {"inserted": 1}}
+    assert _rows(
+        conn, "SELECT source_case_id, is_cross_jurisdiction FROM cle_v2.case_citation"
+    ) == [(case_id, True)]

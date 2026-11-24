@@ -360,3 +360,48 @@ def test_extract_never_calls_the_network_and_loads(scratch_db, tmp_path, monkeyp
         )
         == [("appeal_of", False), ("preliminary_reference", False)]
     )
+
+
+@needs_db
+def test_weekly_run_of_the_appeal_links_the_earlier_decision(scratch_db, tmp_path):  # noqa: F811
+    """Finding 4: the General Court decision (with its subject_to_appeal row)
+    and the national decision (referred_for_preliminary_ruling) are loaded
+    first; the runs that load the appeal and the ruling pass only those case
+    ids and still write appeal_of and preliminary_reference."""
+    from data_loading.link_loader import load_artifact
+
+    conn = scratch_db
+    gc = add_case(conn, "ECLI:EU:T:2001:184", "61999TJ0120", date(2001, 7, 12))
+    national = add_case(conn, None, "82018AT0228(51)", date(2018, 2, 28))
+    unrelated = add_case(conn, "ECLI:EU:T:2005:1", "62003TJ0001", date(2005, 1, 1))
+    execute(
+        conn,
+        """INSERT INTO cle_v2.case_citation (source_case_id, target_celex_raw, relation_type,
+                                             source_dataset)
+           VALUES (%s, %s, 'subject_to_appeal', 'cellar_sparql'),
+                  (%s, %s, 'referred_for_preliminary_ruling', 'cellar_sparql'),
+                  (%s, 'C-9/06 P', 'subject_to_appeal', 'cellar_sparql')""",
+        (gc, U_KIK, national, U_WORK, unrelated),
+    )
+    maps = {
+        "uuid_dossier": {"8e630f9b-8e2b-11f0-bfe2-01aa75ed71a1": ["C-361/01 P"]},
+        "uuid_celex": {"05a39798-64c7-11ed-92ed-01aa75ed71a1": ["62020CJ0646"]},
+    }
+    first = tmp_path / "first.jsonl"
+    written, _stats = rel.extract(conn, case_ids=[gc, national, unrelated], out_path=first, **maps)
+    assert written == 0
+
+    appeal = add_case(conn, "ECLI:EU:C:2003:452", "62001CJ0361", date(2003, 9, 9))
+    add_identifier(conn, appeal, "cjeu_case_number", "C-361/01 P", "C-361/01")
+    ruling = add_case(conn, "ECLI:EU:C:2022:879", "62020CJ0646", date(2022, 11, 10))
+    later = tmp_path / "later.jsonl"
+    written, stats = rel.extract(conn, case_ids=[appeal, ruling], out_path=later, **maps)
+    assert written == 2
+    assert stats["rows_subject_to_appeal"] == 1  # the unrelated decision is not revisited
+    assert {(r.source.ecli or r.source.celex, r.target.ecli, r.relation_type)
+            for r in read_jsonl(later)} == {
+        ("ECLI:EU:C:2003:452", "ECLI:EU:T:2001:184", "appeal_of"),
+        ("82018AT0228(51)", "ECLI:EU:C:2022:879", "preliminary_reference"),
+    }  # fmt: skip
+    counts = load_artifact(conn, later)
+    assert counts == {"cellar_relation_resolved": {"inserted": 2, "mentions_inserted": 2}}

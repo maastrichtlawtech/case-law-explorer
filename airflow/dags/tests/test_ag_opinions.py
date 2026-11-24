@@ -148,3 +148,35 @@ def test_extract_and_load(scratch_db, tmp_path):  # noqa: F811
     assert execute(
         conn, "SELECT count(*) FROM cle_v2.cjeu_ag_opinion WHERE parent_case_id IS NOT NULL"
     ) == [(0,)]
+
+
+@needs_db
+def test_weekly_run_of_the_judgment_links_the_earlier_opinion(scratch_db, tmp_path):  # noqa: F811
+    """Finding 4: the opinion is loaded (and extracted, with no judgment to
+    find) in one run; the run that loads the judgment passes only the
+    judgment's case id and still writes opinion_of."""
+    from data_loading.link_loader import load_artifact
+
+    conn = scratch_db
+    opinion = add_case(conn, "ECLI:EU:C:2013:474", "62012CC0199", date(2013, 7, 11))
+    execute(conn, "INSERT INTO cle_v2.cjeu_ag_opinion (case_id) VALUES (%s)", (opinion,))
+    lost = add_case(conn, "ECLI:EU:C:2019:1", None, date(2019, 1, 10))  # no CELEX
+    execute(conn, "INSERT INTO cle_v2.cjeu_ag_opinion (case_id) VALUES (%s)", (lost,))
+    add_identifier(conn, lost, "cjeu_case_number", "C-5/18", "C-5/18")
+    other = add_case(conn, "ECLI:EU:C:2020:9", "62020CC0009", date(2020, 2, 1))
+
+    first = tmp_path / "first.jsonl"
+    written, _stats = ag.extract(conn, case_ids=[opinion, lost, other], out_path=first)
+    assert written == 0
+
+    judgment = add_case(conn, "ECLI:EU:C:2013:720", "62012CJ0199", date(2013, 11, 7))
+    by_number = add_case(conn, "ECLI:EU:C:2019:300", "62018CJ0005", date(2019, 4, 10))
+    add_identifier(conn, by_number, "cjeu_case_number", "C-5/18", "C-5/18")
+    later = tmp_path / "later.jsonl"
+    written, stats = ag.extract(conn, case_ids=[judgment, by_number], out_path=later)
+    assert written == 2 and stats["opinions"] == 2  # the unrelated opinion is not revisited
+    assert {(r.source.ecli, r.target.ecli, r.relation_type) for r in read_jsonl(later)} == {
+        ("ECLI:EU:C:2013:474", "ECLI:EU:C:2013:720", "opinion_of"),
+        ("ECLI:EU:C:2019:1", "ECLI:EU:C:2019:300", "opinion_of"),
+    }
+    assert load_artifact(conn, later) == {"cjeu_ag_link": {"inserted": 2}}

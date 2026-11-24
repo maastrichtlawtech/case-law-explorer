@@ -99,7 +99,13 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import unquote
 
 from data_extraction.linking import identifiers
-from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, match_method, write_jsonl
+from data_extraction.linking.artifact import (
+    ArtifactWriter,
+    CaseKey,
+    LinkRecord,
+    Mention,
+    match_method,
+)
 
 log = logging.getLogger(__name__)
 
@@ -833,19 +839,22 @@ def extract(
     if date_court_fallback is None:
         date_court_fallback = REFERRAL_DATE_COURT_FALLBACK
     stats: Counter = Counter()
-    records: List[LinkRecord] = []
-    for batch in iter_documents(conn, case_ids, id_range, batch_size):
-        parsed = [(document, parse_notice(document.xml)) for document in batch]
-        dates = set()
-        for _document, lines in parsed:
-            dates |= _needed_dates(lines)
-        with conn.cursor() as cursor:
-            by_date = fetch_candidates(cursor, dates)
-        for document, lines in parsed:
-            stats["documents"] += 1
-            candidates = [c for line in lines for c in by_date.get(line.decided, ())]
-            records.extend(links_for_document(document, candidates, stats, date_court_fallback))
-    written = write_jsonl(records, out_path) if out_path else len(records)
+    with ArtifactWriter(out_path) as writer:
+        for batch in iter_documents(conn, case_ids, id_range, batch_size):
+            parsed = [(document, parse_notice(document.xml)) for document in batch]
+            dates = set()
+            for _document, lines in parsed:
+                dates |= _needed_dates(lines)
+            with conn.cursor() as cursor:
+                by_date = fetch_candidates(cursor, dates)
+            conn.rollback()  # read-only; end the snapshot between batches
+            records: List[LinkRecord] = []
+            for document, lines in parsed:
+                stats["documents"] += 1
+                candidates = [c for line in lines for c in by_date.get(line.decided, ())]
+                records.extend(links_for_document(document, candidates, stats, date_court_fallback))
+            writer.write(records)
+    written = writer.count
     stats["records"] = written
     log.info("cellar_referrals: %s", dict(sorted(stats.items())))
     return written, stats
@@ -870,7 +879,9 @@ def main(argv=None):
     conn = psycopg2.connect(os.environ[args.dsn_env])
     try:
         conn.set_session(readonly=True)
-        id_range = (args.from_id, args.to_id) if args.from_id or args.to_id else None
+        id_range = None
+        if args.from_id is not None or args.to_id is not None:
+            id_range = (args.from_id, args.to_id)
         written, stats = extract(
             conn, id_range=id_range, out_path=args.out, date_court_fallback=args.date_court_fallback
         )

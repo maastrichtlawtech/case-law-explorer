@@ -299,7 +299,7 @@ def _collect_joins(cursor, out, where):
                COALESCE(cc.target_celex_raw, cc.target_ecli_raw), td.case_number
           FROM {SCHEMA}.case_citation cc
           LEFT JOIN {SCHEMA}.cjeu_document td ON td.case_id = cc.target_case_id
-         WHERE {clause} AND cc.relation_type = 'joins'
+         WHERE {clause} AND cc.relation_type = 'joins' AND cc.source_dataset = 'cellar_sparql'
         """,
         params,
     )
@@ -591,7 +591,14 @@ def record_echr_owner_appnos(client, pairs):
     """
     if not enabled():
         return 0
-    rows = sorted({(item_id, appno) for item_id, raw in pairs for appno in split_appnos(raw)})
+    rows = sorted(
+        {
+            (item_id, appno)
+            for item_id, raw in pairs
+            for appno in (normalize_echr_appno(piece) for piece in split_appnos(raw))
+            if appno
+        }
+    )
     if not rows:
         return 0
     try:
