@@ -15,7 +15,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-
 from data_extraction.linking import echr_text
 from data_extraction.linking.artifact import CaseKey, read_jsonl
 from data_extraction.linking.resolver import Candidate, cjeu_kind
@@ -442,3 +441,68 @@ def test_extract_by_case_ids_single_file(conn, tmp_path):
     assert result["records"] == 2
     lines = [json.loads(line) for line in out.read_text().splitlines()]
     assert {line["source"]["ecli"] for line in lines} == {"ECLI:CE:ECHR:2022:0101JUD000000222"}
+
+
+# ---------------------------------------------------------------------------
+# Review round 3 (finding 11). The strings below are illustrative
+# constructions from the review notes, not quoted case text.
+# ---------------------------------------------------------------------------
+
+TJEBBES_NUMBERS = {
+    "C-221/17": [
+        cand(1, "62017CJ0221", "ECLI:EU:C:2019:189"),
+        cand(2, "62017CC0221", "ECLI:EU:C:2018:639"),
+    ]
+}
+
+
+def test_illustrative_ecli_after_a_party_name_in_the_same_citation():
+    text = "the CJEU held in Case C-221/17 (Tjebbes), EU:C:2019:189, that"
+    records = run(text, TJEBBES_NUMBERS)
+    assert targets(records) == [("echr_text_cjeu", "cites", "ECLI:EU:C:2019:189", None, "ecli")]
+    assert [m.raw_text for m in records[0].mentions] == ["C-221/17", "EU:C:2019:189"]
+
+
+def test_illustrative_farther_ecli_of_another_document_does_not_bind():
+    # The ECLI is not adjacent and names none of the number's documents: both
+    # references stand on their own.
+    text = "the CJEU held in Case C-221/17 (Tjebbes), see also EU:C:2014:238, that"
+    assert targets(run(text, TJEBBES_NUMBERS)) == [
+        ("echr_text_cjeu", "cites", "ECLI:EU:C:2014:238", None, "ecli"),
+        ("echr_text_cjeu", "cites", "ECLI:EU:C:2019:189", "C-221/17", "case_number/cjeu_judgment"),
+    ]
+
+
+def test_illustrative_ecli_of_the_next_citation_is_not_taken():
+    text = "Case C-221/17 (Tjebbes) and Case C-1/20 (X), EU:C:2021:1, that"
+    numbers = dict(TJEBBES_NUMBERS, **{"C-1/20": [cand(3, "62020CJ0001", "ECLI:EU:C:2021:1")]})
+    got = targets(run(text, numbers))
+    assert (
+        "echr_text_cjeu",
+        "cites",
+        "ECLI:EU:C:2019:189",
+        "C-221/17",
+        "case_number/cjeu_judgment",
+    ) in got
+
+
+def test_illustrative_segment_law_span_wins_over_a_framework_heading():
+    # "The Law" in mixed case is not a heading, so the framework heading would
+    # run on; the segment says this part is the Court's assessment.
+    text = (
+        "II. RELEVANT LEGAL FRAMEWORK 3. The Code provides as follows. "
+        "The Law 4. The Court considers, having regard to EU:C:2014:238, that it must"
+    )
+    segments = {"law": "The Law 4. The Court considers, having regard to EU:C:2014:238, that it"}
+    (record,) = run(text, segments=segments)
+    assert (record.relation_type, record.mentions[0].section) == ("cites", "law")
+    # with no segment span the heading still decides
+    (record,) = run(text)
+    assert record.mentions[0].section == "legal_framework"
+
+
+def test_illustrative_letterless_case_number_needs_a_pre_1989_year():
+    assert run("see Case 45/18 of the domestic court", {"45/18": [cand(4, "61918CJ0045")]}) == []
+    assert run("see Case C-5/85 there", {"C-5/85": [cand(5, "61985CJ0005")]}) == []
+    van_gend = {"26/62": [cand(6, "61962CJ0026", "ECLI:EU:C:1963:1")]}
+    assert targets(run("see Case 26/62 Van Gend", van_gend))[0][2] == "ECLI:EU:C:1963:1"

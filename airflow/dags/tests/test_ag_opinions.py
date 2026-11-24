@@ -180,3 +180,13 @@ def test_weekly_run_of_the_judgment_links_the_earlier_opinion(scratch_db, tmp_pa
         ("ECLI:EU:C:2019:1", "ECLI:EU:C:2019:300", "opinion_of"),
     }
     assert load_artifact(conn, later) == {"cjeu_ag_link": {"inserted": 2}}
+
+
+def test_first_judgment_skips_separate_document_suffixes():
+    """Illustrative: the earliest judgment carrying the number is a revision
+    ('REV'), a separate document; the opinion belongs to the plain judgment."""
+    opinion = ag.Opinion(1, None, "62020CC0001", date(2021, 1, 1), ("C-1/20",))
+    revision = cand(5, "62020CJ0001(01)", date(2021, 2, 1), value="C-1/20 REV")
+    judgment = cand(6, "62020CJ0001", date(2021, 3, 1))
+    resolution, reason = ag.resolve_opinion(opinion, {}, {"C-1/20": [revision, judgment]})
+    assert reason == "ok" and resolution.target.case_id == 6

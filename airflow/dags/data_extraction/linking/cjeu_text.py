@@ -16,7 +16,10 @@ opinions; every language stored) and writes the dataset ``cjeu_text_echr``
   precedes the number. They resolve through case_identifier
   (scheme 'echr_appno', owner numbers only) with resolver.choose_echr: a
   decision only when "(dec.)"/"(déc.)" is written or there is no judgment,
-  then the cited date or year;
+  a Grand Chamber judgment when "[GC]" is written, then the cited date (after
+  the number, else the last one before it in the citation) or year. A number
+  whose documents all postdate the citing text is dropped; one nothing
+  matches is written unresolved;
 * name + date citations ("F. v. the United Kingdom, 22 June 2004") only with
   the flag NAME_DATE_LINKS on (default off; decision D5 allows them only after
   a 100-row sample reaches 95% precision). They match echr_document.docname and
@@ -68,7 +71,6 @@ DATASET = "cjeu_text_echr"
 RELATION = "cites"
 NAME_DATE_FLAG = "NAME_DATE_LINKS"
 SCHEMA = resolver.SCHEMA
-CJEU_TEXT_SOURCES = ("CELLAR_ITEM", "INFOCURIA_BLOB_HTML")
 
 CONF_ECLI = 0.99
 CONF_ECLI_NO_YEAR = 0.85
@@ -114,6 +116,7 @@ _LEGISLATION_RE = re.compile(
     re.I,
 )
 _DECISION_CUE_RE = re.compile(r"\((?:dec|déc|Entsch|dés|dec\.)\.?\)", re.I)
+_GC_CUE_RE = re.compile(r"\[GC\]|\(GC\)|Grand Chamber|Grande Chambre|Große[nr]? Kammer")
 _YEAR_CUE_RE = re.compile(r"\b(?:ECHR|CEDH|Reports|Recueil)\s+(?P<year>(?:19|20)\d\d)\b")
 _STATE_NAMES = (
     "(?:the\\s+)?(?:United Kingdom|Royaume-Uni|Vereinigtes Königreich|Verenigd Koninkrijk|"
@@ -137,6 +140,7 @@ class AppnoRef:
     cited_date: Optional[date]
     cited_year: Optional[int]
     citation: int  # index of the citation it belongs to (one marker list = one citation)
+    grand_chamber: bool = False
 
 
 @dataclass
@@ -163,10 +167,22 @@ def _citation_tail(text, end, limit=140):
     return tail[: stop.start()] if stop else tail
 
 
+_HEAD_ABBREVIATIONS = {"v", "vs", "c", "t", "no", "nos", "nr", "cf", "p", "pp", "para", "al", "eur"}
+
+
 def _citation_head(text, start, limit=200):
+    """Text before a reference back to the start of its citation; a "." after
+    "v", "no", an initial or another abbreviation does not end it."""
     head = text[max(0, start - limit) : start]
-    stop = list(re.finditer(r";|\(see|\(voir|\(vgl|\(zie|\.\s+(?=[A-Z])", head))
-    return head[stop[-1].end() :] if stop else head
+    stops = []
+    for stop in re.finditer(r";|\(see|\(voir|\(vgl|\(zie|\.\s+(?=[A-Z])", head):
+        if stop.group(0).startswith("."):
+            word = re.search(r"([\w.]+)$", head[: stop.start()])
+            token = (word.group(1) if word else "").lower()
+            if len(token) == 1 or token in _HEAD_ABBREVIATIONS:
+                continue
+        stops.append(stop)
+    return head[stops[-1].end() :] if stops else head
 
 
 def scan(text: str, name_dates: bool = False) -> Scan:
@@ -208,11 +224,19 @@ def scan(text: str, name_dates: bool = False) -> Scan:
         decision_cue = bool(
             _DECISION_CUE_RE.search(head[-80:]) or _DECISION_CUE_RE.search(tail[:20])
         )
+        grand_chamber = bool(_GC_CUE_RE.search(head[-80:]) or _GC_CUE_RE.search(tail[:40]))
+        # The cited date: after the number ("no. 17341/03, 22 June 2004"), else
+        # the last one before it ("ECtHR, 22 June 2004, F. v. ..., no. 17341/03").
         cited_date = cited_year = None
         for dmatch in DATE_RE.finditer(tail):
             cited_date = parse_date_match(dmatch)
             if cited_date:
                 break
+        if cited_date is None:
+            for dmatch in reversed(list(DATE_RE.finditer(head))):
+                cited_date = parse_date_match(dmatch)
+                if cited_date:
+                    break
         ymatch = _YEAR_CUE_RE.search(tail)
         if ymatch:
             cited_year = int(ymatch.group("year"))
@@ -232,6 +256,7 @@ def scan(text: str, name_dates: bool = False) -> Scan:
                     cited_date,
                     cited_year,
                     index,
+                    grand_chamber,
                 )
             )
 
@@ -256,15 +281,6 @@ def scan(text: str, name_dates: bool = False) -> Scan:
 # Name + date matching (flagged, D5)
 # ---------------------------------------------------------------------------
 
-_SEP_NORMAL = {
-    "v.": "V",
-    "vs.": "V",
-    "c.": "V",
-    "gegen": "V",
-    "contro": "V",
-    "contra": "V",
-    "t.": "V",
-}
 _STATE_SYNONYMS = {
     "ROYAUME-UNI": "UNITED KINGDOM",
     "VEREINIGTES KÖNIGREICH": "UNITED KINGDOM",
@@ -367,13 +383,17 @@ def resolve(scan_result: Scan, unit: TextUnit, source: Source, lookup, name_inde
         covered.append((start, end))
 
     for ref in scan_result.appnos:
+        found = candidates.get(ref.value, [])
         choice = resolver.choose_echr(
-            candidates.get(ref.value, []),
+            found,
             source.date,
             decision_cue=ref.decision_cue,
             cited_date=ref.cited_date,
             cited_year=ref.cited_year,
+            grand_chamber=ref.grand_chamber,
         )
+        if choice is None and any(c.kind != resolver.ECHR_COMMUNICATED for c in found):
+            continue  # every document of the number postdates the citing text
         target = CaseKey.from_dict(choice.candidate.key()) if choice else None
         add(
             target,
@@ -457,12 +477,14 @@ _TEXTS_SQL = f"""
               t.id
 """
 
+# judgement_date is a timestamptz at midnight UTC: take the UTC calendar day,
+# whatever the session's time zone.
 _NAME_DATE_SQL = f"""
-    SELECT d.docname, d.judgement_date::date, c.id, c.ecli, c.celex_id, c.item_id,
-           c.date_decision, d.doctype, d.item_id
+    SELECT d.docname, (d.judgement_date AT TIME ZONE 'UTC')::date, c.id, c.ecli, c.celex_id,
+           c.item_id, c.date_decision, d.doctype, d.item_id
       FROM {SCHEMA}.echr_document d
       JOIN {SCHEMA}.cases c ON c.id = d.case_id
-     WHERE d.judgement_date::date = ANY(%s)
+     WHERE (d.judgement_date AT TIME ZONE 'UTC')::date = ANY(%s)
 """
 
 

@@ -814,3 +814,13 @@ def test_loader_finds_echr_variants_by_echr_document_item_id(conn):
     assert _rows(
         conn, "SELECT source_case_id, is_cross_jurisdiction FROM cle_v2.case_citation"
     ) == [(case_id, True)]
+
+
+def test_corpus_of_ecli_treats_other_national_ecli_as_foreign():
+    from data_loading.link_loader import FOREIGN, corpus_of_ecli
+
+    assert corpus_of_ecli("ECLI:EU:C:2019:189") == "CJEU"
+    assert corpus_of_ecli("ECLI:CE:ECHR:2004:0622DEC001734103") == "ECHR"
+    assert corpus_of_ecli("ECLI:NL:HR:2020:593") == "RS"
+    assert corpus_of_ecli("ECLI:BE:GHCC:2019:1") == FOREIGN
+    assert corpus_of_ecli(None) is None and corpus_of_ecli("") is None

@@ -14,7 +14,6 @@ from datetime import date
 from pathlib import Path
 
 import pytest
-
 from data_extraction.linking import cellar_referrals as cr
 from data_extraction.linking.artifact import read_jsonl
 from tests.linking_db import add_case, add_identifier, execute, needs_db, scratch_db  # noqa: F401
@@ -279,6 +278,50 @@ def test_duplicate_publications_resolve_to_one_canonical_case():
     assert match.ecli == "ECLI:NL:RVS:2012:4057"
 
 
+def test_publications_with_and_without_the_instance_segment_are_one_decision():
+    """Illustrative (review round 3): the same decision filed once as
+    201012342/1/T1/V2 and once as 201012342/T1/V2."""
+    line = [ln for ln in cr.parse_notice(notice("62012CJ0199")) if ln.affaire == "C-199/12"][0]
+    dupes = [
+        rs("ECLI:NL:RVS:2012:BW3078", D12, zaaknummer="201012342/1/T1/V2"),
+        rs("ECLI:NL:RVS:2012:9999", D12, zaaknummer="201012342/T1/V2"),
+    ]
+    match, reason = cr.match_line(line, dupes)
+    assert (match.ecli, reason) == ("ECLI:NL:RVS:2012:BW3078", "ok")
+    chosen, publications = cr.canonical(dupes)
+    assert (chosen.ecli, publications) == ("ECLI:NL:RVS:2012:BW3078", 2)
+
+
+def test_date_court_fallback_flag_is_read_when_extract_runs(monkeypatch):
+    """REFERRAL_DATE_COURT_FALLBACK set after import still applies."""
+    xml = "<x><p>*A9* Raad van State, uitspraak van 01/02/2010</p></x>"
+    doc = cr.CjeuDocument("ECLI:EU:C:2011:1", "62010CJ0001", None, xml)
+    candidate = rs("ECLI:NL:RVS:2010:BL0001", date(2010, 2, 1))
+    monkeypatch.setattr(cr, "iter_documents", lambda *a, **k: iter([[doc]]))
+    monkeypatch.setattr(
+        cr, "fetch_candidates", lambda cursor, dates: {date(2010, 2, 1): [candidate]}
+    )
+
+    class Conn:
+        def cursor(self):
+            return self
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *exc):
+            return False
+
+        def rollback(self):
+            pass
+
+    monkeypatch.delenv("REFERRAL_DATE_COURT_FALLBACK", raising=False)
+    assert cr.extract(Conn())[0] == 0
+    monkeypatch.setenv("REFERRAL_DATE_COURT_FALLBACK", "true")
+    assert cr.extract(Conn())[0] == 1
+    assert cr.extract(Conn(), date_court_fallback=False)[0] == 0
+
+
 def test_different_decisions_are_ambiguous_not_guessed():
     line = cr.parse_notice(
         "<x><p>*A9* Hoge Raad der Nederlanden, arrest van 05/04/2013 (12/00667)</p></x>"
@@ -338,12 +381,13 @@ def test_case_identifier_values_are_used_too():
     assert cr.match_line(line, [hit])[0].ecli == "ECLI:NL:CRVB:2013:CA1"
 
 
-def test_date_court_fallback_is_off_by_default():
+def test_date_court_fallback_is_off_by_default(monkeypatch):
     line = cr.parse_notice(
         "<x><p>*A9* Tariefcommissie, uitspraak van 18/09/1962 (8297 T - 8463 T)</p></x>"
     )[0]
     only = rs("ECLI:NL:TC:1962:1", date(1962, 9, 18), "Tariefcommissie", "1234")
-    assert cr.REFERRAL_DATE_COURT_FALLBACK is False
+    monkeypatch.delenv("REFERRAL_DATE_COURT_FALLBACK", raising=False)
+    assert cr.date_court_fallback_enabled() is False
     assert cr.match_line(line, [only]) == (None, "no_zaaknummer_match")
     match, _ = cr.match_line(line, [only], date_court_fallback=True)
     assert (match.ecli, match.confidence) == ("ECLI:NL:TC:1962:1", 0.6)

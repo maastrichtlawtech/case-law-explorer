@@ -188,7 +188,7 @@ def test_rs_processor_sets_cross_jurisdiction_on_new_citation_rows(client, hook)
         9: False,
         "ECLI:CE:ECHR:2019:0101JUD001234517": True,
         "ECLI:NL:HR:2099:1": False,
-        "ECLI:BE:CASS:2019:ARR.1": False,  # unknown corpus: as in link_loader
+        "ECLI:BE:CASS:2019:ARR.1": True,  # a foreign court: outside every collection
     }
 
 

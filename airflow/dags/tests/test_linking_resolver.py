@@ -142,3 +142,16 @@ def test_choose_ljn_refuses_later_and_ambiguous():
     twins = [rs(1, "ECLI:NL:RVS:2010:BK1234"), rs(2, "ECLI:NL:RVS:2010:1")]
     assert r.choose_ljn(twins, None) is None
     assert r.choose_ljn([], None) is None
+
+
+def test_echr_grand_chamber_cue_prefers_the_grand_chamber_judgment():
+    chamber = r.Candidate(1, None, None, "001-1", date(2004, 1, 1), "judgment", "1/00", "CHAMBER")
+    grand = r.Candidate(
+        2, None, None, "001-2", date(2006, 2, 2), "judgment", "1/00", "GRANDCHAMBER"
+    )
+    choice = r.choose_echr([chamber, grand], None, grand_chamber=True)
+    assert (choice.candidate.case_id, choice.rule) == (2, "echr_judgment_grand_chamber")
+    # without the cue, or with no Grand Chamber judgment, nothing changes
+    assert r.choose_echr([chamber, grand], None).candidate.case_id == 1
+    plain = r.choose_echr([chamber], None, grand_chamber=True)
+    assert (plain.candidate.case_id, plain.rule) == (1, "echr_judgment")

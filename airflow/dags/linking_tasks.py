@@ -157,6 +157,14 @@ def enabled() -> bool:
     return env_flag(MASTER_FLAG, False)
 
 
+# rs_text ECLI scope. Weekly runs scan new cases, which since the July 2026
+# migration have no rs_body_cite rows, so every ECLI is extracted; the
+# historical backfill extracts cross-court ECLIs only (Dutch-to-Dutch ones are
+# already in rs_body_cite / rs_lido_sqlite).
+WEEKLY_ECLI_SCOPE = "all"
+BACKFILL_ECLI_SCOPE = "cross"
+
+
 @dataclass(frozen=True)
 class Extractor:
     name: str
@@ -329,9 +337,13 @@ def _uuid_celex_cache() -> Optional[str]:
     return path
 
 
-def _run_extractor(conn, extractor: Extractor, out_path, case_ids=None, id_range=None):
+def _run_extractor(
+    conn, extractor: Extractor, out_path, case_ids=None, id_range=None, ecli_scope=None
+):
     module = importlib.import_module(extractor.module)
     kwargs = {"case_ids": case_ids, "id_range": id_range, "out_path": out_path}
+    if extractor.name == "rs_text":
+        kwargs["ecli_scope"] = ecli_scope or WEEKLY_ECLI_SCOPE
     if extractor.name == "cellar_relations":
         kwargs["uuid_dossier"] = module.load_uuid_map(os.environ[CELLAR_UUID_CACHE_ENV].strip())
         kwargs["uuid_celex"] = module.load_uuid_map(_uuid_celex_cache())
@@ -348,7 +360,7 @@ def _split(raw_path, writers) -> None:
 
 
 def extract_links(
-    conn, source: Source, out_dir, case_ids=None, id_range=None
+    conn, source: Source, out_dir, case_ids=None, id_range=None, ecli_scope=None
 ) -> Tuple[Dict[str, dict], Dict[str, dict]]:
     """Run source's extractors and write out_dir/<source_dataset>.jsonl for
     every dataset of source (empty when skipped or nothing was found).
@@ -376,7 +388,14 @@ def extract_links(
                     statuses[extractor.name] = {"status": "no_cases"}
                 else:
                     raw = os.path.join(tmp_dir, f"{extractor.name}.jsonl")
-                    _run_extractor(conn, extractor, raw, case_ids=case_ids, id_range=id_range)
+                    _run_extractor(
+                        conn,
+                        extractor,
+                        raw,
+                        case_ids=case_ids,
+                        id_range=id_range,
+                        ecli_scope=ecli_scope,
+                    )
                     try:
                         _split(raw, writers)
                     except ArtifactError as exc:
@@ -532,10 +551,20 @@ def run_window_links(var_prefix, **context):
 # ---------------------------------------------------------------------------
 
 
-def backfill(conn, source: Source, from_id, to_id, out_dir, load=False) -> dict:
+def backfill(conn, source: Source, from_id, to_id, out_dir, load=False, ecli_scope=None) -> dict:
     """Extract (and optionally load) the links of source over cases.id
-    from_id..to_id (inclusive, either may be None) into out_dir."""
-    statuses, datasets = extract_links(conn, source, out_dir, id_range=(from_id, to_id))
+    from_id..to_id (inclusive, either may be None) into out_dir.
+
+    rs_text scans with BACKFILL_ECLI_SCOPE ('cross') unless ecli_scope says
+    otherwise: historical cases already have their Dutch ECLI citations in
+    rs_body_cite / rs_lido_sqlite."""
+    statuses, datasets = extract_links(
+        conn,
+        source,
+        out_dir,
+        id_range=(from_id, to_id),
+        ecli_scope=ecli_scope or BACKFILL_ECLI_SCOPE,
+    )
     if load:
         for dataset, result in load_links(conn, source, out_dir).items():
             datasets[dataset]["load"] = result
@@ -561,6 +590,12 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
     run.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
     run.add_argument("--out", required=True, help="directory for <source_dataset>.jsonl")
     run.add_argument("--load", action="store_true", help="also load the files into the DSN")
+    run.add_argument(
+        "--ecli-scope",
+        choices=("cross", "all"),
+        default=None,
+        help="rs_text ECLIs: cross-court only (backfill default) or all",
+    )
     args = parser.parse_args(argv)
     dsn = os.environ.get(args.dsn_env)
     if not dsn:
@@ -573,7 +608,13 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         if not args.load:
             conn.set_session(readonly=True)
         counts = backfill(
-            conn, SOURCES[args.source], args.from_id, args.to_id, args.out, load=args.load
+            conn,
+            SOURCES[args.source],
+            args.from_id,
+            args.to_id,
+            args.out,
+            load=args.load,
+            ecli_scope=args.ecli_scope,
         )
     finally:
         conn.close()

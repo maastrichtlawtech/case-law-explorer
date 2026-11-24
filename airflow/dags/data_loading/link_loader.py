@@ -53,11 +53,19 @@ BATCH_SIZE = 1000
 _ECLI_CORPUS = (("ECLI:EU:", "CJEU"), ("ECLI:CE:ECHR:", "ECHR"), ("ECLI:NL:", "RS"))
 
 
+FOREIGN = "FOREIGN"  # a national court outside the three collections (ECLI:BE:..., ...)
+
+
 def corpus_of_ecli(ecli):
+    """RS, CJEU or ECHR by ECLI prefix; FOREIGN for any other ECLI; None when
+    there is no ECLI. FOREIGN is never one of a case's sources, so a link to
+    it is cross-jurisdiction."""
+    if not ecli:
+        return None
     for prefix, corpus in _ECLI_CORPUS:
-        if ecli and ecli.upper().startswith(prefix):
+        if ecli.upper().startswith(prefix):
             return corpus
-    return None
+    return FOREIGN if ecli.upper().startswith("ECLI:") else None
 
 
 def _cases_by_key(cursor, records):

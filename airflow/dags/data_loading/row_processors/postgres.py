@@ -326,7 +326,7 @@ class PostgresRSProcessor(_BaseRowProcessor):
         R2.7, as the link loader sets it: the source is a Rechtspraak decision
         (corpus RS); a target in the database is in another jurisdiction when
         its sources do not include RS, an absent one when its ECLI's corpus
-        (link_loader.corpus_of_ecli) is known and not RS. upsert_citation
+        (link_loader.corpus_of_ecli) is not RS (foreign courts included). upsert_citation
         never updates an existing row, so only new rows get the flag."""
         found = self.client.hook.get_first(
             f"SELECT id, sources FROM {SCHEMA}.cases WHERE ecli = %(val)s",

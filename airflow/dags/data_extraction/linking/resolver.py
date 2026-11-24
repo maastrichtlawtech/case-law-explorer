@@ -24,6 +24,8 @@ ECtHR application numbers (owner numbers only: case_identifier holds the
   * never a document dated after the citing decision; never a communicated case;
   * a decision only when the citation says "(dec.)"/"(déc.)", or when there is
     no judgment;
+  * "[GC]"/"Grand Chamber" in the citation: a Grand Chamber judgment
+    (echr_document.doctype_branch GRANDCHAMBER) when there is one;
   * among several judgments: the exact cited date, then the cited year, then
     the earliest.
 
@@ -49,6 +51,7 @@ SCHEMA = "cle_v2"
 
 CJEU_JUDGMENT, CJEU_ORDER, CJEU_OPINION, OTHER = "judgment", "order", "opinion", "other"
 ECHR_JUDGMENT, ECHR_DECISION, ECHR_COMMUNICATED = "judgment", "decision", "communicated"
+GRAND_CHAMBER = "GRANDCHAMBER"
 
 # Suffixes that name a different document than the judgment (interim measures,
 # costs, rectification, interpretation, revision, third-party proceedings,
@@ -66,6 +69,7 @@ class Candidate:
     date: Optional[date]
     kind: str
     value: str  # the identifier as stored on this case (keeps CJEU suffixes)
+    branch: Optional[str] = None  # echr_document.doctype_branch ("GRANDCHAMBER", ...)
 
     def key(self):
         """Natural key for the link artifact."""
@@ -152,6 +156,7 @@ def choose_echr(
     decision_cue: bool = False,
     cited_date: Optional[date] = None,
     cited_year: Optional[int] = None,
+    grand_chamber: bool = False,
 ) -> Optional[Choice]:
     pool = [c for c in _not_later(candidates, source_date) if c.kind != ECHR_COMMUNICATED]
     judgments = [c for c in pool if c.kind == ECHR_JUDGMENT]
@@ -164,6 +169,10 @@ def choose_echr(
         kind_pool, base_rule, confidence = decisions, "echr_decision_no_judgment", 0.85
     else:
         return None
+    if grand_chamber and base_rule != "echr_decision_cue":
+        grand = [c for c in kind_pool if (c.branch or "").upper() == GRAND_CHAMBER]
+        if grand:
+            kind_pool, base_rule = grand, base_rule + "_grand_chamber"
     kind_pool = sorted(kind_pool, key=lambda c: (c.date or date.max, c.item_id or "", c.case_id))
     if len(kind_pool) == 1:
         return Choice(kind_pool[0], base_rule, confidence)
@@ -229,10 +238,13 @@ def choose_ljn(candidates, source_date, opinion_cue=False) -> Optional[Choice]:
 
 _FETCH = f"""
     SELECT ci.value_normalized, ci.value, c.id, c.ecli, c.celex_id, c.item_id, c.date_decision,
-           (SELECT d.doctype FROM {SCHEMA}.echr_document d
-             WHERE d.case_id = c.id ORDER BY d.item_id LIMIT 1) AS doctype
+           d.doctype, d.doctype_branch
       FROM {SCHEMA}.case_identifier ci
       JOIN {SCHEMA}.cases c ON c.id = ci.case_id
+      LEFT JOIN LATERAL (
+            SELECT e.doctype, e.doctype_branch FROM {SCHEMA}.echr_document e
+             WHERE e.case_id = c.id ORDER BY e.item_id LIMIT 1
+           ) d ON true
      WHERE ci.scheme = %s AND ci.value_normalized = ANY(%s)
 """
 
@@ -253,12 +265,13 @@ def fetch_candidates(cursor, scheme: str, values: Sequence[str]):
         item_id,
         decided,
         doctype,
+        branch,
     ) in cursor.fetchall():
         if scheme == "echr_appno":
             kind = echr_kind(doctype)
         else:
             kind = cjeu_kind(celex)
         out.setdefault(value_normalized, []).append(
-            Candidate(case_id, ecli, celex, item_id, decided, kind, value)
+            Candidate(case_id, ecli, celex, item_id, decided, kind, value, branch)
         )
     return out

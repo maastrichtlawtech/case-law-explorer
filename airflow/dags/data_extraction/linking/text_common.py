@@ -43,6 +43,24 @@ def context(
     return snippet
 
 
+def cjeu_year_ok(court: str, year2: str, max_year: Optional[int] = None) -> bool:
+    """Does a CJEU case number's two-digit year fit its court, and not postdate
+    the citation? C/T from 1989, F 2005-2016, no court letter 1953-1988
+    (rs_text and echr_text)."""
+    y = int(year2)
+    if court:
+        full = 1900 + y if y >= 50 else 2000 + y
+        if court == "F" and not 2005 <= full <= 2016:
+            return False
+        if court in ("C", "T") and full < 1989:
+            return False
+    else:
+        if not 53 <= y <= 88:
+            return False
+        full = 1900 + y
+    return max_year is None or full <= max_year
+
+
 @dataclass(frozen=True)
 class TextUnit:
     """One stored text and where it came from (for the mention's provenance)."""
@@ -313,7 +331,8 @@ def connect(dsn_env: str):
     return psycopg2.connect(dsn)
 
 
-def cli_args(description: str, argv=None):
+def cli_args(description: str, argv=None, extra=None):
+    """The extractors' common CLI; ``extra(parser)`` adds an extractor's own options."""
     parser = argparse.ArgumentParser(description=description)
     parser.add_argument("--dsn-env", required=True, help="environment variable holding the DSN")
     parser.add_argument("--from-id", type=int, default=None, help="first cases.id (inclusive)")
@@ -321,6 +340,8 @@ def cli_args(description: str, argv=None):
     parser.add_argument("--case-id", type=int, action="append", default=None)
     parser.add_argument("--out", required=True, help="JSONL artifact to write")
     parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="cases per batch")
+    if extra is not None:
+        extra(parser)
     return parser.parse_args(argv)
 
 

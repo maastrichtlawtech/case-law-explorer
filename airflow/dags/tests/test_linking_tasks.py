@@ -600,7 +600,7 @@ def test_extract_links_splits_the_stream_in_the_extractors_order(tmp_path, monke
     datasets = ("rs_text_ecli", "rs_text_cjeu_casenum")
     batches = [[_rs_record(b * 10 + i, datasets[i % 2]) for i in range(6)] for b in range(3)]
 
-    def fake_run(conn, extractor, out_path, case_ids=None, id_range=None):
+    def fake_run(conn, extractor, out_path, case_ids=None, id_range=None, ecli_scope=None):
         with ArtifactWriter(out_path) as writer:
             for batch in batches:
                 writer.write(batch)
@@ -630,7 +630,7 @@ def test_extract_links_refuses_a_foreign_dataset_and_keeps_old_files(tmp_path, m
     out.mkdir()
     (out / "rs_text_ecli.jsonl").write_text("previous run\n")
 
-    def fake_run(conn, extractor, out_path, case_ids=None, id_range=None):
+    def fake_run(conn, extractor, out_path, case_ids=None, id_range=None, ecli_scope=None):
         write_jsonl([_rs_record(1, "rs_text_ecli")], out_path)
         with open(out_path, "a", encoding="utf-8") as handle:
             line = json.dumps(_rs_record(2, "rs_text_ecli").to_dict())
@@ -676,3 +676,26 @@ def test_cellar_relations_gets_the_optional_uuid_celex_cache(
     else:
         assert seen["uuid_celex"] == {}
     assert ("does not exist" in caplog.text) == (celex_cache == "missing")
+
+
+def test_rs_text_ecli_scope_weekly_all_backfill_cross(monkeypatch, tmp_path):
+    import types
+
+    import linking_tasks
+
+    seen = []
+    fake = types.SimpleNamespace(extract=lambda conn, **kw: seen.append(kw.get("ecli_scope")))
+    monkeypatch.setattr(linking_tasks.importlib, "import_module", lambda name: fake)
+    rs = linking_tasks.EXTRACTORS["rs_text"]
+    linking_tasks._run_extractor(None, rs, tmp_path / "a.jsonl", case_ids=[1])
+    linking_tasks._run_extractor(
+        None,
+        rs,
+        tmp_path / "b.jsonl",
+        id_range=(1, 2),
+        ecli_scope=linking_tasks.BACKFILL_ECLI_SCOPE,
+    )
+    assert seen == ["all", "cross"]
+    other = linking_tasks.EXTRACTORS["echr_text"]
+    linking_tasks._run_extractor(None, other, tmp_path / "c.jsonl", case_ids=[1])
+    assert seen[-1] is None  # only rs_text takes a scope
