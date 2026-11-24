@@ -223,7 +223,7 @@ def choose_ljn(candidates, source_date, opinion_cue=False) -> Optional[Choice]:
     distinct = {c.case_id: c for c in preferred}
     if len(distinct) != 1:
         return None
-    rule = "ljn_conclusion" if opinion_cue and is_opinion(preferred[0]) else "ljn"
+    rule = "conclusion" if opinion_cue and is_opinion(preferred[0]) else "court_decision"
     return Choice(preferred[0], rule, CONF_LJN)
 
 

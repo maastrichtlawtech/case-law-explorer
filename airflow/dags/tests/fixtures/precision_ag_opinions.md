@@ -18,8 +18,8 @@ here; they are covered by the unit tests.
 
 | Result | Opinions |
 |---|---|
-| CC → CJ (`celex_cj`) | 686 |
-| CC → CO (`celex_co`) | 5 |
+| CC → CJ (`celex/celex_cj`) | 686 |
+| CC → CO (`celex/celex_co`) | 5 |
 | nothing to link in the file | 16 |
 
 The 5 CC → CO results are all members of the joined Aalborg Portland appeals

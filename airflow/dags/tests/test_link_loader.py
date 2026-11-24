@@ -23,6 +23,7 @@ from data_extraction.linking.artifact import (
     CaseKey,
     LinkRecord,
     Mention,
+    match_method,
     read_jsonl,
     write_jsonl,
 )
@@ -39,7 +40,7 @@ def _record(**overrides):
         "relation_type": "cites",
         "source_dataset": "rs_text_cjeu_casenum",
         "extractor_version": "rs_text/test",
-        "match_method": "case_number",
+        "match_method": "case_number/cjeu_judgment",
         "confidence": 0.9,
         "mentions": [
             {
@@ -110,6 +111,27 @@ def test_read_names_the_bad_line(tmp_path):
     path.write_text(good + "\n" + json.dumps(_record(confidence=7)) + "\n")
     with pytest.raises(ArtifactError, match=r"links.jsonl:2"):
         list(read_jsonl(path))
+
+
+def test_match_method_convention():
+    assert match_method("case_number", "cjeu_judgment") == "case_number/cjeu_judgment"
+    assert match_method("ecli") == match_method("ecli", "ecli") == "ecli"
+    with pytest.raises(ArtifactError, match="unknown match method"):
+        match_method("guess", "x")
+
+
+@pytest.mark.parametrize(
+    "overrides, message",
+    [
+        ({"match_method": "cjeu_judgment"}, "bad match_method"),
+        ({"match_method": "case_number/"}, "bad match_method"),
+        ({"target": None, "match_method": "case_number/cjeu_judgment"}, "method alone"),
+        ({"target": None, "match_method": "case_number", "confidence": 0.9}, "no confidence"),
+    ],
+)
+def test_match_method_is_validated(overrides, message):
+    with pytest.raises(ArtifactError, match=message):
+        LinkRecord.from_dict(_record(**overrides))
 
 
 def test_case_key_drops_empty_fields():
@@ -184,7 +206,7 @@ def test_loader_inserts_resolved_row_with_provenance_and_mention(conn):
         (
             "ECLI:NL:RVS:2020:423",
             "ECLI:EU:C:2019:189",
-            "case_number",
+            "case_number/cjeu_judgment",
             pytest.approx(0.9),
             "C-221/17",
             True,
@@ -220,7 +242,13 @@ def test_loader_writes_missing_target_unresolved_and_reference_only(conn):
             source_dataset="rs_text_ecli",
         ),
         # nothing matched: kept by reference
-        _record(target=None, target_ref_raw="C-999/99", source_dataset="rs_text_cjeu_casenum"),
+        _record(
+            target=None,
+            target_ref_raw="C-999/99",
+            source_dataset="rs_text_cjeu_casenum",
+            match_method="case_number",
+            confidence=None,
+        ),
         # source case absent: skipped
         _record(source={"ecli": "ECLI:NL:XX:2020:1"}),
     ]

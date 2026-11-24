@@ -56,7 +56,13 @@ from datetime import date
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import identifiers, resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, write_jsonl
+from data_extraction.linking.artifact import (
+    CaseKey,
+    LinkRecord,
+    Mention,
+    match_method,
+    write_jsonl,
+)
 from data_extraction.linking.text_common import (
     BATCH_SIZE,
     cli_args,
@@ -680,7 +686,9 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
                 stats["ecli_self"] += 1
                 continue
             target = CaseKey(**candidate.key())
-            method = "ecli" if candidate.ecli == hit.value else "ecli_identifier"
+            method = match_method(
+                "ecli", None if candidate.ecli == hit.value else "case_identifier"
+            )
             confidence = 1.0
             if hit.value.startswith("ECLI:EU:"):
                 eu_ecli_cases.append(
@@ -727,7 +735,7 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
             CaseKey(**choice.candidate.key()),
             hit.value,
             "cjeu_case_number",
-            choice.rule,
+            match_method("case_number", choice.rule),
             choice.confidence,
             hit,
         )
@@ -761,7 +769,7 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
             CaseKey(**choice.candidate.key()),
             hit.value,
             "echr_appno",
-            rule,
+            match_method("appno", rule),
             confidence,
             hit,
         )

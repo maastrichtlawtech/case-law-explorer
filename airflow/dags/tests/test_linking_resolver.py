@@ -130,11 +130,11 @@ def rs(case_id, ecli, decided=date(2010, 1, 1)):
 def test_choose_ljn_prefers_the_court_over_the_conclusion():
     court, conclusion = rs(1, "ECLI:NL:HR:2010:BK1234"), rs(2, "ECLI:NL:PHR:2010:BK1234")
     choice = r.choose_ljn([court, conclusion], date(2015, 1, 1))
-    assert (choice.candidate, choice.rule, choice.confidence) == (court, "ljn", 0.9)
+    assert (choice.candidate, choice.rule, choice.confidence) == (court, "court_decision", 0.9)
     choice = r.choose_ljn([court, conclusion], date(2015, 1, 1), opinion_cue=True)
-    assert (choice.candidate, choice.rule) == (conclusion, "ljn_conclusion")
+    assert (choice.candidate, choice.rule) == (conclusion, "conclusion")
     # a conclusion cue with only the court's decision: the decision
-    assert r.choose_ljn([court], None, opinion_cue=True).rule == "ljn"
+    assert r.choose_ljn([court], None, opinion_cue=True).rule == "court_decision"
 
 
 def test_choose_ljn_refuses_later_and_ambiguous():

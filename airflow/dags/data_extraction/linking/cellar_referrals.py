@@ -29,7 +29,8 @@ Matching a line to a Rechtspraak decision, in order:
 
     1. an ECLI written in the line, or in the rechtspraak.nl link on the line
        right after it ("ECLI:NL:HR:2016:994", "(NL:CBB:2018:1)")
-       -> match_method 'ecli';
+       -> match_method 'ecli' ('ecli/ecli_inconsistent' when the line's court
+       does not fit the ECLI);
     2. an LJN written in the line ("LJN BU1290") on a decision of that date
        and court -> 'ljn';
     3. date + court + zaaknummer: decisions dated on the line's date, of a
@@ -98,7 +99,7 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 from urllib.parse import unquote
 
 from data_extraction.linking import identifiers
-from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, write_jsonl
+from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, match_method, write_jsonl
 
 log = logging.getLogger(__name__)
 
@@ -709,7 +710,7 @@ def links_for_document(
                 relation_type=relation,
                 source_dataset=SOURCE_DATASET,
                 extractor_version=EXTRACTOR_VERSION,
-                match_method=slot["match"].method,
+                match_method=match_method(slot["match"].method, slot["match"].rule),
                 confidence=slot["match"].confidence,
                 mentions=tuple(slot["mentions"]),
             )

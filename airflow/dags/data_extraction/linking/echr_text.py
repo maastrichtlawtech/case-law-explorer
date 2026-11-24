@@ -50,7 +50,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import identifiers, resolver
-from data_extraction.linking.artifact import CaseKey, LinkRecord
+from data_extraction.linking.artifact import CaseKey, LinkRecord, match_method
 from data_extraction.linking.text_common import (
     CandidateLookup,
     PendingLink,
@@ -539,7 +539,14 @@ def resolve(
             else:
                 # The numbers resolve but none to this ECLI (a typo on one side):
                 # keep the explicit ECLI, leave the numbers for review.
-                add(DATASET_CJEU, CaseKey(ecli=ecli), start, end, "ecli", CONF_ECLI_CONFLICT)
+                add(
+                    DATASET_CJEU,
+                    CaseKey(ecli=ecli),
+                    start,
+                    end,
+                    match_method("ecli", "numbers_disagree"),
+                    CONF_ECLI_CONFLICT,
+                )
                 for n in written:
                     add(
                         DATASET_CJEU,
@@ -586,7 +593,7 @@ def resolve(
                     _cjeu_target_key(choice.candidate),
                     n.start,
                     n.end,
-                    "case_number",
+                    match_method("case_number", choice.rule),
                     choice.confidence,
                     ref=n.normalized,
                     scheme="cjeu_case_number",
@@ -599,7 +606,7 @@ def resolve(
             _cjeu_target_key(lead_choice.candidate),
             start,
             end,
-            "case_number",
+            match_method("case_number", lead_choice.rule),
             lead_choice.confidence,
             ref=lead_number.normalized,
             scheme="cjeu_case_number",
@@ -619,7 +626,16 @@ def resolve(
             add(DATASET_RS, None, start, end, "ljn", None, ref=value, scheme="ljn")
         else:
             target = CaseKey.from_dict(choice.candidate.key())
-            add(DATASET_RS, target, start, end, "ljn", choice.confidence, ref=value, scheme="ljn")
+            add(
+                DATASET_RS,
+                target,
+                start,
+                end,
+                match_method("ljn", choice.rule),
+                choice.confidence,
+                ref=value,
+                scheme="ljn",
+            )
     return out
 
 
