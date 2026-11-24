@@ -269,7 +269,9 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
       * ``extract_law_references`` (linking_tasks.run_window_law_references)
         with LAW_REFERENCE_EXTRACTION_ENABLED;
       * ``extract_authorities`` (linking_tasks.run_window_authorities, roadmap
-        Phase 4) with AUTHORITY_EXTRACTION_ENABLED.
+        Phase 4) with AUTHORITY_EXTRACTION_ENABLED;
+      * ``extract_outcomes`` (linking_tasks.run_window_outcomes: case outcomes
+        and status, roadmap R5.1/R5.2) with OUTCOME_EXTRACTION_ENABLED.
 
     The group's last task runs before register_promotion. With every flag off
     the group is exactly the single ``run_window`` task.
@@ -322,5 +324,14 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
             )
             last >> extract_authorities
             last = extract_authorities
+        if links and linking_tasks.outcomes_enabled():
+            extract_outcomes = PythonOperator(
+                task_id="extract_outcomes",
+                python_callable=linking_tasks.run_window_outcomes,
+                op_kwargs={"var_prefix": var_prefix},
+                dag=dag,
+            )
+            last >> extract_outcomes
+            last = extract_outcomes
 
     return task_group
