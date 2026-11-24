@@ -17,8 +17,8 @@ Every statement is idempotent, so the promoter can replay a batch.
 import logging
 from collections import defaultdict
 
+from data_loading.cjeu_mapping import NATIONAL_TARGETS, celex_well_formed, extractor_row, map_row
 from data_loading.clients.postgres import SCHEMA
-from data_loading.cjeu_mapping import NATIONAL_TARGETS, celex_well_formed, map_row, extractor_row
 
 S = SCHEMA
 
@@ -48,8 +48,18 @@ INSERT INTO {S}.domain (scheme, name)
 SELECT DISTINCT v.scheme, v.name FROM unnest(%s::text[], %s::text[]) AS v(scheme, name)
 WHERE NOT EXISTS (SELECT 1 FROM {S}.domain d WHERE d.scheme = v.scheme AND d.name = v.name)"""
 
-CASE_FIELDS = ("ecli", "celex", "title", "date_decision", "court_code", "lang",
-               "doctype", "proc", "case_number", "importance")
+CASE_FIELDS = (
+    "ecli",
+    "celex",
+    "title",
+    "date_decision",
+    "court_code",
+    "lang",
+    "doctype",
+    "proc",
+    "case_number",
+    "importance",
+)
 _CASE_VALUES = f"""
 FROM unnest(%s::text[], %s::text[], %s::text[], %s::text[], %s::text[],
             %s::text[], %s::text[], %s::text[], %s::text[], %s::smallint[])
@@ -92,13 +102,34 @@ WHERE k.ecli = v.ecli
        OR k.document_type_id IS NULL OR k.procedure_type_id IS NULL
        OR k.case_number IS NULL OR k.importance IS NULL)"""
 
-DOCUMENT_FIELDS = ("ecli", "celex", "sector", "case_number", "formation_code",
-                   "proc_type", "date_lodged", "journal_refs", "erecueil_ref",
-                   "local_identifier", "dossier_uri", "citations_extra_info",
-                   "national_judgement_xml")
-_DOCUMENT_FILL = ("sector", "case_number", "formation_id", "proc_type", "date_lodged",
-                  "journal_refs", "erecueil_ref", "local_identifier", "dossier_uri",
-                  "citations_extra_info", "national_judgement_xml")
+DOCUMENT_FIELDS = (
+    "ecli",
+    "celex",
+    "sector",
+    "case_number",
+    "formation_code",
+    "proc_type",
+    "date_lodged",
+    "journal_refs",
+    "erecueil_ref",
+    "local_identifier",
+    "dossier_uri",
+    "citations_extra_info",
+    "national_judgement_xml",
+)
+_DOCUMENT_FILL = (
+    "sector",
+    "case_number",
+    "formation_id",
+    "proc_type",
+    "date_lodged",
+    "journal_refs",
+    "erecueil_ref",
+    "local_identifier",
+    "dossier_uri",
+    "citations_extra_info",
+    "national_judgement_xml",
+)
 SQL_DOCUMENT = f"""
 INSERT INTO {S}.cjeu_document (case_id, celex_id, ecli, sector, case_number,
     formation_id, proc_type, date_lodged, journal_refs, erecueil_ref,
@@ -227,6 +258,9 @@ UPDATE {S}.case_citation cc
   FROM {S}.cases t
  WHERE cc.target_case_id IS NULL
    AND (left(cc.source_dataset, 3) = 'rs_' OR cc.source_dataset = 'echr_edge')
+   -- Rows written by the cross-dataset link loader stay insert-only: late
+   -- binding resolves them as new rows (data_extraction/linking).
+   AND left(cc.source_dataset, 8) <> 'rs_text_'
    AND cc.target_ecli_raw = ANY(%s::text[])
    AND t.ecli = cc.target_ecli_raw""" + _LINK_TWIN_GUARD
 
@@ -307,8 +341,12 @@ def write(client, mappings) -> dict:
         ags = [m.ag for m in new if m.ag]
         run("cjeu_ag_opinion", SQL_AG, _columns(ags, AG_FIELDS), bool(ags))
         nationals = [m.national for m in new if m.national]
-        run("cjeu_national_document", SQL_NATIONAL, _columns(nationals, NATIONAL_FIELDS),
-            bool(nationals))
+        run(
+            "cjeu_national_document",
+            SQL_NATIONAL,
+            _columns(nationals, NATIONAL_FIELDS),
+            bool(nationals),
+        )
         rows = [(m.ecli, s, n) for m in new for s, n in sorted(m.domains)]
         run("case_domain", SQL_CASE_DOMAIN, _tuples(rows, 3), bool(rows))
         rows = [(m.ecli, n, r) for m in new for n, r in sorted(m.judges)]
@@ -320,8 +358,9 @@ def write(client, mappings) -> dict:
         rows = [(m.ecli, t, r) for m in new for t, r in sorted(m.citations)]
         run("case_citation", SQL_CITE_OUT, _tuples(rows, 3), bool(rows))
         summaries = [m.summary for m in new if m.summary]
-        run("case_text (summary)", SQL_SUMMARY, _columns(summaries, SUMMARY_FIELDS),
-            bool(summaries))
+        run(
+            "case_text (summary)", SQL_SUMMARY, _columns(summaries, SUMMARY_FIELDS), bool(summaries)
+        )
         celexes = sorted({m.celex for m in new if m.celex})
         run("case_citation link (celex)", SQL_LINK_CELEX, [celexes], bool(celexes))
         run("case_citation link (ecli)", SQL_LINK_ECLI, [sorted({m.ecli for m in new})])
