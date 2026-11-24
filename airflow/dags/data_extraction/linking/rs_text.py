@@ -48,9 +48,7 @@ context). Reads only from the database it is given; never calls a remote
 service.
 """
 
-import argparse
 import logging
-import os
 import re
 from collections import Counter
 from dataclasses import dataclass, field
@@ -59,6 +57,13 @@ from typing import Dict, List, Optional, Sequence, Tuple
 
 from data_extraction.linking import identifiers, resolver
 from data_extraction.linking.artifact import CaseKey, LinkRecord, Mention, write_jsonl
+from data_extraction.linking.text_common import (
+    BATCH_SIZE,
+    cli_args,
+    connect,
+    context,
+    iter_case_batches,
+)
 
 log = logging.getLogger(__name__)
 
@@ -71,10 +76,8 @@ DATASET_CJEU = "rs_text_cjeu_casenum"
 DATASET_ECHR = "rs_text_echr_appno"
 TEXT_FIELDS = ("fulltext", "summary")
 
-CONTEXT_CHARS = 150  # each side, so ~300 characters of context
 NEAR_ECLI_CHARS = 80
 MAX_RANGE = 50  # "C-1/90 tot en met C-60/90" is not a range we expand
-BATCH_SIZE = 500
 
 _HYPHEN = "[" + re.escape(identifiers.HYPHENS) + "]"
 _SPACE = r"[    ]"
@@ -254,11 +257,6 @@ class SourceCase:
         return CaseKey(ecli=self.ecli, celex=self.celex, item_id=self.item_id)
 
 
-def _context(text, start, end):
-    snippet = text[max(0, start - CONTEXT_CHARS) : end + CONTEXT_CHARS]
-    return re.sub(r"\s+", " ", snippet).strip()
-
-
 def _hit(scheme, value, text_field, language, text, start, end, **cues):
     return Hit(
         scheme=scheme,
@@ -268,7 +266,7 @@ def _hit(scheme, value, text_field, language, text, start, end, **cues):
         start=start,
         end=end,
         raw_text=text[start:end],
-        context=_context(text, start, end),
+        context=context(text, start, end, collapse_space=True),
         **cues,
     )
 
@@ -641,27 +639,6 @@ def _is_source(candidate, source: SourceCase):
     return bool(key) and CaseKey(**key) == source.key()
 
 
-# Suffixes that name a separate document of the case (interim relief, costs,
-# rectification, interpretation, revision, third-party proceedings, legal aid,
-# default judgments): never taken for the judgment, and only chosen when cited.
-SEPARATE_SUFFIXES = frozenset(("R", "RX", "REC", "DEP", "AJ", "TO", "INT", "REV", "OP", "SA"))
-
-
-def _suffix_of(candidate):
-    parts = identifiers.parse_cjeu_case_number(candidate.value)
-    return parts[3] if parts else None
-
-
-def _suffix_pool(candidates, cited_suffix):
-    """Candidates matching the cited suffix: "C-204/21 R" -> the R order only;
-    a plain or "P"/"PPU" number -> the documents without a separate suffix,
-    or every candidate when the number has nothing else."""
-    if cited_suffix in SEPARATE_SUFFIXES:
-        return [c for c in candidates if _suffix_of(c) == cited_suffix]
-    plain = [c for c in candidates if _suffix_of(c) not in SEPARATE_SUFFIXES]
-    return plain or list(candidates)
-
-
 def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) -> List[LinkRecord]:
     """Turn one decision's hits into link records (one per target or reference)."""
     stats = stats if stats is not None else Counter()
@@ -727,7 +704,7 @@ def resolve_case(source: SourceCase, hits: Sequence[Hit], lookup, stats=None) ->
         if candidates and near_same_case(hit, candidates):
             stats["cjeu_skipped_near_ecli"] += 1
             continue
-        pool = _suffix_pool(candidates, hit.suffix)
+        pool = resolver.filter_cjeu_suffix(candidates, hit.suffix, fallback_to_all=True)
         if candidates and not pool:
             stats["cjeu_suffix_not_found"] += 1
             continue
@@ -826,16 +803,12 @@ def extract_records(source: SourceCase, lookup, stats=None) -> List[LinkRecord]:
 # Database entry point
 # ---------------------------------------------------------------------------
 
-_CASE_PAGE = f"""
-    SELECT DISTINCT ct.case_id
-      FROM {SCHEMA}.case_text ct
-     WHERE ct.source = %(text_source)s
-       AND (ct.fulltext IS NOT NULL OR ct.summary IS NOT NULL)
-       AND ct.case_id > %(after)s
-       AND (%(to_id)s::bigint IS NULL OR ct.case_id <= %(to_id)s::bigint)
-       AND (%(case_ids)s::bigint[] IS NULL OR ct.case_id = ANY(%(case_ids)s::bigint[]))
-     ORDER BY ct.case_id
-     LIMIT %(limit)s
+# Cases with an RS text; text_common.iter_case_batches adds the keyset paging.
+_CASE_IDS = f"""
+    SELECT DISTINCT case_id
+      FROM {SCHEMA}.case_text
+     WHERE source = '{TEXT_SOURCE}'
+       AND (fulltext IS NOT NULL OR summary IS NOT NULL) {{where}}
 """
 _CASE_TEXTS = f"""
     SELECT c.id, c.ecli, c.celex_id, c.item_id, c.date_decision,
@@ -862,29 +835,12 @@ def _sources(rows):
 
 def iter_batches(conn, case_ids=None, id_range=None, batch_size=BATCH_SIZE):
     """Yield lists of SourceCase, keyset-paged on case_id (~batch_size cases)."""
-    after, to_id = -1, None
-    if id_range is not None:
-        from_id, to_id = id_range
-        after = (from_id - 1) if from_id is not None else -1
-    ids = sorted({int(i) for i in case_ids}) if case_ids is not None else None
-    with conn.cursor() as cursor:
-        while True:
-            cursor.execute(
-                _CASE_PAGE,
-                {
-                    "text_source": TEXT_SOURCE,
-                    "after": after,
-                    "to_id": to_id,
-                    "case_ids": ids,
-                    "limit": batch_size,
-                },
-            )
-            page = [row[0] for row in cursor.fetchall()]
-            if not page:
-                return
-            cursor.execute(_CASE_TEXTS, {"text_source": TEXT_SOURCE, "ids": page})
+    for ids in iter_case_batches(
+        conn, _CASE_IDS, case_ids=case_ids, id_range=id_range, batch_size=batch_size
+    ):
+        with conn.cursor() as cursor:
+            cursor.execute(_CASE_TEXTS, {"text_source": TEXT_SOURCE, "ids": ids})
             yield _sources(cursor.fetchall())
-            after = page[-1]
 
 
 def extract(conn, case_ids=None, id_range=None, out_path=None, batch_size=BATCH_SIZE):
@@ -911,27 +867,20 @@ def extract(conn, case_ids=None, id_range=None, out_path=None, batch_size=BATCH_
 
 
 def main(argv=None):
-    parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument("--dsn-env", required=True, help="environment variable holding the DSN")
-    parser.add_argument("--from-id", type=int, default=None, help="first cases.id (inclusive)")
-    parser.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
-    parser.add_argument("--out", required=True, help="JSONL artifact to write")
-    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE)
-    args = parser.parse_args(argv)
-    dsn = os.environ.get(args.dsn_env)
-    if not dsn:
-        parser.error(f"environment variable {args.dsn_env} is not set")
-    import psycopg2
-
+    args = cli_args(__doc__.split("\n\n")[0].strip(), argv)
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    conn = psycopg2.connect(dsn)
+    conn = connect(args.dsn_env)
     try:
         conn.set_session(readonly=True)
         id_range = None
         if args.from_id is not None or args.to_id is not None:
             id_range = (args.from_id, args.to_id)
         written, stats = extract(
-            conn, id_range=id_range, out_path=args.out, batch_size=args.batch_size
+            conn,
+            case_ids=args.case_id,
+            id_range=id_range,
+            out_path=args.out,
+            batch_size=args.batch_size,
         )
     finally:
         conn.close()

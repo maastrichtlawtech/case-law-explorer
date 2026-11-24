@@ -80,7 +80,6 @@ HUDOC_SECONDARY = "HUDOC_SECONDARY"
 
 CONF_ECLI = 0.99
 CONF_ECLI_CONFLICT = 0.8
-CONF_LJN = 0.9
 
 DOMESTIC_SECTIONS = ("facts", "domestic_law", "legal_framework")
 
@@ -121,10 +120,6 @@ _JUDGMENT_WORD_RE = re.compile(
     r"postanowienie)\b",
     re.I,
 )
-# Suffixes that name a different document than the judgment (interim measures,
-# costs, rectification, interpretation, revision, ...). "P" (appeal) and "PPU"
-# (urgent procedure) are part of the case's own number.
-_DOCUMENT_SUFFIXES = {"R", "RX", "REC", "DEP", "AJ", "INT", "REV", "OP", "SA", "TO"}
 
 
 @dataclass
@@ -473,56 +468,15 @@ class Sections:
 # ---------------------------------------------------------------------------
 
 
-def _suffix_of(value):
-    parts = identifiers.parse_cjeu_case_number(value or "")
-    return parts[3] if parts else None
-
-
-def _filter_suffix(candidates, cited_suffix):
-    """Keep the documents the cited suffix names: 'C-204/21 R' -> the interim
-    order; a plain number never resolves to an R/DEP/... document."""
-    cited = cited_suffix if cited_suffix in _DOCUMENT_SUFFIXES else None
-    out = []
-    for candidate in candidates:
-        stored = _suffix_of(candidate.value)
-        stored = stored if stored in _DOCUMENT_SUFFIXES else None
-        if stored == cited:
-            out.append(candidate)
-    return out
-
-
 def _choose_number(number: NumberMention, lookup_result, source_date, opinion_cue):
-    candidates = _filter_suffix(lookup_result.get(number.normalized, []), number.suffix)
+    candidates = resolver.filter_cjeu_suffix(
+        lookup_result.get(number.normalized, []), number.suffix
+    )
     return resolver.choose_cjeu(candidates, source_date, opinion_cue=opinion_cue)
 
 
 def _cjeu_target_key(candidate):
     return CaseKey.from_dict(candidate.key())
-
-
-def choose_ljn(candidates, source_date, opinion_cue=False):
-    """One RS document for an LJN, or None when it stays ambiguous.
-
-    An old LJN was shared by a Hoge Raad judgment and its Advocate General's
-    conclusion (HR / PHR); prefer the court's decision unless the text names
-    the conclusion. Several remaining documents (duplicate publications) are
-    not guessed between.
-    """
-    pool = [c for c in candidates if not (source_date and c.date and c.date > source_date)]
-    if not pool:
-        return None
-
-    def is_opinion(c):
-        return bool(c.ecli and ":PHR:" in c.ecli.upper())
-
-    preferred = [c for c in pool if is_opinion(c) == opinion_cue] or (
-        [c for c in pool if not is_opinion(c)] if opinion_cue else []
-    )
-    distinct = {c.case_id: c for c in preferred}
-    if len(distinct) != 1:
-        return None
-    rule = "ljn_conclusion" if opinion_cue and is_opinion(preferred[0]) else "ljn"
-    return resolver.Choice(preferred[0], rule, CONF_LJN)
 
 
 def _relation(section, domestic_flag):
@@ -660,7 +614,7 @@ def resolve(
 
     ljn_candidates = lookup.get("ljn", sorted(scan_result.ljn_values()))
     for start, end, value, cue in scan_result.ljns:
-        choice = choose_ljn(ljn_candidates.get(value, []), source.date, opinion_cue=cue)
+        choice = resolver.choose_ljn(ljn_candidates.get(value, []), source.date, opinion_cue=cue)
         if choice is None:
             add(DATASET_RS, None, start, end, "ljn", None, ref=value, scheme="ljn")
         else:
@@ -828,7 +782,11 @@ def main(argv=None):
     conn = connect(args.dsn_env)
     try:
         result = extract(
-            conn, case_ids=args.case_id, id_range=(args.from_id, args.to_id), out_path=args.out
+            conn,
+            case_ids=args.case_id,
+            id_range=(args.from_id, args.to_id),
+            out_path=args.out,
+            batch_size=args.batch_size,
         )
     finally:
         conn.close()

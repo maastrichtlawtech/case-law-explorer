@@ -554,7 +554,11 @@ def main(argv=None):
     conn = connect(args.dsn_env)
     try:
         result = extract(
-            conn, case_ids=args.case_id, id_range=(args.from_id, args.to_id), out_path=args.out
+            conn,
+            case_ids=args.case_id,
+            id_range=(args.from_id, args.to_id),
+            out_path=args.out,
+            batch_size=args.batch_size,
         )
     finally:
         conn.close()

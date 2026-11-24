@@ -94,3 +94,51 @@ def test_candidate_key_prefers_ecli():
     assert r.Candidate(1, None, "62017CJ0221", None, None, "judgment", "x").key() == {
         "celex": "62017CJ0221"
     }
+
+
+def numbered(case_id, value, celex="62021CJ0204"):
+    return r.Candidate(case_id, None, celex, None, date(2021, 5, 1), r.cjeu_kind(celex), value)
+
+
+def test_cjeu_suffix():
+    assert r.cjeu_suffix("C-204/21 R") == "R"
+    assert r.cjeu_suffix("C-204/21 P") == "P"
+    assert r.cjeu_suffix("C-204/21") is None
+    assert r.cjeu_suffix(None) is None
+
+
+def test_filter_cjeu_suffix_cited_separate_document():
+    judgment, order = numbered(1, "C-204/21"), numbered(2, "C-204/21 R", "62021CO0204")
+    assert r.filter_cjeu_suffix([judgment, order], "R") == [order]
+    assert r.filter_cjeu_suffix([judgment], "DEP") == []
+
+
+def test_filter_cjeu_suffix_plain_number():
+    judgment, appeal = numbered(1, "C-204/21"), numbered(3, "C-204/21 P")
+    order = numbered(2, "C-204/21 R", "62021CO0204")
+    assert r.filter_cjeu_suffix([judgment, order, appeal], None) == [judgment, appeal]
+    assert r.filter_cjeu_suffix([judgment, order], "P") == [judgment]
+    # only a separate document: none, unless the caller falls back to all
+    assert r.filter_cjeu_suffix([order], None) == []
+    assert r.filter_cjeu_suffix([order], None, fallback_to_all=True) == [order]
+
+
+def rs(case_id, ecli, decided=date(2010, 1, 1)):
+    return r.Candidate(case_id, ecli, None, None, decided, "case", "BK1234")
+
+
+def test_choose_ljn_prefers_the_court_over_the_conclusion():
+    court, conclusion = rs(1, "ECLI:NL:HR:2010:BK1234"), rs(2, "ECLI:NL:PHR:2010:BK1234")
+    choice = r.choose_ljn([court, conclusion], date(2015, 1, 1))
+    assert (choice.candidate, choice.rule, choice.confidence) == (court, "ljn", 0.9)
+    choice = r.choose_ljn([court, conclusion], date(2015, 1, 1), opinion_cue=True)
+    assert (choice.candidate, choice.rule) == (conclusion, "ljn_conclusion")
+    # a conclusion cue with only the court's decision: the decision
+    assert r.choose_ljn([court], None, opinion_cue=True).rule == "ljn"
+
+
+def test_choose_ljn_refuses_later_and_ambiguous():
+    assert r.choose_ljn([rs(1, "ECLI:NL:HR:2010:BK1234")], date(2009, 1, 1)) is None
+    twins = [rs(1, "ECLI:NL:RVS:2010:BK1234"), rs(2, "ECLI:NL:RVS:2010:1")]
+    assert r.choose_ljn(twins, None) is None
+    assert r.choose_ljn([], None) is None

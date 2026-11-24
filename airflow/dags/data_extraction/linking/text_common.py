@@ -1,5 +1,5 @@
 """
-Helpers shared by the text link extractors (echr_text, cjeu_text).
+Helpers shared by the text link extractors (rs_text, echr_text, cjeu_text).
 
 Everything here is pure except ``iter_case_batches`` and ``connect``, which
 read from the database an extractor is pointed at. Nothing calls an external
@@ -31,8 +31,16 @@ def env_flag(name: str, default: bool) -> bool:
     return value.strip().lower() in ("1", "true", "yes", "on")
 
 
-def context(text: str, start: int, end: int, width: int = CONTEXT_CHARS) -> str:
-    return text[max(0, start - width) : end + width]
+def context(
+    text: str, start: int, end: int, width: int = CONTEXT_CHARS, collapse_space: bool = False
+) -> str:
+    """Up to ``width`` characters on each side of a mention; with
+    ``collapse_space`` every whitespace run becomes one space and the ends are
+    stripped (rs_text)."""
+    snippet = text[max(0, start - width) : end + width]
+    if collapse_space:
+        return re.sub(r"\s+", " ", snippet).strip()
+    return snippet
 
 
 @dataclass(frozen=True)
@@ -312,6 +320,7 @@ def cli_args(description: str, argv=None):
     parser.add_argument("--to-id", type=int, default=None, help="last cases.id (inclusive)")
     parser.add_argument("--case-id", type=int, action="append", default=None)
     parser.add_argument("--out", required=True, help="JSONL artifact to write")
+    parser.add_argument("--batch-size", type=int, default=BATCH_SIZE, help="cases per batch")
     return parser.parse_args(argv)
 
 
