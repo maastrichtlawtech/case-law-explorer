@@ -312,3 +312,55 @@ def test_backfill_law_without_load_writes_only_the_file(scratch_db, tmp_path):  
     assert counts["datasets"] == {"cellar_law_ref": {"records": 2}}
     assert execute(conn, "SELECT count(*) FROM cle_v2.case_law_reference") == [(0,)]
     assert (tmp_path / "out" / "cellar_law_ref.jsonl").is_file()
+
+
+def test_one_entry_point_for_every_law_reference_file(scratch_db, tmp_path):  # noqa: F811
+    """load_artifact routes echr_article files (Phase 3a) to legislation_loader,
+    so the promoter replays every 'law_references' file through one function."""
+    from data_extraction.legislation import law_reference as provision_artifact
+
+    assert set(law_reference_loader.LAW_DATASETS).isdisjoint(provision_artifact.DATASETS)
+    assert set(law_reference_loader.ALL_DATASETS) == {
+        "cellar_law_ref",
+        "rs_text_eu_law",
+        "echr_text_eu_law",
+        "echr_article",
+    }
+    conn = scratch_db
+    ecli = "ECLI:CE:ECHR:2010:0101JUD000000110"
+    add_case(conn, ecli, sources=("ECHR",))
+    echr = tmp_path / "echr_article.jsonl"
+    echr.write_text(
+        json.dumps(
+            {
+                "source": {"ecli": ecli},
+                "act": {"scheme": "coe_treaty", "identifier": "005"},
+                "article": "6",
+                "paragraph": "1",
+                "role": "violation",
+                "source_dataset": "echr_article",
+                "extractor_version": "echr_article/1.0.0",
+                "raw_scheme": "echr_article",
+                "raw_subdivision": "6-1",
+            }
+        )
+        + "\n"
+    )
+    result = law_reference_loader.load_artifact(conn, echr)
+    assert result["echr_article"] == {
+        "inserted": 1,
+        "provisions_inserted_article": 1,
+        "provisions_inserted_paragraph": 1,
+    }
+    assert law_reference_loader.load_artifact(conn, echr) == {"echr_article": {"existing": 1}}
+
+    eu = tmp_path / "rs_text_eu_law.jsonl"
+    eu.write_text(json.dumps(record().to_dict()) + "\n")
+    add_case(conn, RS)
+    assert law_reference_loader.load_artifact(conn, eu) == {
+        "rs_text_eu_law": {"inserted_unresolved": 1}
+    }
+    empty = tmp_path / "empty.jsonl"
+    empty.write_text("")
+    assert law_reference_loader.artifact_dataset(empty) is None
+    assert law_reference_loader.load_artifact(conn, empty) == {}

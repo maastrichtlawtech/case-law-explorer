@@ -42,6 +42,17 @@ LINK_ENV = (
     "AUTHORITY_RS_PUBLICATION",
     "AUTHORITY_ECHR_TEXT",
     "AUTHORITY_CELLAR",
+    "OUTCOME_EXTRACTION_ENABLED",
+    "RS_DICTUM_ENABLED",
+)
+
+# Every flag that adds a task to the monthly group, in the order the tasks run.
+STEP_FLAGS = (
+    ("LINK_EXTRACTION_ENABLED", "extract_links"),
+    ("LEGISLATION_EXTERNAL_ENABLED", "extract_legislation"),
+    ("LAW_REFERENCE_EXTRACTION_ENABLED", "extract_law_references"),
+    ("AUTHORITY_EXTRACTION_ENABLED", "extract_authorities"),
+    ("OUTCOME_EXTRACTION_ENABLED", "extract_outcomes"),
 )
 
 
@@ -290,6 +301,50 @@ def test_dag_unchanged_with_the_master_off(monkeypatch, dag_id, prefix):
         "dag_id": dag_id,
         "var_prefix": prefix,
     }
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+def test_every_step_in_order_with_every_flag_on(monkeypatch, dag_id, prefix):
+    for flag, _task in STEP_FLAGS:
+        monkeypatch.setenv(flag, "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    steps = [
+        task
+        for _flag, task in STEP_FLAGS
+        # rechtspraak writes no legislation files (LEGISLATION_OUTPUTS)
+        if not (task == "extract_legislation" and dag_id == "rechtspraak_etl")
+    ]
+    chain = [f"{dag_id}_tasks.{t}" for t in ["run_window"] + steps] + ["register_promotion"]
+    assert set(graph.tasks) == set(chain)
+    assert graph.edges == set(zip(chain, chain[1:]))
+    callables = {
+        "extract_links": linking_tasks.run_window_links,
+        "extract_legislation": linking_tasks.run_window_legislation,
+        "extract_law_references": linking_tasks.run_window_law_references,
+        "extract_authorities": linking_tasks.run_window_authorities,
+        "extract_outcomes": linking_tasks.run_window_outcomes,
+    }
+    for task in steps:
+        kwargs = graph.tasks[f"{dag_id}_tasks.{task}"].kwargs
+        assert kwargs["python_callable"] is callables[task]
+        assert kwargs["op_kwargs"] == {"var_prefix": prefix}
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+@pytest.mark.parametrize("flag, task", STEP_FLAGS[1:])
+def test_each_step_alone_sits_between_the_load_and_promotion(
+    monkeypatch, dag_id, prefix, flag, task
+):
+    monkeypatch.setenv(flag, "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    run_window = f"{dag_id}_tasks.run_window"
+    if task == "extract_legislation" and dag_id == "rechtspraak_etl":
+        assert graph.edges == {(run_window, "register_promotion")}
+        return
+    step = f"{dag_id}_tasks.{task}"
+    assert graph.edges == {(run_window, step), (step, "register_promotion")}
 
 
 @pytest.mark.parametrize("dag_id, prefix", DAGS)
