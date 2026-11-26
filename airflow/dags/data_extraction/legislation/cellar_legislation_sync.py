@@ -98,8 +98,14 @@ def year_from_celex(celex: str) -> Optional[int]:
     return year if 1950 <= year <= 2100 else None
 
 
+_CELEX_TOKEN_RE = re.compile(r"^[0-9CE]\d{4}[A-Z]", re.I)
+
+
 def candidate_celexes_for_raw(raw_resource: str) -> List[str]:
     """Return ordered canonical CELEX candidates for a raw_resource value."""
+    if not raw_resource or not _CELEX_TOKEN_RE.match(raw_resource.strip()):
+        return []
+    raw_resource = raw_resource.strip()
     cands: List[str] = []
     target = eu_law.cellar_target(raw_resource)
     if target is not None:
