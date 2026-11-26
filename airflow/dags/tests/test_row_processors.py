@@ -486,6 +486,25 @@ def test_item_id_processor_normalizes_hudoc_language_to_iso2(client):
     )
 
 
+def test_item_id_processor_persists_hudoc_scl_citations(client):
+    from definitions.terminology.attribute_names import ECHR_CITATIONS
+
+    processor = PostgresItemIdProcessor(path="unused", client=client)
+    scl = "Öcalan v. Turkey [GC], no. 46221/99, § 70, 12 May 2005"
+
+    detail = processor._detail_row(
+        {ECHR_DOCUMENT_ID: "001-99901", ECHR_LANGUAGE: "ENG", ECHR_CITATIONS: scl},
+        case_id=42,
+    )
+    assert detail["scl"] == scl
+    assert (
+        processor._detail_row({ECHR_DOCUMENT_ID: "001-99902", ECHR_LANGUAGE: "ENG"}, case_id=43)[
+            "scl"
+        ]
+        is None
+    )
+
+
 def test_item_id_processor_upload_row_rolls_back_on_failure(client, redirect_failure_log):
     processor = PostgresItemIdProcessor(path="unused", client=client)
     row = {ECHR_DOCUMENT_ID: "001-99999"}

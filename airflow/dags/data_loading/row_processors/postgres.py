@@ -13,6 +13,7 @@ from definitions.terminology.attribute_names import (
     ECHR_APPLICABILITY,
     ECHR_APPLICANTS,
     ECHR_BRANCH,
+    ECHR_CITATIONS,
     ECHR_CONCLUSION,
     ECHR_DOCUMENT_ID,
     ECHR_DOCUMENT_TYPE,
@@ -520,6 +521,7 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
             "separate_opinion": row.get(ECHR_SEPARATE_OPINION),
             "importance": row.get(ECHR_IMPORTANCE) or None,
             "reference_date": row.get(ECHR_REFERENCE_DATE) or None,
+            "scl": row.get(ECHR_CITATIONS) or None,
         }
 
     def upload_rows(self, rows: list) -> int:
