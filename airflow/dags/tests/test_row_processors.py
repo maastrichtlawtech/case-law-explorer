@@ -487,21 +487,45 @@ def test_item_id_processor_normalizes_hudoc_language_to_iso2(client):
 
 
 def test_item_id_processor_persists_hudoc_scl_citations(client):
-    from definitions.terminology.attribute_names import ECHR_CITATIONS
+    from definitions.terminology.attribute_names import ECHR_ARTICLES, ECHR_CITATIONS
 
     processor = PostgresItemIdProcessor(path="unused", client=client)
     scl = "Öcalan v. Turkey [GC], no. 46221/99, § 70, 12 May 2005"
 
     detail = processor._detail_row(
-        {ECHR_DOCUMENT_ID: "001-99901", ECHR_LANGUAGE: "ENG", ECHR_CITATIONS: scl},
+        {
+            ECHR_DOCUMENT_ID: "001-99901",
+            ECHR_LANGUAGE: "ENG",
+            ECHR_CITATIONS: scl,
+            ECHR_ARTICLES: "6;6-1;P1-1",
+        },
         case_id=42,
     )
     assert detail["scl"] == scl
+    assert detail["article"] == "6;6-1;P1-1"
+    empty = processor._detail_row({ECHR_DOCUMENT_ID: "001-99902", ECHR_LANGUAGE: "ENG"}, case_id=43)
+    assert empty["scl"] is None
+    assert empty["article"] is None
+
+
+def test_rs_processor_persists_has_version_as_vindplaatsen(client):
+    from definitions.terminology.attribute_names import RS_HASVERSION
+
+    processor = PostgresRSProcessor(path="unused", client=client)
+    detail = processor._detail_row(
+        {
+            ECLI: "ECLI:NL:HR:2026:100",
+            RS_HASVERSION: "Rechtspraak.nl; NJ 2026/12 met annotatie van Spier; AB 2026/4",
+        },
+        case_id=99,
+    )
+    assert detail["vindplaatsen"] == [
+        "Rechtspraak.nl",
+        "NJ 2026/12 met annotatie van Spier",
+        "AB 2026/4",
+    ]
     assert (
-        processor._detail_row({ECHR_DOCUMENT_ID: "001-99902", ECHR_LANGUAGE: "ENG"}, case_id=43)[
-            "scl"
-        ]
-        is None
+        processor._detail_row({ECLI: "ECLI:NL:HR:2026:101"}, case_id=100)["vindplaatsen"] is None
     )
 
 
