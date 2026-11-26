@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 
 import pandas as pd
 from airflow.operators.python import PythonOperator
+from data_extraction.caselaw.rechtspraak.rate_limit import POLITE_METADATA_OPTIONS
 from data_loading import data_loader
 from data_loading.clients.postgres import PostgresCLEClient
 from data_transformation import data_transformer
@@ -98,7 +99,9 @@ def extract_missing_eclis(
     if missing_eclis:
         logging.info("Performing extraction for missing ECLIs.")
         base_extraction = get_rechtspraak(eclis=missing_eclis, save_file="n")
-        metadata_df = get_rechtspraak_metadata(dataframe=base_extraction, save_file="n")
+        metadata_df = get_rechtspraak_metadata(
+            dataframe=base_extraction, save_file="n", **POLITE_METADATA_OPTIONS
+        )
         citations_df = get_citations(
             metadata_df,
             os.getenv("LIDO_USERNAME"),
