@@ -1,8 +1,12 @@
 import logging
+import os
+import re
 from datetime import date
 
-from data_loading import case_enrichment, cjeu_loader
+from data_extraction.linking.identifiers import normalize_ecli
+from data_loading import case_enrichment, cjeu_loader, identifier_loader
 from data_loading.language_codes import normalize_language_code
+from data_loading.link_loader import SCHEMA, corpus_of_ecli
 from definitions.storage_handler import CSV_LOAD_FAILED, get_path_processed
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
@@ -57,6 +61,40 @@ def _split_set(value):
     return [v for v in value.split(SET_SEP) if v]
 
 
+# Legacy sources labels -> corpus (case_enrichment rewrites them per batch).
+_CORPUS_LABELS = {"Rechtspraak": "RS", "HUDOC": "ECHR"}
+
+
+def _corpora(sources):
+    return {_CORPUS_LABELS.get(s, s) for s in sources or ()}
+
+
+def _citing_eclis(value):
+    """The cited ECLIs in citations_outgoing, in order, without duplicates.
+
+    Only an item that is an ECLI and nothing else is a citation. lido.db gives
+    one ECLI per item, but rechtspraak_extractor's live-API fallback fills
+    citations_outgoing from dcterms:relation, i.e. the formal relation's label
+    ("Eerste aanleg: ECLI:NL:RBAMS:2019:123, Bekrachtiging/bevestiging"):
+    a procedural relation with its psi:type dropped, not a citation. Those
+    items were stored verbatim as target_ecli_raw; they are now left out.
+    Splits on ';' with any spacing around it and on newlines, in case a value
+    arrives without the transformer's newline-to-'; ' formatting.
+    """
+    out = []
+    for item in re.split(r"\s*;\s*|\n", value or ""):
+        item = item.strip()
+        if not item:
+            continue
+        ecli = normalize_ecli(item)
+        if ecli is None:
+            logging.debug("citations_outgoing item is not an ECLI, skipped: %r", item)
+            continue
+        if ecli not in out:
+            out.append(ecli)
+    return out
+
+
 class _BaseRowProcessor:
     """
     Shared upsert logic for one processed CSV. Subclasses declare their
@@ -99,7 +137,12 @@ class _BaseRowProcessor:
 
     def _log_failure(self, key, error):
         logging.error(f"{error} {key} ; while upserting {self.detail_table} row into Postgres")
-        with open(get_path_processed(CSV_LOAD_FAILED), "a") as f:
+        # Beside the processed CSV, so the promoter's verifier can reject the
+        # exact month while the report stays on Airflow's data volume.
+        failure_path = os.path.join(
+            os.path.dirname(self.path), os.path.basename(get_path_processed(CSV_LOAD_FAILED))
+        )
+        with open(failure_path, "a") as f:
             f.write(f"{key}\n{error}\n")
 
     def upload_row(self, row: dict) -> int:
@@ -213,6 +256,9 @@ class PostgresRSProcessor(_BaseRowProcessor):
         except Exception as error:
             for ecli, _ in pairs:
                 self._log_failure(ecli, f"case enrichment failed: {error}")
+        # One call per batch, after its transaction; no-op unless
+        # CASE_IDENTIFIER_ENABLED (needs migration 0009).
+        identifier_loader.maintain_for_keys(self.client, "ecli", [ecli for ecli, _ in pairs])
         return loaded
 
     def _detail_row(self, row, case_id):
@@ -267,17 +313,36 @@ class PostgresRSProcessor(_BaseRowProcessor):
         convention citation_update.py already uses, since citations_incoming
         is just the mirror of another case's own outgoing edge."""
         rows = []
-        for target_ecli in _split_set(row.get(RS_CITING)) or []:
-            target_case_id = self.client.resolve_case_id(ecli=target_ecli)
+        for target_ecli in _citing_eclis(row.get(RS_CITING)):
+            target_case_id, cross = self._citation_target(target_ecli)
             rows.append(
                 {
                     "target_case_id": target_case_id,
                     "target_ecli_raw": None if target_case_id else target_ecli,
                     "relation_type": "cites",
                     "source_dataset": "rs_lido_sqlite",
+                    "is_cross_jurisdiction": cross,
                 }
             )
         return rows
+
+    def _citation_target(self, ecli):
+        """(target case_id or None, is_cross_jurisdiction) for a cited ECLI.
+
+        R2.7, as the link loader sets it: the source is a Rechtspraak decision
+        (corpus RS); a target in the database is in another jurisdiction when
+        its sources do not include RS, an absent one when its ECLI's corpus
+        (link_loader.corpus_of_ecli) is not RS (foreign courts included). upsert_citation
+        never updates an existing row, so only new rows get the flag."""
+        found = self.client.hook.get_first(
+            f"SELECT id, sources FROM {SCHEMA}.cases WHERE ecli = %(val)s",
+            parameters={"val": ecli},
+        )
+        if found:
+            target_case_id, sources = found
+            return target_case_id, "RS" not in _corpora(sources)
+        corpus = corpus_of_ecli(ecli)
+        return None, corpus is not None and corpus != "RS"
 
     def _law_reference_rows(self, row, case_id):
         """legislations_cited -> case_law_reference, one row per citation.
@@ -415,6 +480,8 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
 
         loaded = 0
         lookups_ready = False
+        loaded_case_ids = []
+        owner_appnos = []
         for group_rows in groups.values():
             canonical = min(group_rows, key=self._canonical_rank)
             try:
@@ -437,7 +504,14 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
                     )
                 lookups_ready = True
                 loaded += len(group_rows)
+                loaded_case_ids.append(case_id)
+                owner_appnos.extend(
+                    (self._key(row), row.get(ECHR_APPLICANTS)) for row in group_rows
+                )
             except Exception as error:
                 for row in group_rows:
                     self._log_failure(self._key(row), error)
+        # Both no-ops unless CASE_IDENTIFIER_ENABLED (needs migration 0009).
+        identifier_loader.record_echr_owner_appnos(self.client, owner_appnos)
+        identifier_loader.maintain_for_keys(self.client, "id", loaded_case_ids)
         return loaded

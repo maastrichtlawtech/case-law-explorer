@@ -215,3 +215,17 @@ python3 airflow/dags/data_loading/data_loader.py
 - Writes errors and item keys/item IDs of failed upsert attempts to `data/processed/DDB_eclis_failed.csv`
 - For each full_text file, upserts each case's full text directly into `case_text.fulltext` (`case_text_loader.py`)
 - For the nodes and edges for ECHR/CELLAR, upserts each edge into `case_citation`, resolving `case_id` by ecli/celex where possible (`citation_graph_loader.py`)
+### Cross-dataset links and deployment
+
+With `LINK_EXTRACTION_ENABLED` on, each weekly DAG also writes
+`processed/<month>/links/<source_dataset>.jsonl` and loads it with the link loader
+(`airflow/dags/linking_tasks.py` describes the flags and the files). Some of this code runs
+even with the link flags off: the Rechtspraak row processor's `rs_lido_sqlite` citations
+(which items of `citations_outgoing` count as an ECLI, and `is_cross_jurisdiction` on new
+rows). The etl-promoter replays the same artifacts with the same code into production, so
+**deploy Airflow and the etl-promoter from the same ref**; otherwise a replay can load a month
+differently from how db-dev loaded it.
+
+Rechtspraak's modified-date sweep (`processed/modified/<date>/`) is loaded into db-dev only:
+the promoter does not replay it, and no links are extracted for it (see the
+`linking_tasks.py` docstring).

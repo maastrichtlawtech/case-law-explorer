@@ -1,10 +1,10 @@
 import pytest
+
 from data_loading import cjeu_loader
+from data_loading.cjeu_mapping import MAPPED_COLUMNS, document_kind, extractor_row, map_row
 from data_loading.clients import postgres as postgres_module
 from data_loading.clients.postgres import PostgresCLEClient
-from data_loading.cjeu_mapping import document_kind, extractor_row, map_row
 from definitions.mappings.attribute_name_maps import MAP_CELLAR
-from data_loading.cjeu_mapping import MAPPED_COLUMNS
 
 from .fakes import FakeHook
 
@@ -71,16 +71,28 @@ def test_map_row_produces_the_migration_rows():
 
 
 def test_map_row_records_the_advocate_general_on_opinions():
-    m = map_row({"ecli": "ECLI:EU:C:2026:1", "celex": "62025CC0001",
-                 "advocate_general": "Norkus", "date_publication": "2026-01-02"})
+    m = map_row(
+        {
+            "ecli": "ECLI:EU:C:2026:1",
+            "celex": "62025CC0001",
+            "advocate_general": "Norkus",
+            "date_publication": "2026-01-02",
+        }
+    )
     assert m.case["doctype"] == "opinion"
     assert m.ag["ag"] == "Norkus"
 
 
 @pytest.mark.parametrize(
     "celex, kind",
-    [("62025CJ0147", "judgment"), ("62025CO0852", "order"), ("62025CC0001", "opinion"),
-     ("62025TJ0001", "judgment"), ("62025CV0001", "ruling"), ("62025CX0001", "other")],
+    [
+        ("62025CJ0147", "judgment"),
+        ("62025CO0852", "order"),
+        ("62025CC0001", "opinion"),
+        ("62025TJ0001", "judgment"),
+        ("62025CV0001", "ruling"),
+        ("62025CX0001", "other"),
+    ],
 )
 def test_document_kind_follows_the_celex_descriptor(celex, kind):
     assert document_kind(celex) == kind
@@ -99,11 +111,21 @@ def test_write_runs_every_statement_in_one_transaction_document_last(client):
     assert conn.commit_count == 1
     statements = [sql for sql, _ in conn.executed]
     assert "INSERT INTO cle_v2.cjeu_document" in statements[-1]
-    assert {"cases", "cases (enriched)", "case_judge", "case_party", "case_domain",
-            "case_law_reference", "case_citation", "case_citation link (celex)",
-            "case_citation link (ecli)", "cjeu_document"} <= set(counts)
+    assert {
+        "cases",
+        "cases (enriched)",
+        "case_judge",
+        "case_party",
+        "case_domain",
+        "case_law_reference",
+        "case_citation",
+        "case_citation link (celex)",
+        "case_citation link (ecli)",
+        "cjeu_document",
+    } <= set(counts)
     citation_sql, citation_params = next(
-        (sql, params) for sql, params in conn.executed if "INSERT INTO cle_v2.case_citation" in sql)
+        (sql, params) for sql, params in conn.executed if "INSERT INTO cle_v2.case_citation" in sql
+    )
     assert "'cellar_sparql'" in citation_sql
     assert citation_params[1] == ["62019CJ0001", "62020CJ0002"]
 
@@ -113,16 +135,20 @@ def test_link_statements_only_touch_unresolved_rows_of_this_batch(client):
 
     conn = client._get_conn()
     celex_sql, celex_params = next(
-        (sql, params) for sql, params in conn.executed
-        if sql.lstrip().startswith("UPDATE cle_v2.case_citation") and "target_celex_raw = ANY" in sql)
+        (sql, params)
+        for sql, params in conn.executed
+        if sql.lstrip().startswith("UPDATE cle_v2.case_citation")
+        and "target_celex_raw = ANY" in sql
+    )
     assert "cc.target_case_id IS NULL" in celex_sql
     assert "cc.source_dataset = 'cellar_sparql'" in celex_sql
     assert celex_params == [["62025CJ0147"]]
 
 
 def test_validate_loads_a_case_whose_celex_another_case_holds_without_celex(client, monkeypatch):
-    monkeypatch.setattr(client, "fetch_rows",
-                        lambda sql, params: [("62025CJ0147", "ECLI:EU:C:2026:999")])
+    monkeypatch.setattr(
+        client, "fetch_rows", lambda sql, params: [("62025CJ0147", "ECLI:EU:C:2026:999")]
+    )
     m = map_row(extractor_row(ROW))
 
     valid, failures = cjeu_loader.validate(client, [m])
@@ -150,8 +176,10 @@ def test_validate_rejects_rows_without_ecli_or_with_malformed_celex(client):
     valid, failures = cjeu_loader.validate(client, [a, b])
 
     assert valid == []
-    assert failures == [("62025CJ0001", "no ECLI"),
-                        ("ECLI:EU:C:2026:2", "malformed CELEX 'not-a-celex'")]
+    assert failures == [
+        ("62025CJ0001", "no ECLI"),
+        ("ECLI:EU:C:2026:2", "malformed CELEX 'not-a-celex'"),
+    ]
 
 
 def test_load_rows_retries_a_failed_batch_case_by_case(client, monkeypatch):
@@ -165,12 +193,25 @@ def test_load_rows_retries_a_failed_batch_case_by_case(client, monkeypatch):
 
     monkeypatch.setattr(cjeu_loader, "write", fake_write)
     failures = []
-    rows = [{"ECLI": "ECLI:EU:C:2026:1", "celex": "62025CJ0001"},
-            {"ECLI": "ECLI:EU:C:2026:2", "celex": "62025CJ0002"}]
+    rows = [
+        {"ECLI": "ECLI:EU:C:2026:1", "celex": "62025CJ0001"},
+        {"ECLI": "ECLI:EU:C:2026:2", "celex": "62025CJ0002"},
+    ]
 
     loaded = cjeu_loader.load_rows(client, rows, lambda key, error: failures.append(key))
 
     assert loaded == 1
     assert failures == ["ECLI:EU:C:2026:2"]
-    assert calls == [["ECLI:EU:C:2026:1", "ECLI:EU:C:2026:2"],
-                     ["ECLI:EU:C:2026:1"], ["ECLI:EU:C:2026:2"]]
+    assert calls == [
+        ["ECLI:EU:C:2026:1", "ECLI:EU:C:2026:2"],
+        ["ECLI:EU:C:2026:1"],
+        ["ECLI:EU:C:2026:2"],
+    ]
+
+
+def test_link_ecli_leaves_cross_dataset_link_rows_alone():
+    # Rows from the cross-dataset link loader (LINK_DATASETS) are insert-only;
+    # late binding resolves them as new rows, so the CJEU load must not rewrite
+    # them.
+    assert "AND NOT (starts_with(cc.source_dataset, 'rs_text_') OR" in cjeu_loader.SQL_LINK_ECLI
+    assert "starts_with(cc.source_dataset, 'echr_text_')" in cjeu_loader.SQL_LINK_ECLI

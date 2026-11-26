@@ -237,7 +237,12 @@ def merge_lido_db_into_cle_v2(lido_db_path: str) -> None:
     pg_cursor = pg_conn.cursor()
 
     try:
-        with tempfile.TemporaryDirectory(dir=os.path.dirname(lido_db_path)) as tmp_dir:
+        # The promoter mounts ETL artifacts read-only, so LIDO's staging CSVs
+        # can go to a writable scratch volume (LIDO_MERGE_TMP_DIR); Airflow
+        # runs keep the beside-lido.db default.
+        with tempfile.TemporaryDirectory(
+            dir=os.getenv("LIDO_MERGE_TMP_DIR") or os.path.dirname(lido_db_path)
+        ) as tmp_dir:
             # Staging tables are dropped up front (idempotent even if a
             # previous run died partway and left them behind) and committed
             # per table (per chunk, for case_law), so this whole phase can't

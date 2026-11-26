@@ -1,0 +1,40 @@
+{
+ "provenance": "cjeu-migration migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml copied byte for byte)",
+ "notices": [
+  {
+   "celex": "62012CJ0199",
+   "ecli": "ECLI:EU:C:2013:720",
+   "xml": "<national_judgement>\n        <p>** AFFAIRE C-199/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201012342/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201012342/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-200/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201106615/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201106615/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-201/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2012 p. 298-299</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n      </national_judgement>"
+  },
+  {
+   "celex": "62017CJ0221",
+   "ecli": "ECLI:EU:C:2019:189",
+   "xml": "<national_judgement>\n        <p>*A9* Raad van State, 19/04/2017 (201504577/1/A3 ; 201507057/1/A3 ; 201508588/1/A3 et 201601993/1/A3)</p>\n        <p>*P1* Raad van State, Uitspraak 12/02/2020 (201504577/2/A3, 201507057/2/A3, 201508588/2/A3, 201601993/2/A3, 201604943/1/A3 et 201608752/1/A3)</p>\n        <p>Jurifast</p>\n      </national_judgement>"
+  },
+  {
+   "celex": "62013CJ0205",
+   "ecli": "ECLI:EU:C:2014:2233",
+   "xml": "<national_judgement>\n        <p>*A9* Hoge Raad der Nederlanden, 1e kamer, arrest van 12/04/2013 (11/04114)</p>\n        <p>- Beslissingen in belastingzaken 2013 nº 144</p>\n        <p>- Gewerblicher Rechtsschutz und Urheberrecht INT 2013 p.801 (résumé) (Texte allemand)</p>\n        <p>- Nederlandse jurisprudentie ; Uitspraken in burgerlijke en strafzaken 2013 nº 503</p>\n        <p>- Kavelaars, P.: Beslissingen in belastingzaken 2013 nº 144</p>\n        <p>- Sujecki, Bartosz: Vorlagefragen zum EuGH zum Ausschlussgrund der warenbedingten und wertverleihenden Form, Gewerblicher Rechtsschutz und Urheberrecht PRAX 2013 p.403</p>\n        <p>- Hugenholtz, P.B.: Nederlandse jurisprudentie ; Uitspraken in burgerlijke en strafzaken 2013 n° 503</p>\n        <p>*P1* Hoge Raad der Nederlanden, 1e kamer, uitspraak van 27/11/2015 (11/04114)</p>\n        <p>*P2* Gerechtshof Amsterdam, afdeling civiel recht en belastingrecht, team I, uitspraak van 05/02/2019 (ECLI:NL:GHAMS:2019:262)</p>\n        <p>https://uitspraken.rechtspraak.nl/inziendocument?id=ECLI:NL:GHAMS:2019:262&amp;showbutton=true&amp;keyword=ECLI%3aNL%3aGHAMS%3a2019%3a262</p>\n        <p>Publication Flash News &quot;Décisions de suivi&quot; N° 2/19</p>\n      </national_judgement>"
+  },
+  {
+   "celex": "62006CJ0402",
+   "ecli": "ECLI:EU:C:2007:458",
+   "xml": "<national_judgement>\n        <p>*A9* Hoge Raad der Nederlanden, 3e kamer, arrest van 22/09/2006 (40.230)</p>\n        <p>*P1* Hoge Raad der Nederlanden, 3e kamer, arrest van 25/04/2008 (40.230 ; LJN BD0427)</p>\n      </national_judgement>"
+  },
+  {
+   "celex": "62009CJ0242",
+   "ecli": "ECLI:EU:C:2010:625",
+   "xml": "<national_judgement>\n        <p>*A9* Gerechtshof te Amsterdam, 6e meervoudige burgerlijke kamer, arrest van 30/06/2009 (106.004.857/01 ; 755/06)</p>\n        <p>- Thüsing, Gregor: Unternehmensübergang, Zeitschrift für europäisches Sozial- und Arbeitsrecht 2009 p.487-488</p>\n        <p>*P1* Gerechtshof Amsterdam, 6e meervoudige burgerlijke kamer, arrest van 25/10/2011 (106.004.857/01 ; LJN BU1290)</p>\n        <p>- Jurisprudentie arbeidsrecht 2011 nº 292 (*)</p>\n        <p>- Nederlandse jurisprudentie ; Uitspraken in burgerlijke en strafzaken 2012 nº 163</p>\n        <p>*P2* Hoge Raad der Nederlanden, arrest van 05/04/2013 (12/00667)</p>\n        <p>- Tijdschrift Recht en Arbeid 2013 nº 8-9 p.22 (*)</p>\n        <p>- Vegter, M.S.A.: Tijdschrift Recht en Arbeid 2013 nº 8-9 p.22-23</p>\n      </national_judgement>"
+  },
+  {
+   "celex": "61976CJ0065",
+   "ecli": "ECLI:EU:C:1977:7",
+   "xml": "<national_judgement>\n        <p>*A9* Rechtbank van eerste aanleg te Oudenaarde, vonnis van 25/06/1976 (105/76 1773)</p>\n        <p>*P1* Correctionele rechtbank Oudenaarde, vonnis van 27/05/1977 (105BEP76 1481)</p>\n      </national_judgement>"
+  },
+  {
+   "celex": "62013CJ0387",
+   "ecli": "ECLI:EU:C:2014:2296",
+   "xml": "<national_judgement>\n        <p>*A9* College van Beroep voor het bedrijfsleven, uitsrpaak van 04/07/2013 (AWB 11/780 ; 13/243 ; 7200 ; 7600)</p>\n        <p>*P1* Hoge Raad der Nederlanden, Arrest van 22/04/2016 (ECLI:NL:CBB:2016:111)</p>\n        <p>https://uitspraken.rechtspraak.nl/inziendocument?id=ECLI:NL:CBB:2016:111</p>\n      </national_judgement>"
+  }
+ ]
+}

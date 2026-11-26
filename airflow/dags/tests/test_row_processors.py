@@ -45,6 +45,9 @@ def redirect_failure_log(tmp_path, monkeypatch):
     redirect that to a throwaway file so tests don't write into the repo."""
     failure_log = tmp_path / "failed.csv"
     monkeypatch.setattr(row_processors_module, "get_path_processed", lambda name: str(failure_log))
+    # Failures go beside the processed CSV; tests pass path="unused", so the
+    # report lands in the working directory: make that the temporary one.
+    monkeypatch.chdir(tmp_path)
     return failure_log
 
 
@@ -95,7 +98,7 @@ def test_rs_processor_upload_row_skips_rows_without_ecli(client):
 def test_rs_processor_writes_one_case_citation_per_target_ecli(client, hook):
     processor = PostgresRSProcessor(path="unused", client=client)
     hook.get_first_return = lambda sql, parameters: (
-        (7,) if parameters["val"] == "ECLI:NL:HR:2024:100" else None
+        (7, ["RS"]) if parameters["val"] == "ECLI:NL:HR:2024:100" else None
     )
     row = {
         ECLI: "ECLI:NL:HR:2024:3",
@@ -117,6 +120,79 @@ def test_rs_processor_writes_one_case_citation_per_target_ecli(client, hook):
     assert unresolved["target_case_id"] is None
     assert resolved["relation_type"] == "cites" == unresolved["relation_type"]
     assert resolved["source_dataset"] == "rs_lido_sqlite" == unresolved["source_dataset"]
+
+
+def test_rs_processor_skips_formal_relation_labels_in_citations_outgoing(client, hook):
+    """The live-API fallback puts dcterms:relation labels in citations_outgoing;
+    they are not citations and must not end up in target_ecli_raw."""
+    processor = PostgresRSProcessor(path="unused", client=client)
+    hook.get_first_return = lambda sql, parameters: None
+    row = {
+        ECLI: "ECLI:NL:HR:2024:5",
+        RS_TITLE: "Some title",
+        RS_CITING: (
+            "Eerste aanleg: ECLI:NL:RBAMS:2019:123, Bekrachtiging/bevestiging; "
+            "ecli:nl:hr:2024:102; ECLI:NL:HR:2024:102\n"
+            "Cassatie: ECLI:NL:HR:2025:1\nnot an ecli"
+        ),
+    }
+
+    result = processor.upload_row(row)
+
+    conn = client._get_conn()
+    assert result == 1
+    citation_calls = [params for _, params in conn.executed[3:]]
+    assert [p["target_ecli_raw"] for p in citation_calls] == ["ECLI:NL:HR:2024:102"]
+    assert citation_calls[0]["source_dataset"] == "rs_lido_sqlite"
+
+
+def test_citing_eclis_splits_on_semicolons_with_any_spacing():
+    """Finding 12: 'A;B' and 'A ;B' used to stay one item, which is no ECLI,
+    so both citations were lost."""
+    value = "ECLI:NL:HR:2024:1;ECLI:NL:HR:2024:2 ; ECLI:NL:HR:2024:3;\nECLI:NL:HR:2024:4"
+    assert row_processors_module._citing_eclis(value) == [
+        "ECLI:NL:HR:2024:1",
+        "ECLI:NL:HR:2024:2",
+        "ECLI:NL:HR:2024:3",
+        "ECLI:NL:HR:2024:4",
+    ]
+
+
+def test_rs_processor_sets_cross_jurisdiction_on_new_citation_rows(client, hook):
+    """R2.7: resolved from the target's sources (the source is RS), unresolved
+    from the cited ECLI's corpus."""
+    processor = PostgresRSProcessor(path="unused", client=client)
+    found = {
+        "ECLI:NL:HR:2024:100": (7, ["RS"]),
+        "ECLI:EU:C:2019:189": (8, ["CJEU"]),
+        "ECLI:NL:RVS:2020:1": (9, ["Rechtspraak"]),  # legacy label, still RS
+    }
+    hook.get_first_return = lambda sql, parameters: found.get(parameters["val"])
+    row = {
+        ECLI: "ECLI:NL:HR:2024:3",
+        RS_TITLE: "Some title",
+        RS_CITING: "; ".join(
+            list(found)
+            + [
+                "ECLI:CE:ECHR:2019:0101JUD001234517",
+                "ECLI:NL:HR:2099:1",
+                "ECLI:BE:CASS:2019:ARR.1",
+            ]
+        ),
+    }
+
+    assert processor.upload_row(row) == 1
+
+    calls = [params for _, params in client._get_conn().executed[3:]]
+    flags = {p["target_case_id"] or p["target_ecli_raw"]: p["is_cross_jurisdiction"] for p in calls}
+    assert flags == {
+        7: False,
+        8: True,
+        9: False,
+        "ECLI:CE:ECHR:2019:0101JUD001234517": True,
+        "ECLI:NL:HR:2099:1": False,
+        "ECLI:BE:CASS:2019:ARR.1": True,  # a foreign court: outside every collection
+    }
 
 
 def test_rs_processor_writes_no_citation_rows_when_citations_outgoing_absent(client):
@@ -270,7 +346,9 @@ def test_item_id_processor_groups_language_variants_by_ecli(client):
     _, case_params = conn.executed[ECHR_LOOKUP_STATEMENTS]
     assert case_params["item_id"] == "001-eng"
     assert case_params["ecli"] == "ECLI:CE:ECHR:2026:1"
-    detail_case_ids = {params["case_id"] for _, params in conn.executed[ECHR_LOOKUP_STATEMENTS + 1:-1]}
+    detail_case_ids = {
+        params["case_id"] for _, params in conn.executed[ECHR_LOOKUP_STATEMENTS + 1 : -1]
+    }
     assert len(detail_case_ids) == 1
     enrichment_sql, enrichment_params = conn.executed[-1]
     assert "UPDATE cle_v2.cases k SET" in enrichment_sql
