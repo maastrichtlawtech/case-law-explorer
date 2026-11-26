@@ -155,7 +155,14 @@ def test_cjeu_only_decisions_get_a_row():
             "Preliminary objection dismissed (Article 35-1 - Exhaustion of domestic remedies)",
             (None, None),
         ),
-        ("Violation de l'article 3", (None, None)),
+        ("Violation de l'article 3", ("violation", "3")),
+        ("Non-violation de l'article 8", ("no_violation", "8")),
+        ("Pas de violation de l'article 1 du Protocole n° 1", ("no_violation", "P1-1")),
+        ("Violation de l'art. 14 combiné avec l'art. 8", ("violation", "14")),
+        ("Irrecevable", ("inadmissible", None)),
+        ("Radiation du rôle", ("struck_out", None)),
+        ("Rayée du rôle", ("struck_out", None)),
+        ("Partiellement irrecevable", (None, None)),
     ],
 )
 def test_echr_conclusion_items(item, expected):

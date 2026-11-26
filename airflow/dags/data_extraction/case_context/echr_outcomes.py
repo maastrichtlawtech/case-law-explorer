@@ -67,18 +67,28 @@ CONFIDENCE_CONCLUSION = 0.95  # read from the conclusion text only
 CONFIDENCE_OVERALL = 0.95
 
 _PROTOCOL_ARTICLE = re.compile(
-    r"\bart(?:icle|\.)?\s*(\d+)(?:[-.\s]*(?:para(?:graph)?\.?\s*)?\d+)*\s+of\s+protocol"
-    r"\s+(?:no\.?\s*)?(\d+)",
+    r"\bart(?:icle|\.)?\s*(\d+)(?:[-.\s]*(?:para(?:graph)?\.?\s*)?\d+)*\s+"
+    r"(?:of\s+protocol|du\s+protocole)\s+(?:n[o°º]\.?\s*)?(\d+)",
     re.I,
 )
 _P_CODE = re.compile(r"(?<![A-Za-z0-9])P\s*(\d+)\s*-\s*(\d+)", re.I)
 _ARTICLE = re.compile(r"\bart(?:icle|\.)?\s*(\d+)", re.I)
-_VIOLATION = re.compile(r"^(?P<neg>no|non)?[-\s]*violations?\s+of\s+(?P<rest>.+)$", re.I | re.S)
-_INADMISSIBLE = re.compile(r"^inadmissible\s*(?:$|[(:])", re.I)
-_STRUCK_OUT = re.compile(r"^struck\s+out\s+of\s+(?:the\s+)?list\b", re.I)
+_VIOLATION = re.compile(
+    r"^(?:(?P<neg>no|non|pas\s+de|aucune)[-\s]+)?violations?\s+"
+    r"(?:of|de\s+l['’]|de\s+la|de|du)\s*(?P<rest>.+)$",
+    re.I | re.S,
+)
+_INADMISSIBLE = re.compile(r"^(?:inadmissible|irrecevable)\s*(?:$|[(:])", re.I)
+_STRUCK_OUT = re.compile(
+    r"^(?:struck\s+out\s+of\s+(?:the\s+)?list|radiation\s+du\s+r[oô]le|ray[eé]e?\s+du\s+r[oô]le)\b",
+    re.I,
+)
 # What follows the lead article: "14+P1-1", "Article 14 taken in conjunction
-# with Article 1 of Protocol No. 1".
-_CONJUNCTION = re.compile(r"\+|\b(?:taken\s+)?in\s+conjunction\s+with\b", re.I)
+# with Article 1 of Protocol No. 1", "article 14 combiné avec l'article 8".
+_CONJUNCTION = re.compile(
+    r"\+|\b(?:taken\s+)?in\s+conjunction\s+with\b|\bcombin[eé]e?\s+avec\b|\bpris\s+conjointement\s+avec\b",
+    re.I,
+)
 _JUDGMENT = re.compile("JUD", re.I)
 _FIELD_TOKEN = re.compile(r"^\s*(?:P\s*(\d+)\s*-\s*(\d+)|(\d+))")
 
