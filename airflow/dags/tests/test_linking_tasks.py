@@ -315,9 +315,16 @@ def test_every_step_in_order_with_every_flag_on(monkeypatch, dag_id, prefix):
         # rechtspraak writes no legislation files (LEGISLATION_OUTPUTS)
         if not (task == "extract_legislation" and dag_id == "rechtspraak_etl")
     ]
-    chain = [f"{dag_id}_tasks.{t}" for t in ["run_window"] + steps] + ["register_promotion"]
-    assert set(graph.tasks) == set(chain)
-    assert graph.edges == set(zip(chain, chain[1:]))
+    run_window = f"{dag_id}_tasks.run_window"
+    step_ids = [f"{dag_id}_tasks.{t}" for t in steps]
+    assert set(graph.tasks) == {run_window, *step_ids, "register_promotion"}
+    # Decoupled fan-out: every enrichment branches directly from run_window and
+    # converges on register_promotion, with zero strict sibling dependencies.
+    expected_edges = {(run_window, s) for s in step_ids} | {
+        (s, "register_promotion") for s in step_ids
+    }
+    assert graph.edges == expected_edges
+    assert graph.tasks["register_promotion"].kwargs.get("trigger_rule") == "all_done"
     callables = {
         "extract_links": linking_tasks.run_window_links,
         "extract_legislation": linking_tasks.run_window_legislation,
@@ -374,7 +381,7 @@ def test_law_references_run_after_the_load_and_before_promotion(monkeypatch, dag
 
 
 @pytest.mark.parametrize("dag_id, prefix", DAGS)
-def test_links_then_law_references_with_both_flags(monkeypatch, dag_id, prefix):
+def test_links_and_law_references_fan_out_independently_with_both_flags(monkeypatch, dag_id, prefix):
     monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
     monkeypatch.setenv("LAW_REFERENCE_EXTRACTION_ENABLED", "1")
     graph = _load_dag(monkeypatch, dag_id)
@@ -382,7 +389,12 @@ def test_links_then_law_references_with_both_flags(monkeypatch, dag_id, prefix):
     run_window = f"{dag_id}_tasks.run_window"
     links = f"{dag_id}_tasks.extract_links"
     law = f"{dag_id}_tasks.extract_law_references"
-    assert graph.edges == {(run_window, links), (links, law), (law, "register_promotion")}
+    assert graph.edges == {
+        (run_window, links),
+        (run_window, law),
+        (links, "register_promotion"),
+        (law, "register_promotion"),
+    }
 
 
 def test_law_flags_default_off_and_the_window_callable_is_a_no_op(monkeypatch):
@@ -442,14 +454,15 @@ def test_authorities_run_last_in_the_group(monkeypatch, dag_id, prefix):
     assert task.kwargs["op_kwargs"] == {"var_prefix": prefix}
 
 
-def test_authorities_follow_links_when_both_are_on(monkeypatch):
+def test_authorities_and_links_fan_out_independently_when_both_are_on(monkeypatch):
     monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
     monkeypatch.setenv("AUTHORITY_EXTRACTION_ENABLED", "1")
     graph = _load_dag(monkeypatch, "cellar_etl")
 
     assert graph.edges == {
         ("cellar_etl_tasks.run_window", "cellar_etl_tasks.extract_links"),
-        ("cellar_etl_tasks.extract_links", "cellar_etl_tasks.extract_authorities"),
+        ("cellar_etl_tasks.run_window", "cellar_etl_tasks.extract_authorities"),
+        ("cellar_etl_tasks.extract_links", "register_promotion"),
         ("cellar_etl_tasks.extract_authorities", "register_promotion"),
     }
 

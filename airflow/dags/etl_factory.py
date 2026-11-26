@@ -187,8 +187,22 @@ def run_monthly_window(var_prefix, etl_callable, **context):
                 handle.write(f"{current} to {chunk_end}\n")
 
 
-def register_promotion(dag_id, var_prefix=None, **context):
-    """Register the successful run for verification and optional promotion."""
+def register_promotion(dag_id, var_prefix=None, window_tag=None, **context):
+    """Register the successful run for verification and optional promotion.
+
+    When called with ``trigger_rule="all_done"`` on a corpus DAG (so a failed
+    optional enrichment task never blocks fresh cases from promoting), verify
+    first that ``run_window`` actually succeeded.
+    """
+    dag_run = context.get("dag_run")
+    if var_prefix and dag_run is not None:
+        get_ti = getattr(dag_run, "get_task_instance", None)
+        if callable(get_ti):
+            ti = get_ti(f"{dag_id}_tasks.run_window")
+            if ti is not None and getattr(ti, "state", None) != "success":
+                raise RuntimeError(
+                    f"Cannot register promotion: {dag_id}_tasks.run_window state is {ti.state!r}"
+                )
     if str(os.getenv("ETL_PROMOTION_ENABLED", "false")).lower() not in {
         "true",
         "1",
@@ -199,7 +213,6 @@ def register_promotion(dag_id, var_prefix=None, **context):
     token = os.getenv("ETL_PROMOTER_INTERNAL_TOKEN", "").strip()
     if not token:
         raise RuntimeError("ETL_PROMOTER_INTERNAL_TOKEN is required when promotion is enabled")
-    dag_run = context.get("dag_run")
     run_id = str(getattr(dag_run, "run_id", ""))
     if not run_id:
         raise RuntimeError("Airflow run_id is unavailable")
@@ -209,6 +222,8 @@ def register_promotion(dag_id, var_prefix=None, **context):
     if var_prefix:
         start, end, _ = resolve_run_window(var_prefix, context)
         payload.update(window_start=start.isoformat(), window_end=end.isoformat())
+    elif window_tag:
+        payload.update(window_start=window_tag, window_end=window_tag)
     url = os.getenv("ETL_PROMOTER_INTERNAL_URL", "http://etl-promoter:8080").rstrip("/")
     request = urllib.request.Request(
         f"{url}/v1/batches",
@@ -283,7 +298,8 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
             op_kwargs={"var_prefix": var_prefix, "etl_callable": etl_callable},
             dag=dag,
         )
-        last = run_window
+        # Each enrichment fans out directly from run_window so no enrichment
+        # step strictly depends on a sibling enrichment succeeding.
         if links and linking_tasks.enabled():
             extract_links = PythonOperator(
                 task_id="extract_links",
@@ -291,8 +307,7 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            last >> extract_links
-            last = extract_links
+            run_window >> extract_links
         if (
             links
             and linking_tasks.legislation_enabled()
@@ -304,8 +319,7 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            last >> extract_legislation
-            last = extract_legislation
+            run_window >> extract_legislation
         if links and linking_tasks.law_enabled():
             extract_law_references = PythonOperator(
                 task_id="extract_law_references",
@@ -313,8 +327,7 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            last >> extract_law_references
-            last = extract_law_references
+            run_window >> extract_law_references
         if links and linking_tasks.authority_enabled():
             extract_authorities = PythonOperator(
                 task_id="extract_authorities",
@@ -322,8 +335,7 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            last >> extract_authorities
-            last = extract_authorities
+            run_window >> extract_authorities
         if links and linking_tasks.outcomes_enabled():
             extract_outcomes = PythonOperator(
                 task_id="extract_outcomes",
@@ -331,7 +343,6 @@ def build_monthly_task_group(dag, task_prefix, var_prefix, etl_callable, links=F
                 op_kwargs={"var_prefix": var_prefix},
                 dag=dag,
             )
-            last >> extract_outcomes
-            last = extract_outcomes
+            run_window >> extract_outcomes
 
     return task_group

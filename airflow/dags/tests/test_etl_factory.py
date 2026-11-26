@@ -122,6 +122,52 @@ def test_successful_run_registers_exact_controller_window():
     assert result["batch_id"].endswith("1")
 
 
+def test_register_promotion_refuses_when_run_window_failed():
+    context = {
+        "dag_run": SimpleNamespace(
+            run_id="scheduled__1",
+            run_type="scheduled",
+            conf={},
+            get_task_instance=lambda tid: SimpleNamespace(state="failed")
+            if tid == "echr_etl_tasks.run_window"
+            else SimpleNamespace(state="success"),
+        )
+    }
+    with pytest.raises(RuntimeError, match="run_window state is 'failed'"):
+        etl_factory.register_promotion("echr_etl", "ECHR", **context)
+
+
+def test_register_promotion_allows_window_tag_for_reconciliation():
+    context = {
+        "dag_run": SimpleNamespace(
+            run_id="scheduled__2026-11-26",
+            run_type="scheduled",
+            conf={},
+        )
+    }
+    response = io.BytesIO(b'{"batch_id":"00000000-0000-0000-0000-000000000002"}')
+    with patch.dict(
+        "os.environ",
+        {
+            "ETL_PROMOTION_ENABLED": "true",
+            "ETL_PROMOTER_INTERNAL_TOKEN": "test-token",
+        },
+    ), patch("etl_factory.urllib.request.urlopen", return_value=response) as urlopen:
+        result = etl_factory.register_promotion(
+            "enrichment_sync_etl", var_prefix=None, window_tag="2026-11-26", **context
+        )
+
+    payload = json.loads(urlopen.call_args.args[0].data)
+    assert payload == {
+        "dag_id": "enrichment_sync_etl",
+        "run_id": "scheduled__2026-11-26",
+        "requested_by": "airflow",
+        "window_start": "2026-11-26",
+        "window_end": "2026-11-26",
+    }
+    assert result["batch_id"].endswith("2")
+
+
 def _run_window_with_empty(tmp_path, monkeypatch, empty_from, data_interval_end):
     monkeypatch.setattr(etl_factory, "get_data_path", lambda: str(tmp_path))
 

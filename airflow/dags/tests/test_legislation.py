@@ -302,13 +302,14 @@ def test_legislation_task_runs_before_promotion(monkeypatch, dag_id, prefix):
     assert graph.tasks[task].kwargs["op_kwargs"] == {"var_prefix": prefix}
 
 
-def test_legislation_follows_links_when_both_are_on(monkeypatch):
+def test_legislation_and_links_fan_out_independently_when_both_are_on(monkeypatch):
     monkeypatch.setenv("LEGISLATION_EXTERNAL_ENABLED", "1")
     monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
     graph = _load_dag(monkeypatch, "echr_etl")
     assert graph.edges == {
         ("echr_etl_tasks.run_window", "echr_etl_tasks.extract_links"),
-        ("echr_etl_tasks.extract_links", "echr_etl_tasks.extract_legislation"),
+        ("echr_etl_tasks.run_window", "echr_etl_tasks.extract_legislation"),
+        ("echr_etl_tasks.extract_links", "register_promotion"),
         ("echr_etl_tasks.extract_legislation", "register_promotion"),
     }
 

@@ -23,7 +23,9 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence, Tuple
 
+from data_extraction.legislation.acts import ActRecord
 from data_extraction.linking import eu_law
+from data_extraction.linking.artifact import ArtifactWriter
 
 log = logging.getLogger(__name__)
 
@@ -259,14 +261,128 @@ UPDATE {SCHEMA}.case_law_reference clr
 """
 
 
+_RESOLVE_BWB_REFS = f"""
+WITH unique_bwb AS (
+    SELECT identifier, min(id) AS leg_id
+      FROM {SCHEMA}.legislation
+     WHERE scheme = 'bwb'
+     GROUP BY identifier
+    HAVING count(*) = 1
+)
+UPDATE {SCHEMA}.case_law_reference clr
+   SET legislation_id = b.leg_id
+  FROM unique_bwb b
+ WHERE clr.raw_scheme = 'bwb'
+   AND clr.raw_resource = b.identifier
+   AND clr.legislation_id IS NULL
+   AND NOT EXISTS (
+       SELECT 1
+         FROM {SCHEMA}.case_law_reference dup
+        WHERE dup.case_id = clr.case_id
+          AND dup.raw_scheme = clr.raw_scheme
+          AND dup.raw_resource = clr.raw_resource
+          AND COALESCE(dup.raw_subdivision, '') = COALESCE(clr.raw_subdivision, '')
+          AND dup.role = clr.role
+          AND dup.source_dataset = clr.source_dataset
+          AND (dup.legislation_id IS NOT NULL OR dup.provision_id IS NOT NULL)
+   )
+"""
+
+
+def write_acts_artifact(acts: Dict[str, CellarAct], out_path: str) -> int:
+    """Write CellarAct records in standard ActRecord JSONL format for promoter replay."""
+    records = [
+        ActRecord(
+            scheme="celex",
+            identifier=a.identifier,
+            jurisdiction="EU",
+            document_type=a.document_type,
+            title=a.title,
+            enacted_date=a.enacted_date,
+            enacted_year=a.enacted_year,
+            eli=a.eli,
+            source_dataset=SOURCE_DATASET,
+            extractor_version=EXTRACTOR_VERSION,
+        )
+        for a in sorted(acts.values(), key=lambda x: x.identifier)
+    ]
+    with ArtifactWriter(out_path) as writer:
+        writer.write(records)
+        return writer.count
+
+
+def resolve_pending_refs(conn) -> Dict[str, int]:
+    """Idempotently resolve pending CELEX and unique-BWB case_law_reference rows."""
+    with conn.cursor() as cur:
+        cur.execute(
+            f"SELECT identifier, id FROM {SCHEMA}.legislation WHERE scheme = 'celex'"
+        )
+        leg_map: Dict[str, int] = {row[0]: int(row[1]) for row in cur.fetchall()}
+        cur.execute(
+            f"""
+            SELECT a.alias, a.legislation_id
+              FROM {SCHEMA}.legislation_alias a
+              JOIN {SCHEMA}.legislation l ON l.id = a.legislation_id
+             WHERE l.scheme IN ('celex', 'coe_treaty', 'un_treaty')
+            """
+        )
+        for alias, leg_id in cur.fetchall():
+            leg_map.setdefault(alias, int(leg_id))
+        cur.execute(
+            f"""
+            SELECT DISTINCT raw_resource
+              FROM {SCHEMA}.case_law_reference
+             WHERE legislation_id IS NULL
+               AND raw_scheme = 'celex'
+               AND raw_resource IS NOT NULL
+            """
+        )
+        raw_resources = [row[0] for row in cur.fetchall()]
+
+    pairs: List[Tuple[str, int]] = []
+    for raw in raw_resources:
+        for cand in candidate_celexes_for_raw(raw):
+            if cand in leg_map:
+                pairs.append((raw, leg_map[cand]))
+                break
+
+    celex_resolved = 0
+    if pairs:
+        with conn.cursor() as cur:
+            for i in range(0, len(pairs), 500):
+                chunk = pairs[i : i + 500]
+                cur.execute(_RESOLVE_REFS, ([p[0] for p in chunk], [p[1] for p in chunk]))
+                celex_resolved += max(cur.rowcount, 0)
+        conn.commit()
+
+    bwb_resolved = 0
+    with conn.cursor() as cur:
+        cur.execute(_RESOLVE_BWB_REFS)
+        bwb_resolved = max(cur.rowcount, 0)
+    conn.commit()
+
+    return {
+        "distinct_unresolved_celex": len(raw_resources),
+        "raw_resources_mapped": len(pairs),
+        "celex_refs_resolved": celex_resolved,
+        "bwb_refs_resolved": bwb_resolved,
+    }
+
+
 def sync_connection(
     conn,
     *,
     batch_size: int = 120,
-    pause: float = 0.15,
+    pause: float = 0.5,
     urlopen: Optional[Callable] = None,
+    out_path: Optional[str] = None,
 ) -> Dict[str, int]:
-    """Discover missing CELEX acts, fetch from Cellar SPARQL, insert & resolve."""
+    """Discover missing CELEX acts, fetch from Cellar SPARQL, insert & resolve.
+
+    When ``out_path`` is supplied, writes a hashed ActRecord JSONL artifact
+    (possibly empty) so the promoter can replay the exact discovered acts into
+    production.
+    """
     with conn.cursor() as cur:
         cur.execute(
             f"SELECT identifier, id FROM {SCHEMA}.legislation WHERE scheme = 'celex'"
@@ -293,12 +409,9 @@ def sync_connection(
         )
         raw_resources = [row[0] for row in cur.fetchall()]
 
-    raw_to_cands: Dict[str, List[str]] = {}
     missing: set[str] = set()
     for raw in raw_resources:
-        cands = candidate_celexes_for_raw(raw)
-        raw_to_cands[raw] = cands
-        for cand in cands:
+        for cand in candidate_celexes_for_raw(raw):
             if cand not in existing:
                 missing.add(cand)
 
@@ -307,6 +420,9 @@ def sync_connection(
         if missing
         else {}
     )
+    if out_path:
+        write_acts_artifact(acts, out_path)
+
     acts_inserted = 0
     if acts:
         rows = [
@@ -329,46 +445,15 @@ def sync_connection(
                 acts_inserted += max(cur.rowcount, 0)
         conn.commit()
 
-    # Reload full celex -> legislation.id map
-    with conn.cursor() as cur:
-        cur.execute(
-            f"SELECT identifier, id FROM {SCHEMA}.legislation WHERE scheme = 'celex'"
-        )
-        leg_map: Dict[str, int] = {row[0]: int(row[1]) for row in cur.fetchall()}
-        cur.execute(
-            f"""
-            SELECT a.alias, a.legislation_id
-              FROM {SCHEMA}.legislation_alias a
-              JOIN {SCHEMA}.legislation l ON l.id = a.legislation_id
-             WHERE l.scheme IN ('celex', 'coe_treaty', 'un_treaty')
-            """
-        )
-        for alias, leg_id in cur.fetchall():
-            leg_map.setdefault(alias, int(leg_id))
-
-    pairs: List[Tuple[str, int]] = []
-    for raw, cands in raw_to_cands.items():
-        for cand in cands:
-            if cand in leg_map:
-                pairs.append((raw, leg_map[cand]))
-                break
-
-    refs_resolved = 0
-    if pairs:
-        with conn.cursor() as cur:
-            for i in range(0, len(pairs), 500):
-                chunk = pairs[i : i + 500]
-                cur.execute(_RESOLVE_REFS, ([p[0] for p in chunk], [p[1] for p in chunk]))
-                refs_resolved += max(cur.rowcount, 0)
-        conn.commit()
-
+    resolved = resolve_pending_refs(conn)
     return {
         "distinct_unresolved_raw": len(raw_resources),
         "queried_sparql": len(missing),
         "found_in_cellar": len(acts),
         "acts_inserted": acts_inserted,
-        "raw_resources_mapped": len(pairs),
-        "refs_resolved": refs_resolved,
+        "raw_resources_mapped": resolved["raw_resources_mapped"],
+        "refs_resolved": resolved["celex_refs_resolved"],
+        "bwb_refs_resolved": resolved["bwb_refs_resolved"],
     }
 
 

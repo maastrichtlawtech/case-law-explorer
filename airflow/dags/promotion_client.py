@@ -22,6 +22,7 @@ SOURCE_DAG_IDS = (
     "cellar_etl",
     "echr_etl",
     "lido_sqlite_build",
+    "enrichment_sync_etl",
 )
 
 
