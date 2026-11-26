@@ -37,6 +37,10 @@ def _fetch(url, part_path):
         if response.status_code == 416:
             # The previous attempt had already received everything.
             return offset
+        if offset and response.status_code >= 400:
+            # The host's gateway times out on ranges far into the file, so
+            # start over rather than repeat a resume that keeps failing.
+            part_path.unlink()
         response.raise_for_status()
         resumed = response.status_code == 206
         if not resumed:
