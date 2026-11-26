@@ -176,7 +176,7 @@ def fetch_cellar_metadata(
     *,
     endpoint: str = SPARQL_ENDPOINT,
     batch_size: int = 120,
-    pause: float = 0.15,
+    pause: float = 0.5,
     urlopen: Optional[Callable] = None,
 ) -> Dict[str, CellarAct]:
     opener = urlopen or urllib.request.urlopen
@@ -187,21 +187,24 @@ def fetch_cellar_metadata(
         query = build_sparql_query(chunk)
         payload = urllib.parse.urlencode({"query": query}).encode("utf-8")
         data: Dict[str, Any] = {"results": {"bindings": []}}
-        for attempt in range(3):
+        for attempt in range(4):
             try:
                 req = urllib.request.Request(
                     endpoint,
                     data=payload,
-                    headers={"Accept": "application/sparql-results+json"},
+                    headers={
+                        "Accept": "application/sparql-results+json",
+                        "User-Agent": "CaseLawExplorer/1.0 (https://caselawexplorer.tech)",
+                    },
                 )
                 with opener(req, timeout=60) as resp:
                     data = json.loads(resp.read().decode("utf-8"))
                 break
             except Exception as exc:
-                if attempt == 2:
-                    log.warning("SPARQL batch %d failed after 3 attempts: %s", idx, exc)
+                if attempt == 3:
+                    log.warning("SPARQL batch %d failed after 4 attempts: %s", idx, exc)
                 else:
-                    time.sleep(1.5 * (attempt + 1))
+                    time.sleep(3.0 * (attempt + 1))
         found.update(parse_sparql_bindings(data.get("results", {}).get("bindings", [])))
         if pause and idx + batch_size < len(ordered):
             time.sleep(pause)
