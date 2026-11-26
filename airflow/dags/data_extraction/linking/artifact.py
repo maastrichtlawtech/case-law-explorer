@@ -52,6 +52,7 @@ TEXT_FIELDS = ("fulltext", "summary", "national_judgement_xml", "metadata")
 LINK_DATASETS = (
     "rs_text_",
     "echr_text_",
+    "echr_edge_v2",
     "cjeu_text_",
     "cellar_national_judgement",
     "cjeu_ag_link",

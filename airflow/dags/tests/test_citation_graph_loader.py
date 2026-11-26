@@ -67,3 +67,32 @@ def test_load_citation_graph_filters_by_source_key_and_writes_production_names(t
     citation_graph_loader.load_citation_graph(object(), sources=["EURLEX"], edge_dir=str(tmp_path))
 
     assert seen == ["cellar_sparql"]
+
+
+def test_load_citation_graph_skips_legacy_echr_when_echr_edge_v2_active(tmp_path, monkeypatch):
+    from data_loading import citation_graph_loader
+
+    seen = []
+    monkeypatch.setattr(
+        citation_graph_loader,
+        "_load_edge_file",
+        lambda client, path, target_key, dataset: seen.append(dataset) or 0,
+    )
+    monkeypatch.delenv("LINK_EXTRACTION_ENABLED", raising=False)
+    monkeypatch.delenv("LINK_ECHR_EDGE_V2", raising=False)
+
+    # Default off -> legacy ECHR_edges.txt still loads.
+    citation_graph_loader.load_citation_graph(object(), sources=["ECHR", "EURLEX"], edge_dir=str(tmp_path))
+    assert seen == ["cellar_sparql", "echr_edge"]
+
+    # Master link extraction on -> echr_edge_v2 replaces legacy ECHR_edges.txt.
+    seen.clear()
+    monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "true")
+    citation_graph_loader.load_citation_graph(object(), sources=["ECHR", "EURLEX"], edge_dir=str(tmp_path))
+    assert seen == ["cellar_sparql"]
+
+    # Explicit LINK_ECHR_EDGE_V2=false -> legacy ECHR_edges.txt loads again.
+    seen.clear()
+    monkeypatch.setenv("LINK_ECHR_EDGE_V2", "false")
+    citation_graph_loader.load_citation_graph(object(), sources=["ECHR", "EURLEX"], edge_dir=str(tmp_path))
+    assert seen == ["cellar_sparql", "echr_edge"]

@@ -295,6 +295,7 @@ EXTRACTORS: Dict[str, Extractor] = {
             ("rs_text_ecli", "rs_text_cjeu_casenum", "rs_text_echr_appno"),
         ),
         Extractor("echr_text", "LINK_ECHR_TEXT", ("echr_text_cjeu", "echr_text_rs")),
+        Extractor("echr_edge_v2", "LINK_ECHR_EDGE_V2", ("echr_edge_v2",)),
         Extractor("cjeu_text", "LINK_CJEU_TEXT", ("cjeu_text_echr",)),
         Extractor("cellar_referrals", "LINK_CELLAR_REFERRALS", ("cellar_national_judgement",)),
         Extractor("ag_opinions", "LINK_AG_OPINIONS", ("cjeu_ag_link",)),
@@ -337,7 +338,7 @@ SOURCES: Dict[str, Source] = {
             "ECHR_metadata_clean.csv",
             "document_id",
             "item_id",
-            ("echr_text",),
+            ("echr_text", "echr_edge_v2"),
         ),
         Source(
             "cellar",
