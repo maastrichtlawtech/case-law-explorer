@@ -12,6 +12,7 @@ from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
     ECHR_APPLICABILITY,
     ECHR_APPLICANTS,
+    ECHR_ARTICLES,
     ECHR_BRANCH,
     ECHR_CITATIONS,
     ECHR_CONCLUSION,
@@ -36,6 +37,7 @@ from definitions.terminology.attribute_names import (
     RS_CREATOR,
     RS_DATE,
     RS_FULL_TEXT,
+    RS_HASVERSION,
     RS_IDENTIFIER2,
     RS_INHOUDSINDICATIE,
     RS_ISSUED,
@@ -300,6 +302,7 @@ class PostgresRSProcessor(_BaseRowProcessor):
             "language": row.get(RS_LANGUAGE),
             "zittingsplaats": row.get(RS_SPATIAL),
             "zaaknummer": row.get(RS_ZAAKNUMMER),
+            "vindplaatsen": _split_set(row.get(RS_HASVERSION)),
         }
 
     def _text_row(self, row, case_id):
@@ -511,6 +514,7 @@ class PostgresItemIdProcessor(_BaseRowProcessor):
             "doctype": row.get(ECHR_DOCUMENT_TYPE),
             "doctype_branch": row.get(ECHR_BRANCH),
             "judgement_date": row.get(ECHR_JUDGMENT_DATE) or None,
+            "article": row.get(ECHR_ARTICLES) or None,
             "conclusion": row.get(ECHR_CONCLUSION),
             "violation": row.get(ECHR_VIOLATIONS),
             "nonviolation": row.get(ECHR_NON_VIOLATIONS),

@@ -112,6 +112,22 @@ _ROWS = f"""
       JOIN {SCHEMA}.echr_document_article a ON a.item_id = d.item_id
       JOIN {SCHEMA}.cases c ON c.id = d.case_id
      WHERE d.case_id = ANY(%(ids)s)
+    UNION ALL
+    SELECT d.case_id, c.ecli, c.item_id, src.kind, btrim(code) AS article_code
+      FROM {SCHEMA}.echr_document d
+      JOIN {SCHEMA}.cases c ON c.id = d.case_id
+      CROSS JOIN LATERAL (
+          VALUES ('applied', d.article),
+                 ('violation', d.violation),
+                 ('nonviolation', d.nonviolation)
+      ) AS src(kind, raw_list)
+      CROSS JOIN LATERAL unnest(regexp_split_to_array(COALESCE(src.raw_list, ''), ';')) AS code
+     WHERE d.case_id = ANY(%(ids)s)
+       AND btrim(code) <> ''
+       AND NOT EXISTS (
+           SELECT 1 FROM {SCHEMA}.echr_document_article a
+            WHERE a.item_id = d.item_id
+       )
 """
 
 
