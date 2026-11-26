@@ -1,4 +1,5 @@
 import pytest
+
 from data_loading.clients import postgres as postgres_module
 from data_loading.clients.postgres import PostgresCLEClient
 from data_loading.row_processors import postgres as row_processors_module
@@ -9,8 +10,8 @@ from data_loading.row_processors.postgres import (
 )
 from definitions.terminology.attribute_names import (
     CELLAR_CELEX,
-    ECHR_DOCUMENT_ID,
     ECHR_APPLICANTS,
+    ECHR_DOCUMENT_ID,
     ECHR_DOCUMENT_TYPE,
     ECHR_LANGUAGE,
     ECHR_REFERENCE_DATE,
@@ -206,7 +207,9 @@ def test_rs_processor_writes_no_citation_rows_when_citations_outgoing_absent(cli
     assert len(conn.executed) == 3  # case + rs_document + case_text only
 
 
-def test_rs_processor_writes_one_law_reference_per_legislation(client):
+def test_rs_processor_writes_one_law_reference_per_legislation(client, monkeypatch):
+    """Flag off (the default): the base branch's statements, no act lookup."""
+    monkeypatch.delenv("RS_RESOLVE_BWB_ENABLED", raising=False)
     processor = PostgresRSProcessor(path="unused", client=client)
     row = {
         ECLI: "ECLI:NL:HR:2024:5",
@@ -224,6 +227,182 @@ def test_rs_processor_writes_one_law_reference_per_legislation(client):
     assert {p["raw_reference"] for p in law_ref_params} == {"art. 6:162 BW", "art. 3:1 Awb"}
     assert all(p["raw_resource"] == "BWBR0005289" for p in law_ref_params)
     assert all(p["source_dataset"] == "rs_lido_sqlite" for p in law_ref_params)
+    assert not any("FROM cle_v2.legislation" in sql for sql, _ in conn.executed)
+
+
+def test_rs_processor_resolves_law_references_with_the_flag_on(client, monkeypatch):
+    monkeypatch.setenv("RS_RESOLVE_BWB_ENABLED", "true")
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {
+        ECLI: "ECLI:NL:HR:2024:5",
+        RS_TITLE: "Some title",
+        RS_LEGISLATIONS: "art. 6:162 BW; art. 3:1 Awb",
+        RS_BWB_ID: "BWBR0005289",
+    }
+
+    result = processor.upload_row(row)
+
+    conn = client._get_conn()
+    assert result == 1
+    # case + rs_document + case_text + one act lookup (cached per BWB id) + 2 law refs
+    assert len(conn.executed) == 6
+    assert "FROM cle_v2.legislation" in conn.executed[3][0]
+    law_ref_params = [params for _, params in conn.executed[4:6]]
+    assert {p["raw_reference"] for p in law_ref_params} == {"art. 6:162 BW", "art. 3:1 Awb"}
+    assert all(p["raw_resource"] == "BWBR0005289" for p in law_ref_params)
+    assert all(p["source_dataset"] == "rs_lido_sqlite" for p in law_ref_params)
+    # The fake finds no act: unresolved rows, under uk_raw with its predicate.
+    for sql, params in conn.executed[4:6]:
+        assert "legislation_id" not in params
+        assert "WHERE provision_id IS NULL AND legislation_id IS NULL" in sql
+
+
+LIDO_URL = "http://linkeddata.overheid.nl/terms/bwb/id/{}/1710393/2013-01-01/2013-01-01"
+
+
+# The base branch's (origin/feature/cross-dataset-linking) row derivation,
+# copied verbatim: with RS_RESOLVE_BWB_ENABLED off the processor must match it.
+_BASE_LAW_REFERENCE_BLOCK = """        bwb_id = row.get(RS_BWB_ID) or None
+        return [
+            {
+                "raw_reference": legislation,
+                "raw_resource": bwb_id,
+                "source_dataset": "rs_lido_sqlite",
+            }
+            for legislation in (_split_set(row.get(RS_LEGISLATIONS)) or [])
+        ]"""
+
+
+def _base_law_reference_rows(row):
+    bwb_id = row.get(RS_BWB_ID) or None
+    return [
+        {
+            "raw_reference": legislation,
+            "raw_resource": bwb_id,
+            "source_dataset": "rs_lido_sqlite",
+        }
+        for legislation in (row_processors_module._split_set(row.get(RS_LEGISLATIONS)) or [])
+    ]
+
+
+# Illustrative rows (made-up label ids), not real case data.
+_FLAG_OFF_ROWS = [
+    {RS_LEGISLATIONS: LIDO_URL.format("BWBR0005290"), RS_BWB_ID: ""},
+    {RS_LEGISLATIONS: LIDO_URL.format("BWBR0005290"), RS_BWB_ID: "BWBR0001854"},
+    {RS_LEGISLATIONS: "art. 8 EVRM; " + LIDO_URL.format("BWBR0005537"), RS_BWB_ID: None},
+    {RS_LEGISLATIONS: "art. 8 EVRM", RS_BWB_ID: "BWBR0001854"},
+    {RS_LEGISLATIONS: "", RS_BWB_ID: "BWBR0001854"},
+    {RS_BWB_ID: "BWBR0001854"},
+]
+
+
+@pytest.mark.parametrize("flag", [None, "", "false", "0", "off"])
+def test_rs_law_reference_rows_match_the_base_with_the_flag_off(client, monkeypatch, flag):
+    if flag is None:
+        monkeypatch.delenv("RS_RESOLVE_BWB_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("RS_RESOLVE_BWB_ENABLED", flag)
+    processor = PostgresRSProcessor(path="unused", client=client)
+
+    for row in _FLAG_OFF_ROWS:
+        assert processor._law_reference_rows(row, case_id=1) == _base_law_reference_rows(row)
+
+
+def test_rs_law_reference_flag_off_block_is_the_base_text():
+    """The flag-off block is the base text, so caselaw-coolify's image
+    compatibility patch (which rewrites exactly this text) still applies."""
+    import inspect
+
+    source = inspect.getsource(row_processors_module)
+    assert source.count(_BASE_LAW_REFERENCE_BLOCK) == 1
+    assert '"/bwb/id/" in' not in source  # that patch's upstream marker
+
+
+def test_rs_law_reference_flag_off_writes_the_base_statements(client, monkeypatch):
+    monkeypatch.delenv("RS_RESOLVE_BWB_ENABLED", raising=False)
+    monkeypatch.setattr(client, "bwb_legislation_id", lambda bwb: 77)
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {RS_LEGISLATIONS: LIDO_URL.format("BWBR0005290"), RS_BWB_ID: ""}
+
+    for law_reference in processor._law_reference_rows(row, case_id=5):
+        client.upsert_law_reference(case_id=5, **law_reference)
+
+    ((sql, params),) = client._get_conn().executed
+    assert params == {
+        "case_id": 5,
+        "raw_resource": None,
+        "raw_reference": LIDO_URL.format("BWBR0005290"),
+        "role": "cited",
+        "source_dataset": "rs_lido_sqlite",
+    }
+    assert "legislation_id IS NULL" in sql
+
+
+@pytest.fixture
+def resolve_bwb(monkeypatch):
+    monkeypatch.setenv("RS_RESOLVE_BWB_ENABLED", "true")
+
+
+def test_rs_law_reference_takes_the_bwb_id_from_each_lido_url(client, resolve_bwb):
+    """Illustrative LiDO URLs (made-up label ids), not real case data."""
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {
+        RS_LEGISLATIONS: "; ".join(
+            [LIDO_URL.format("BWBR0005290"), LIDO_URL.format("BWBR0005537"), "art. 8 EVRM"]
+        ),
+        RS_BWB_ID: "",
+    }
+
+    rows = processor._law_reference_rows(row, case_id=1)
+
+    assert [r["raw_resource"] for r in rows] == ["BWBR0005290", "BWBR0005537"]
+    assert all(r["resolve_legislation"] is True for r in rows)
+
+
+def test_rs_law_reference_url_wins_over_the_case_bwb_id(client, resolve_bwb):
+    processor = PostgresRSProcessor(path="unused", client=client)
+    row = {RS_LEGISLATIONS: LIDO_URL.format("BWBR0005290"), RS_BWB_ID: "BWBR0001854"}
+
+    rows = processor._law_reference_rows(row, case_id=1)
+
+    assert [r["raw_resource"] for r in rows] == ["BWBR0005290"]
+
+
+def test_rs_law_reference_resolved_row_carries_legislation_id(client, monkeypatch):
+    monkeypatch.setattr(
+        client, "bwb_legislation_id", lambda bwb: 77 if bwb == "BWBR0005290" else None
+    )
+
+    client.upsert_law_reference(
+        case_id=5,
+        raw_reference="x",
+        raw_resource="BWBR0005290",
+        source_dataset="rs_lido_sqlite",
+        resolve_legislation=True,
+    )
+    client.upsert_law_reference(
+        case_id=5,
+        raw_reference="y",
+        raw_resource="BWBR0009999",
+        source_dataset="rs_lido_sqlite",
+        resolve_legislation=True,
+    )
+
+    conn = client._get_conn()
+    (resolved_sql, resolved), (unresolved_sql, unresolved) = conn.executed
+    assert resolved["legislation_id"] == 77
+    assert "WHERE NOT EXISTS" in resolved_sql and "ON CONFLICT DO NOTHING" in resolved_sql
+    assert "legislation_id" not in unresolved
+    assert "legislation_id IS NULL AND raw_resource IS NOT NULL" in unresolved_sql
+
+
+def test_rs_law_reference_not_resolved_unless_asked(client, monkeypatch):
+    monkeypatch.setattr(client, "bwb_legislation_id", lambda bwb: 77)
+
+    client.upsert_law_reference(case_id=5, raw_reference="x", raw_resource="BWBR0005290")
+
+    conn = client._get_conn()
+    assert "legislation_id" not in conn.executed[0][1]
 
 
 def test_rs_processor_upload_rows_writes_citations_per_row_in_batch(client, hook):

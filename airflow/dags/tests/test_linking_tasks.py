@@ -15,9 +15,10 @@ import types
 from datetime import date
 from types import SimpleNamespace
 
+import pytest
+
 import etl_factory
 import linking_tasks
-import pytest
 from tests.linking_db import DSN, add_case, execute, needs_db, scratch_db  # noqa: F401
 
 LINK_ENV = (
@@ -31,6 +32,27 @@ LINK_ENV = (
     "LINK_CELLAR_UUID_CACHE",
     "LINK_CELLAR_UUID_CELEX_CACHE",
     "CASE_IDENTIFIER_ENABLED",
+    "LEGISLATION_EXTERNAL_ENABLED",
+    "LAW_REFERENCE_EXTRACTION_ENABLED",
+    "LAW_RS_TEXT",
+    "LAW_ECHR_TEXT",
+    "LAW_CELLAR_REFS",
+    "AUTHORITY_EXTRACTION_ENABLED",
+    "AUTHORITY_RS_TEXT",
+    "AUTHORITY_RS_PUBLICATION",
+    "AUTHORITY_ECHR_TEXT",
+    "AUTHORITY_CELLAR",
+    "OUTCOME_EXTRACTION_ENABLED",
+    "RS_DICTUM_ENABLED",
+)
+
+# Every flag that adds a task to the monthly group, in the order the tasks run.
+STEP_FLAGS = (
+    ("LINK_EXTRACTION_ENABLED", "extract_links"),
+    ("LEGISLATION_EXTERNAL_ENABLED", "extract_legislation"),
+    ("LAW_REFERENCE_EXTRACTION_ENABLED", "extract_law_references"),
+    ("AUTHORITY_EXTRACTION_ENABLED", "extract_authorities"),
+    ("OUTCOME_EXTRACTION_ENABLED", "extract_outcomes"),
 )
 
 
@@ -282,6 +304,50 @@ def test_dag_unchanged_with_the_master_off(monkeypatch, dag_id, prefix):
 
 
 @pytest.mark.parametrize("dag_id, prefix", DAGS)
+def test_every_step_in_order_with_every_flag_on(monkeypatch, dag_id, prefix):
+    for flag, _task in STEP_FLAGS:
+        monkeypatch.setenv(flag, "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    steps = [
+        task
+        for _flag, task in STEP_FLAGS
+        # rechtspraak writes no legislation files (LEGISLATION_OUTPUTS)
+        if not (task == "extract_legislation" and dag_id == "rechtspraak_etl")
+    ]
+    chain = [f"{dag_id}_tasks.{t}" for t in ["run_window"] + steps] + ["register_promotion"]
+    assert set(graph.tasks) == set(chain)
+    assert graph.edges == set(zip(chain, chain[1:]))
+    callables = {
+        "extract_links": linking_tasks.run_window_links,
+        "extract_legislation": linking_tasks.run_window_legislation,
+        "extract_law_references": linking_tasks.run_window_law_references,
+        "extract_authorities": linking_tasks.run_window_authorities,
+        "extract_outcomes": linking_tasks.run_window_outcomes,
+    }
+    for task in steps:
+        kwargs = graph.tasks[f"{dag_id}_tasks.{task}"].kwargs
+        assert kwargs["python_callable"] is callables[task]
+        assert kwargs["op_kwargs"] == {"var_prefix": prefix}
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+@pytest.mark.parametrize("flag, task", STEP_FLAGS[1:])
+def test_each_step_alone_sits_between_the_load_and_promotion(
+    monkeypatch, dag_id, prefix, flag, task
+):
+    monkeypatch.setenv(flag, "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    run_window = f"{dag_id}_tasks.run_window"
+    if task == "extract_legislation" and dag_id == "rechtspraak_etl":
+        assert graph.edges == {(run_window, "register_promotion")}
+        return
+    step = f"{dag_id}_tasks.{task}"
+    assert graph.edges == {(run_window, step), (step, "register_promotion")}
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
 def test_links_run_after_the_load_and_before_promotion(monkeypatch, dag_id, prefix):
     monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
     graph = _load_dag(monkeypatch, dag_id)
@@ -292,6 +358,62 @@ def test_links_run_after_the_load_and_before_promotion(monkeypatch, dag_id, pref
     assert graph.edges == {(run_window, links), (links, "register_promotion")}
     assert graph.tasks[links].kwargs["python_callable"] is linking_tasks.run_window_links
     assert graph.tasks[links].kwargs["op_kwargs"] == {"var_prefix": prefix}
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+def test_law_references_run_after_the_load_and_before_promotion(monkeypatch, dag_id, prefix):
+    monkeypatch.setenv("LAW_REFERENCE_EXTRACTION_ENABLED", "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    run_window = f"{dag_id}_tasks.run_window"
+    law = f"{dag_id}_tasks.extract_law_references"
+    assert set(graph.tasks) == {run_window, law, "register_promotion"}
+    assert graph.edges == {(run_window, law), (law, "register_promotion")}
+    assert graph.tasks[law].kwargs["python_callable"] is linking_tasks.run_window_law_references
+    assert graph.tasks[law].kwargs["op_kwargs"] == {"var_prefix": prefix}
+
+
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+def test_links_then_law_references_with_both_flags(monkeypatch, dag_id, prefix):
+    monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
+    monkeypatch.setenv("LAW_REFERENCE_EXTRACTION_ENABLED", "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    run_window = f"{dag_id}_tasks.run_window"
+    links = f"{dag_id}_tasks.extract_links"
+    law = f"{dag_id}_tasks.extract_law_references"
+    assert graph.edges == {(run_window, links), (links, law), (law, "register_promotion")}
+
+
+def test_law_flags_default_off_and_the_window_callable_is_a_no_op(monkeypatch):
+    assert not linking_tasks.law_enabled()
+
+    def boom(*args, **kwargs):
+        raise AssertionError("must not run")
+
+    monkeypatch.setattr(linking_tasks, "run_month_law", boom)
+    assert linking_tasks.run_window_law_references("CELLAR", dag_run=None) is None
+    monkeypatch.setenv("LAW_REFERENCE_EXTRACTION_ENABLED", "yes")
+    assert linking_tasks.law_enabled()
+
+
+def test_law_dataset_names_match_the_extractor_modules():
+    from data_extraction.linking import cellar_law_refs, echr_eu_law, law_artifact, rs_eu_law
+
+    ex = linking_tasks.LAW_EXTRACTORS
+    assert ex["rechtspraak"].datasets == rs_eu_law.DATASETS
+    assert ex["echr"].datasets == echr_eu_law.DATASETS
+    assert ex["cellar"].datasets == cellar_law_refs.DATASETS
+    assert {d for e in ex.values() for d in e.datasets} == set(law_artifact.LAW_DATASETS)
+    for extractor in ex.values():
+        assert importlib.import_module(extractor.module).extract
+    assert linking_tasks.law_artifact_paths(linking_tasks.SOURCES["rechtspraak"], "2026-09-01") == [
+        "processed/2026-09-01/law_references/rs_text_eu_law.jsonl"
+    ]
+    assert (
+        linking_tasks.LAW_MASTER_FLAG
+        == __import__("data_loading.law_reference_loader", fromlist=["FLAG"]).FLAG
+    )
 
 
 def test_segmentation_trigger_also_waits_for_links(monkeypatch):
@@ -306,8 +428,61 @@ def test_segmentation_trigger_also_waits_for_links(monkeypatch):
     }
 
 
+@pytest.mark.parametrize("dag_id, prefix", DAGS)
+def test_authorities_run_last_in_the_group(monkeypatch, dag_id, prefix):
+    monkeypatch.setenv("AUTHORITY_EXTRACTION_ENABLED", "1")
+    graph = _load_dag(monkeypatch, dag_id)
+
+    run_window = f"{dag_id}_tasks.run_window"
+    authorities = f"{dag_id}_tasks.extract_authorities"
+    assert set(graph.tasks) == {run_window, authorities, "register_promotion"}
+    assert graph.edges == {(run_window, authorities), (authorities, "register_promotion")}
+    task = graph.tasks[authorities]
+    assert task.kwargs["python_callable"] is linking_tasks.run_window_authorities
+    assert task.kwargs["op_kwargs"] == {"var_prefix": prefix}
+
+
+def test_authorities_follow_links_when_both_are_on(monkeypatch):
+    monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
+    monkeypatch.setenv("AUTHORITY_EXTRACTION_ENABLED", "1")
+    graph = _load_dag(monkeypatch, "cellar_etl")
+
+    assert graph.edges == {
+        ("cellar_etl_tasks.run_window", "cellar_etl_tasks.extract_links"),
+        ("cellar_etl_tasks.extract_links", "cellar_etl_tasks.extract_authorities"),
+        ("cellar_etl_tasks.extract_authorities", "register_promotion"),
+    }
+
+
+@pytest.mark.parametrize("flag", [None, "0", "false"])
+def test_authority_window_callable_is_a_no_op_with_the_flag_off(monkeypatch, flag):
+    if flag is not None:
+        monkeypatch.setenv("AUTHORITY_EXTRACTION_ENABLED", flag)
+    assert not linking_tasks.authority_enabled()
+    assert linking_tasks.run_window_authorities("RS") is None
+
+
+def test_authority_datasets_match_the_modules():
+    from data_extraction.linking import authority_artifact, authority_text
+
+    assert sorted(linking_tasks.AUTHORITY_EXTRACTORS) == sorted(
+        authority_artifact.AUTHORITY_DATASETS
+    )
+    assert sorted(d for ds in linking_tasks.AUTHORITY_SOURCES.values() for d in ds) == sorted(
+        authority_artifact.AUTHORITY_DATASETS
+    )
+    for extractor in linking_tasks.AUTHORITY_EXTRACTORS.values():
+        module = importlib.import_module(extractor.module)
+        options = dict(extractor.options)
+        if "corpus" in options:
+            assert authority_text.CORPORA[options["corpus"]][1] == extractor.dataset
+        else:
+            assert module.SOURCE_DATASET == extractor.dataset
+
+
 def test_group_without_links_ignores_the_flag(monkeypatch):
     monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
+    monkeypatch.setenv("AUTHORITY_EXTRACTION_ENABLED", "1")
     graph = _Graph()
     monkeypatch.setattr(_FakeTask, "graph", graph)
     monkeypatch.setattr(etl_factory, "PythonOperator", _FakeTask)

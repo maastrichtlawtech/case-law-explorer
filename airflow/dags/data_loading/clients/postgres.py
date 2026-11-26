@@ -537,26 +537,79 @@ class PostgresCLEClient:
         raw_resource: str | None = None,
         role: str = "cited",
         source_dataset: str = "LIDO",
+        resolve_legislation: bool = False,
     ) -> None:
-        """Upsert into case_law_reference (bwb-scheme citations resolved via LIDO)."""
-        sql = f"""
-            INSERT INTO {SCHEMA}.case_law_reference
-                (case_id, raw_scheme, raw_resource, raw_reference, role, source_dataset)
-            VALUES
-                (%(case_id)s, 'bwb', %(raw_resource)s, %(raw_reference)s, %(role)s, %(source_dataset)s)
-            ON CONFLICT (case_id, raw_scheme, raw_resource, COALESCE(raw_subdivision, ''), role, source_dataset)
-            DO NOTHING;
-        """
-        self._execute(
-            sql,
-            {
-                "case_id": case_id,
-                "raw_resource": raw_resource,
-                "raw_reference": raw_reference,
-                "role": role,
-                "source_dataset": source_dataset,
-            },
-        )
+        """Insert into case_law_reference (bwb-scheme citations resolved via
+        LIDO); a row that is already there is left as it is.
+
+        Unresolved rows (legislation_id NULL) go in under
+        case_law_reference_uk_raw, its predicate restated so the statement
+        works against the deployed partial index and the plain one of
+        db/schema.sql alike (without it the deployed database rejects the
+        statement at planning time).
+
+        With resolve_legislation and a raw_resource naming exactly one BWB act
+        (legislation.scheme 'bwb', identifier = raw_resource), the row gets that
+        legislation_id (roadmap R3.5; the RS row processor asks for it only
+        with RS_RESOLVE_BWB_ENABLED). Such a row (legislation_id and
+        raw_resource set) falls under none of 0001's unique indexes, so it is
+        skipped when the case already has the reference, resolved or not (a
+        reloaded case keeps its earlier unresolved row and gets no twin), and
+        ON CONFLICT DO NOTHING lets case_law_reference_uk_bwb_resolved
+        (migration 0014) act as the key where it exists. Existing rows are
+        never updated (setting legislation_id on them is R6.4)."""
+        params = {
+            "case_id": case_id,
+            "raw_resource": raw_resource,
+            "raw_reference": raw_reference,
+            "role": role,
+            "source_dataset": source_dataset,
+        }
+        legislation_id = self.bwb_legislation_id(raw_resource) if resolve_legislation else None
+        if legislation_id is None:
+            sql = f"""
+                INSERT INTO {SCHEMA}.case_law_reference
+                    (case_id, raw_scheme, raw_resource, raw_reference, role, source_dataset)
+                VALUES
+                    (%(case_id)s, 'bwb', %(raw_resource)s, %(raw_reference)s, %(role)s, %(source_dataset)s)
+                ON CONFLICT (case_id, raw_scheme, raw_resource, COALESCE(raw_subdivision, ''), role, source_dataset)
+                WHERE provision_id IS NULL AND legislation_id IS NULL AND raw_resource IS NOT NULL
+                DO NOTHING;
+            """
+        else:
+            params["legislation_id"] = legislation_id
+            sql = f"""
+                INSERT INTO {SCHEMA}.case_law_reference
+                    (case_id, legislation_id, raw_scheme, raw_resource, raw_reference, role,
+                     source_dataset)
+                SELECT %(case_id)s, %(legislation_id)s, 'bwb', %(raw_resource)s,
+                       %(raw_reference)s, %(role)s, %(source_dataset)s
+                 WHERE NOT EXISTS (
+                       SELECT 1 FROM {SCHEMA}.case_law_reference r
+                        WHERE r.case_id = %(case_id)s AND r.raw_scheme = 'bwb'
+                          AND r.raw_resource = %(raw_resource)s
+                          AND r.raw_subdivision IS NULL AND r.provision_id IS NULL
+                          AND r.role = %(role)s AND r.source_dataset = %(source_dataset)s)
+                ON CONFLICT DO NOTHING;
+            """
+        self._execute(sql, params)
+
+    def bwb_legislation_id(self, bwb_id: str | None) -> int | None:
+        """legislation.id of the one act with scheme 'bwb' and this identifier;
+        None when there is none or more than one (a database that holds a
+        row per version of an act, as db-dev may, leaves such references
+        unresolved rather than pick a version). Cached per client."""
+        if not bwb_id:
+            return None
+        cache = self.__dict__.setdefault("_bwb_legislation_ids", {})
+        if bwb_id not in cache:
+            rows = self.fetch_rows(
+                f"SELECT id FROM {SCHEMA}.legislation"
+                " WHERE scheme = 'bwb' AND identifier = %s ORDER BY id LIMIT 2",
+                [bwb_id],
+            )
+            cache[bwb_id] = rows[0][0] if len(rows) == 1 else None
+        return cache[bwb_id]
 
     def execute_arrays(self, sql: str, params: list) -> int:
         """Run one positional-parameter statement (typically unnest() over
