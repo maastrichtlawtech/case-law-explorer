@@ -140,6 +140,7 @@ with dag:
             task_id="trigger_case_segmentation",
             trigger_dag_id="case_segmentation",
             wait_for_completion=False,
+            trigger_rule="all_done",
         )
         etl_tasks >> trigger_segmentation
         terminal = trigger_segmentation
@@ -153,5 +154,6 @@ with dag:
         task_id="register_promotion",
         python_callable=register_promotion,
         op_kwargs={"dag_id": "rechtspraak_etl", "var_prefix": "RS"},
+        trigger_rule="all_done",
     )
     terminal >> promotion

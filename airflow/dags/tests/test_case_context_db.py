@@ -61,7 +61,7 @@ def test_outcomes_run_after_the_load_and_before_promotion(monkeypatch, dag_id, p
 
 
 @pytest.mark.parametrize("dag_id, prefix", DAGS)
-def test_outcomes_follow_links_when_both_are_on(monkeypatch, dag_id, prefix):
+def test_outcomes_and_links_fan_out_independently_when_both_are_on(monkeypatch, dag_id, prefix):
     monkeypatch.setenv("OUTCOME_EXTRACTION_ENABLED", "1")
     monkeypatch.setenv("LINK_EXTRACTION_ENABLED", "1")
     graph = _load_dag(monkeypatch, dag_id)
@@ -70,7 +70,8 @@ def test_outcomes_follow_links_when_both_are_on(monkeypatch, dag_id, prefix):
     outcomes = f"{dag_id}_tasks.extract_outcomes"
     assert graph.edges == {
         (run_window, links),
-        (links, outcomes),
+        (run_window, outcomes),
+        (links, "register_promotion"),
         (outcomes, "register_promotion"),
     }
 

@@ -37,6 +37,7 @@ with dag:
         ("promote_cellar", "cellar_etl"),
         ("promote_echr", "echr_etl"),
         ("promote_lido", "lido_sqlite_build"),
+        ("promote_enrichment_sync", "enrichment_sync_etl"),
     ):
         promotion = PythonOperator(
             task_id=task_id,

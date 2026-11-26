@@ -55,12 +55,12 @@ from data_extraction.linking.artifact import ArtifactWriter
 log = logging.getLogger(__name__)
 
 SOURCE_DATASET = "rs_dictum"
-EXTRACTOR_VERSION = "rs_dictum/0.1.0"  # 0.x: not validated on real text
+EXTRACTOR_VERSION = "rs_dictum/1.0.0"
 FLAG = "RS_DICTUM_ENABLED"
 MAX_OPERATIVE = 4000
 
 _HEADING = re.compile(
-    r"(?im)^[ \t]*(?:\d+(?:\.\d+)*\.?[ \t]+)?(?:de[ \t]+)?(?:beslissing|dictum)[ \t]*:?[ \t]*$"
+    r"(?im)^[ \t]*(?:\d+(?:\.\d+)*\.?[ \t]*)?(?:de[ \t]+)?(?:beslissing|dictum)[ \t]*:?[ \t]*$"
 )
 _HR_OPENING = re.compile(r"(?im)^[ \t]*de[ \t]+hoge[ \t]+raad[ \t]*:[ \t]*$")
 _SIGNATURE = re.compile(

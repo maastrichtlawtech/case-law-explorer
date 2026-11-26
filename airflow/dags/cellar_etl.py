@@ -96,5 +96,6 @@ with dag:
         task_id="register_promotion",
         python_callable=register_promotion,
         op_kwargs={"dag_id": "cellar_etl", "var_prefix": "CELLAR"},
+        trigger_rule="all_done",
     )
     etl_tasks >> promotion
