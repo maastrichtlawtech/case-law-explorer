@@ -74,12 +74,33 @@ def _load_edge_file(client, path: str, target_key: str, source_dataset: str) -> 
     return loaded
 
 
+_TRUE = {"1", "true", "yes", "on"}
+
+
+def _env_flag(name: str, default: bool) -> bool:
+    value = os.environ.get(name)
+    if value is None or not value.strip():
+        return default
+    return value.strip().lower() in _TRUE
+
+
+def echr_edge_v2_replaces_legacy() -> bool:
+    """True when weekly echr_edge_v2 link extraction replaces legacy ECHR_edges.txt."""
+    return _env_flag("LINK_EXTRACTION_ENABLED", False) and _env_flag("LINK_ECHR_EDGE_V2", True)
+
+
 def load_citation_graph(client, sources=None, edge_dir=None) -> None:
     """Load edge files into case_citation. sources limits which datasets'
     edge files are read ('EURLEX', 'ECHR'); None means all. edge_dir is
     where the files live; defaults to the global raw dir."""
+    skip_legacy_echr = echr_edge_v2_replaces_legacy()
     for filename, target_key, source_key, source_dataset in CELLAR_EDGE_FILES + ECHR_EDGE_FILES:
         if sources is not None and source_key not in sources:
+            continue
+        if source_dataset == "echr_edge" and skip_legacy_echr:
+            logging.info(
+                "Skipping legacy %s (replaced by echr_edge_v2 link extractor)", filename
+            )
             continue
         path = os.path.join(edge_dir, filename) if edge_dir else get_path_raw(filename)
         loaded = _load_edge_file(client, path, target_key, source_dataset)

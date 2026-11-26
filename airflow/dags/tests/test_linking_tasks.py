@@ -25,6 +25,7 @@ LINK_ENV = (
     "LINK_EXTRACTION_ENABLED",
     "LINK_RS_TEXT",
     "LINK_ECHR_TEXT",
+    "LINK_ECHR_EDGE_V2",
     "LINK_CJEU_TEXT",
     "LINK_CELLAR_REFERRALS",
     "LINK_AG_OPINIONS",
@@ -73,6 +74,7 @@ def test_dataset_names_match_the_extractor_modules():
         cellar_referrals,
         cellar_relations,
         cjeu_text,
+        echr_edge_v2,
         echr_text,
         rs_text,
     )
@@ -84,6 +86,7 @@ def test_dataset_names_match_the_extractor_modules():
         rs_text.DATASET_ECHR,
     )
     assert ex["echr_text"].datasets == echr_text.DATASETS
+    assert ex["echr_edge_v2"].datasets == echr_edge_v2.DATASETS
     assert ex["cjeu_text"].datasets == (cjeu_text.DATASET,)
     assert ex["cellar_referrals"].datasets == (cellar_referrals.SOURCE_DATASET,)
     assert ex["ag_opinions"].datasets == (ag_opinions.SOURCE_DATASET,)
@@ -100,6 +103,7 @@ def test_promoter_paths_per_source():
     assert linking_tasks.artifact_paths(sources["echr"], "2026-09-01") == [
         "processed/2026-09-01/links/echr_text_cjeu.jsonl",
         "processed/2026-09-01/links/echr_text_rs.jsonl",
+        "processed/2026-09-01/links/echr_edge_v2.jsonl",
     ]
     assert linking_tasks.artifact_paths(sources["cellar"], "2026-09-01") == [
         "processed/2026-09-01/links/cjeu_text_echr.jsonl",
