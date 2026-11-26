@@ -103,3 +103,30 @@ def test_modified_paginator_uses_modified_not_decision_date(monkeypatch):
     assert ("modified", "2026-09-07T00:00:00") in params
     assert ("modified", "2026-09-14T23:59:59") in params
     assert not any(key == "date" for key, _ in params)
+
+
+def test_rerun_ignores_an_empty_base_file_from_an_earlier_run(tmp_path, monkeypatch):
+    # An earlier run over an empty window leaves a bare-newline combined file.
+    (tmp_path / "base_extraction_rechtspraak.csv").write_text("\n")
+    feed = {
+        "2026-11-01": None,
+        "2026-11-02": pd.DataFrame({"id": ["ECLI:NL:HR:2026:1"], "title": ["A"]}),
+    }
+    monkeypatch.setattr(extraction, "_lido_sqlite_db_path", lambda path: path)
+    monkeypatch.setattr(
+        extraction, "_get_rechtspraak_bounded", lambda **kwargs: feed[kwargs["sd"]]
+    )
+    monkeypatch.setattr(
+        extraction,
+        "_metadata_for_base",
+        lambda base, *args: pd.DataFrame()
+        if base is None
+        else pd.DataFrame({"ecli": base["id"]}),
+    )
+
+    paths = extraction.rechtspraak_extract(
+        "2026-11-01", "2026-11-02", 10, str(tmp_path), skip_if_exists=False
+    )
+
+    cases = pd.read_csv(paths["citations"])
+    assert cases.to_dict("records") == [{"ecli": "ECLI:NL:HR:2026:1", "title": "A"}]
