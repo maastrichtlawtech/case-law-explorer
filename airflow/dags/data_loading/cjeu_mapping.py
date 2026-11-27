@@ -38,6 +38,48 @@ def clean_person_name(value: str | None) -> str | None:
         return tail or None
     return text
 
+
+_CAMEL_SAFE_PREFIXES = frozenset({
+    "mc", "mac", "de", "di", "da", "du", "la", "le", "van", "von", "fitz",
+})
+_AG_CANONICAL_DIACRITICS = {
+    "capeta": "Ćapeta",
+}
+_CAMEL_SPLIT_RE = re.compile(r"(?<=[a-zà-öø-ÿ])(?=[A-ZÀ-ÖØ-Þ][a-zà-öø-ÿ]{2,})")
+
+
+def clean_ag_name(value: str | None) -> str | None:
+    """Normalize a CJEU Advocate General label, deduplicating self-concatenations
+    ('SzpunarSzpunar' -> 'Szpunar') and splitting CamelCase multi-AG fusions
+    ('BotLéger' -> 'Bot / Léger') so phantom fused names never enter cle_v2."""
+    text = clean_person_name(value)
+    if not text:
+        return None
+    # 1. Exact self-concatenation ("SzpunarSzpunar", "La PergolaLa Pergola")
+    half = len(text) // 2
+    if len(text) >= 6 and len(text) % 2 == 0 and text[:half] == text[half:]:
+        text = text[:half].strip()
+    # 2. CamelCase two-person fusion without delimiter ("BotLéger", "Stix-HacklTizzano")
+    if _CAMEL_SPLIT_RE.search(text):
+        parts: list[str] = []
+        last = 0
+        for m in _CAMEL_SPLIT_RE.finditer(text):
+            before = text[last : m.start()]
+            last_word = before.rsplit(" ", 1)[-1].rsplit("-", 1)[-1].lower()
+            if last_word in _CAMEL_SAFE_PREFIXES:
+                continue
+            parts.append(text[last : m.start()].strip())
+            last = m.start()
+        parts.append(text[last:].strip())
+        deduped = list(dict.fromkeys(p for p in parts if p))
+        if len(deduped) == 1:
+            text = deduped[0]
+        elif len(deduped) > 1:
+            text = " / ".join(deduped)
+    # 3. Known diacritic normalization
+    text = _AG_CANONICAL_DIACRITICS.get(text.lower(), text)
+    return text or None
+
 CDM_ROLE_COLUMNS = {
     "legal_resource": "legal_basis",
     "based_on_treaty": "based_on_treaty",
@@ -321,7 +363,7 @@ def map_row(row: dict) -> CaseMapping:
     if is_opinion:
         mapping.ag = {
             "ecli": ecli,
-            "ag": clean_person_name(first(get("advocate_general"))),
+            "ag": clean_ag_name(first(get("advocate_general"))),
             "opinion_uri": first(get("conclusions")),
             "parent_raw": first(get("opinion_advocate_general_joined_to_case_court")),
         }
@@ -344,9 +386,10 @@ def map_row(row: dict) -> CaseMapping:
         for token in toks(get(column)):
             mapping.domains.add((scheme, token))
 
-    rapporteur = clean_person_name(first(get("judge_rapporteur")))
-    if rapporteur:
-        mapping.judges.add((rapporteur, "rapporteur"))
+    for rapporteur in toks(get("judge_rapporteur")):
+        cleaned = clean_person_name(rapporteur)
+        if cleaned:
+            mapping.judges.add((cleaned, "rapporteur"))
     for judge in toks(get("case_law_delivered_by_judge")):
         cleaned = clean_person_name(judge)
         if cleaned:

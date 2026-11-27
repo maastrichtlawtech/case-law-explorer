@@ -30,7 +30,38 @@ from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
 log = logging.getLogger(__name__)
 
 SCHEMA = "cle_v2"
-EXTRACTOR_VERSION = "cross_court_judges/1.0.0"
+EXTRACTOR_VERSION = "cross_court_judges/1.1.0"
+
+# Strict compliance allowlist (GDPR Art. 5(1)(c)/6(1)(e) + France Art. 33 Loi n° 2019-222):
+# ONLY apex / international precedent courts may ever enter cle_v2.case_judge.
+# Lower Dutch courts (e.g. RBAMS, RBDHA, GHAMS) and French national courts (ECLI:FR:*)
+# are unconditionally rejected at both SQL and extractor levels.
+_ALLOWED_RS_ECLI_PREFIXES: Tuple[str, ...] = ("ECLI:NL:HR:", "ECLI:NL:PHR:")
+_ALLOWED_JUDGE_ECLI_PREFIXES: Tuple[str, ...] = (
+    "ECLI:NL:HR:",
+    "ECLI:NL:PHR:",
+    "ECLI:CE:ECHR:",
+    "ECLI:EU:",
+)
+
+
+def is_allowed_judge_ecli(ecli: Optional[str]) -> bool:
+    """Return True iff `ecli` belongs to an allowed apex/international court."""
+    if not ecli:
+        return False
+    upper = ecli.strip().upper()
+    if upper.startswith("ECLI:FR:"):
+        return False
+    return upper.startswith(_ALLOWED_JUDGE_ECLI_PREFIXES)
+
+
+def _court_from_ecli(ecli: str) -> str:
+    upper = (ecli or "").upper()
+    if upper.startswith("ECLI:NL:"):
+        return "RS"
+    if upper.startswith("ECLI:CE:ECHR:"):
+        return "ECHR"
+    return "CJEU"
 
 
 @dataclass(frozen=True)
@@ -157,6 +188,21 @@ def _normalize_allcaps_dutch_name(text: str) -> str:
 _VALID_NAME_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[.'’\- ]){2,75}$", re.UNICODE)
 
 
+def _normalize_dutch_initials(text: str) -> str:
+    """Collapse OCR-broken spacing in Dutch initial chains ('D.J. M .W. Paridaens' -> 'D.J.M.W. Paridaens')."""
+    # Remove stray spaces before a dot after a single initial letter ("T .N.B. M ." -> "T.N.B. M.")
+    text = re.sub(r"(?<=\b[A-ZÀ-Ý])\s+\.", ".", text)
+    # Remove spaces between consecutive single-letter dotted initials ("D. J. C. Aben" -> "D.J.C. Aben")
+    while True:
+        nxt = re.sub(r"\b([A-ZÀ-Ý]\.)\s+(?=[A-ZÀ-Ý](?:\.|\s|$))", r"\1", text)
+        if nxt == text:
+            break
+        text = nxt
+    # Ensure trailing dot on a chain of dotted initials missing the final period ("P.H.P.H.M.C van" -> "P.H.P.H.M.C. van")
+    text = re.sub(r"^((?:[A-ZÀ-Ý]\.)+)([A-ZÀ-Ý])(?=\s)", r"\1\2.", text)
+    return text
+
+
 def _clean_dutch_name(raw: str) -> Optional[str]:
     text = re.sub(r"\s+", " ", (raw or "").strip(" ,;:.()\n\t"))
     if not text:
@@ -165,6 +211,7 @@ def _clean_dutch_name(raw: str) -> Optional[str]:
     text = _NL_TRAILING_ROLE_RE.sub("", text).strip(" ,;:.")
     text = _NL_HONORIFIC_RE.sub("", text).strip(" ,;:.")
     text = _normalize_allcaps_dutch_name(text)
+    text = _normalize_dutch_initials(text)
     if not text or text.lower() in _NL_ROLE_STOPWORDS:
         return None
     if any(ch.isdigit() for ch in text):
@@ -180,8 +227,10 @@ def _clean_dutch_name(raw: str) -> Optional[str]:
 
 
 def extract_rs_judges(fulltext: str, ecli: str) -> List[JudgeRecord]:
-    """Extract Dutch judges (or Hoge Raad AG for ECLI:NL:PHR:*) from fulltext."""
+    """Extract Dutch Supreme Court (HR) judges or Parket bij de Hoge Raad (PHR) AGs only."""
     if not fulltext or not ecli:
+        return []
+    if not ecli.strip().upper().startswith(_ALLOWED_RS_ECLI_PREFIXES):
         return []
     out: List[JudgeRecord] = []
     seen: Set[Tuple[str, str]] = set()
@@ -310,6 +359,8 @@ def extract_echr_judges(fulltext: str, ecli: str) -> List[JudgeRecord]:
     """Extract ECtHR Chamber / Grand Chamber judges from HUDOC fulltext header."""
     if not fulltext or not ecli:
         return []
+    if not ecli.strip().upper().startswith("ECLI:CE:ECHR:"):
+        return []
     head = fulltext[:4000]
     match = _ECHR_COMPOSED_EN_RE.search(head) or _ECHR_COMPOSED_FR_RE.search(head)
     if not match:
@@ -387,14 +438,80 @@ ON CONFLICT (case_id, judge_id, role) DO NOTHING
 """
 
 
+def _load_governance_overrides(cur) -> List[Tuple[str, Optional[str], Optional[str], str, Optional[str]]]:
+    """Read active GDPR Art. 16/17/21 person_governance_override rows if migration 0022 is applied."""
+    try:
+        cur.execute("SELECT to_regclass(%s)", (f"{SCHEMA}.person_governance_override",))
+        row = cur.fetchone()
+        if not row or not row[0]:
+            return []
+        cur.execute(
+            f"""
+            SELECT lower(match_name), match_role, match_court, action, replacement_name
+              FROM {SCHEMA}.person_governance_override
+             WHERE active = true
+            """
+        )
+        return list(cur.fetchall() or [])
+    except Exception:
+        return []
+
+
+def apply_governance_override(
+    name: str,
+    role: str,
+    court: str,
+    overrides: Sequence[Tuple[str, Optional[str], Optional[str], str, Optional[str]]],
+) -> Optional[str]:
+    """Return None if suppressed, renamed string if rectified, else original name."""
+    target = (name or "").strip().lower()
+    if not target or not overrides:
+        return name
+    for match_name, match_role, match_court, action, replacement in overrides:
+        if match_name != target:
+            continue
+        if match_role and match_role != role:
+            continue
+        if match_court and match_court != court:
+            continue
+        if action == "suppress":
+            return None
+        if action == "rename" and replacement:
+            return replacement.strip()
+    return name
+
+
 def load_records(conn, records: Sequence[JudgeRecord], batch_size: int = 2000) -> Dict[str, int]:
     """Load JudgeRecord rows idempotently into cle_v2.judge and cle_v2.case_judge."""
-    stats = {"records": len(records), "inserted": 0}
+    stats = {"records": len(records), "inserted": 0, "rejected_court": 0, "suppressed": 0, "renamed": 0}
     if not records:
         return stats
     with conn.cursor() as cur:
-        for i in range(0, len(records), batch_size):
-            batch = records[i : i + batch_size]
+        overrides = _load_governance_overrides(cur)
+        filtered: List[JudgeRecord] = []
+        for rec in records:
+            if not is_allowed_judge_ecli(rec.source_ecli):
+                stats["rejected_court"] += 1
+                continue
+            court = _court_from_ecli(rec.source_ecli)
+            resolved_name = apply_governance_override(rec.name, rec.role, court, overrides)
+            if resolved_name is None:
+                stats["suppressed"] += 1
+                continue
+            if resolved_name != rec.name:
+                stats["renamed"] += 1
+                rec = JudgeRecord(
+                    source_ecli=rec.source_ecli,
+                    name=resolved_name,
+                    role=rec.role,
+                    source_dataset=rec.source_dataset,
+                    extractor_version=rec.extractor_version,
+                    confidence=rec.confidence,
+                )
+            filtered.append(rec)
+
+        for i in range(0, len(filtered), batch_size):
+            batch = filtered[i : i + batch_size]
             names = sorted({r.name for r in batch})
             cur.execute(_INSERT_JUDGES, (names,))
             cur.execute(
@@ -426,7 +543,7 @@ def extract_pending(
     out_path: Optional[str] = None,
     load: bool = True,
 ) -> Dict[str, Any]:
-    """Extract judges for recent RS and ECHR cases that have no case_judge rows yet."""
+    """Extract judges for recent NL HR/PHR and ECHR cases that have no case_judge rows yet."""
     records: List[JudgeRecord] = []
 
     if limit_rs > 0:
@@ -436,7 +553,7 @@ def extract_pending(
                 SELECT c.ecli, ct.fulltext
                   FROM {SCHEMA}.cases c
                   JOIN {SCHEMA}.case_text ct ON ct.case_id = c.id AND ct.source = 'RECHTSPRAAK'
-                 WHERE c.ecli LIKE 'ECLI:NL:%%'
+                 WHERE (c.ecli LIKE 'ECLI:NL:HR:%%' OR c.ecli LIKE 'ECLI:NL:PHR:%%')
                    AND ct.fulltext IS NOT NULL
                    AND NOT EXISTS (
                        SELECT 1 FROM {SCHEMA}.case_judge cj WHERE cj.case_id = c.id

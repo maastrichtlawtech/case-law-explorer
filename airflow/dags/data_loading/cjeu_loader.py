@@ -378,6 +378,42 @@ def validate(client, mappings):
     return valid, failures
 
 
+def _fetch_governance_overrides(client):
+    """Fetch active cle_v2.person_governance_override rows if migration 0022 is applied."""
+    try:
+        reg = client.fetch_rows("SELECT to_regclass(%s)", [f"{S}.person_governance_override"])
+        if not reg or not reg[0] or not reg[0][0]:
+            return []
+        return list(
+            client.fetch_rows(
+                f"SELECT lower(match_name), match_role, match_court, action, replacement_name "
+                f"FROM {S}.person_governance_override WHERE active = true",
+                [],
+            )
+            or []
+        )
+    except Exception:
+        return []
+
+
+def _apply_cjeu_override(name, role, overrides):
+    if not name or not overrides:
+        return name
+    target = name.strip().lower()
+    for match_name, match_role, match_court, action, replacement in overrides:
+        if match_name != target:
+            continue
+        if match_role and match_role != role:
+            continue
+        if match_court and match_court != "CJEU":
+            continue
+        if action == "suppress":
+            return None
+        if action == "rename" and replacement:
+            return replacement.strip()
+    return name
+
+
 def write(client, mappings) -> dict:
     """Write validated mappings in one transaction; returns rows touched per statement."""
     counts = {}
@@ -388,6 +424,18 @@ def write(client, mappings) -> dict:
 
     new = mappings
     with client.transaction():
+        overrides = _fetch_governance_overrides(client)
+        if overrides:
+            for m in new:
+                resolved_judges = set()
+                for jname, jrole in m.judges:
+                    resolved = _apply_cjeu_override(jname, jrole, overrides)
+                    if resolved is not None:
+                        resolved_judges.add((resolved, jrole))
+                m.judges = resolved_judges
+                if m.ag and m.ag.get("ag"):
+                    resolved_ag = _apply_cjeu_override(m.ag["ag"], "advocate_general", overrides)
+                    m.ag = {**m.ag, "ag": resolved_ag}
         langs = {m.case["lang"] for m in new if m.case["lang"]}
         langs |= {m.summary["lang"] for m in new if m.summary}
         run("language", SQL_LANGUAGE, [sorted(langs)], bool(langs))
