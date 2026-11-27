@@ -16,7 +16,7 @@ HUDOC EN/FR fulltexts for all 9 curated UN treaties in ``cle_v2.legislation``:
   * IV-15 CRPD / UNCRPD (Rights of Persons with Disabilities)
 
 Emits ``source_dataset = 'echr_text_treaty'`` into ``cle_v2.case_law_reference``
-under the partial unique index ``case_law_reference_uk_text_treaty`` (migration 0018).
+under the partial unique index ``case_law_reference_uk_echr_treaty`` (migration 0020).
 """
 
 from __future__ import annotations
@@ -257,7 +257,7 @@ _INSERT_RESOLVED_SQL = f"""
     ON CONFLICT (case_id, raw_scheme, raw_resource, COALESCE(raw_subdivision, ''), role, source_dataset)
     WHERE raw_resource IS NOT NULL
       AND (legislation_id IS NOT NULL OR provision_id IS NOT NULL)
-      AND source_dataset IN ('cjeu_text_treaty', 'echr_text_treaty')
+      AND source_dataset = 'echr_text_treaty'
     DO NOTHING
     RETURNING provision_id
 """

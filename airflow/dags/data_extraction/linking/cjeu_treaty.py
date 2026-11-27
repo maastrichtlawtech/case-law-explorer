@@ -541,7 +541,7 @@ _INSERT_RESOLVED_SQL = f"""
     ON CONFLICT (case_id, raw_scheme, raw_resource, COALESCE(raw_subdivision, ''), role, source_dataset)
     WHERE raw_resource IS NOT NULL
       AND (legislation_id IS NOT NULL OR provision_id IS NOT NULL)
-      AND source_dataset IN ('cjeu_text_treaty', 'echr_text_treaty')
+      AND source_dataset = 'cjeu_text_treaty'
     DO NOTHING
     RETURNING provision_id
 """

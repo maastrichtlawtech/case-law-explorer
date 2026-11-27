@@ -1634,16 +1634,12 @@ CREATE INDEX IF NOT EXISTS "case_law_reference_idx_legislation_case"
     ON "cle_v2"."case_law_reference" ("legislation_id", "case_id")
     WHERE "legislation_id" IS NOT NULL;
 
-CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_text_treaty"
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_cjeu_treaty"
     ON "cle_v2"."case_law_reference"
     ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
     WHERE "raw_resource" IS NOT NULL
       AND ("legislation_id" IS NOT NULL OR "provision_id" IS NOT NULL)
-      AND "source_dataset" IN ('cjeu_text_treaty', 'echr_text_treaty');
-
-INSERT INTO "cle_v2"."citation_source_dataset" (code, description, corpus, counted, active_in_api)
-VALUES ('echr_text_echr', 'ECtHR full-text precedent extraction for empty-scl judgments.', 'ECHR', true, true)
-ON CONFLICT (code) DO NOTHING;
+      AND "source_dataset" = 'cjeu_text_treaty';
 
 CREATE MATERIALIZED VIEW IF NOT EXISTS "cle_v2"."legislation_citing_counts" AS
 WITH resolved AS (
@@ -1695,3 +1691,15 @@ CREATE TABLE IF NOT EXISTS "cle_v2"."legislation_equivalence" (
 
 CREATE INDEX IF NOT EXISTS "legislation_equivalence_idx_canonical"
     ON "cle_v2"."legislation_equivalence" ("canonical_legislation_id");
+
+-- Mirror of caselaw-coolify 0020_echr_text_extractors.sql
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_echr_treaty"
+    ON "cle_v2"."case_law_reference"
+    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
+    WHERE "raw_resource" IS NOT NULL
+      AND ("legislation_id" IS NOT NULL OR "provision_id" IS NOT NULL)
+      AND "source_dataset" = 'echr_text_treaty';
+
+INSERT INTO "cle_v2"."citation_source_dataset" (code, description, corpus, counted, active_in_api)
+VALUES ('echr_text_echr', 'ECtHR full-text precedent extraction for empty-scl judgments.', 'ECHR', true, true)
+ON CONFLICT (code) DO NOTHING;
