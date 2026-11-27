@@ -16,7 +16,6 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timedelta, timezone
 
-
 SOURCE_DAG_IDS = (
     "rechtspraak_etl",
     "cellar_etl",
@@ -34,9 +33,7 @@ def _positive_int(name, default):
 
 def client_settings():
     return {
-        "url": os.getenv(
-            "ETL_PROMOTER_INTERNAL_URL", "http://etl-promoter:8080"
-        ).rstrip("/"),
+        "url": os.getenv("ETL_PROMOTER_INTERNAL_URL", "http://etl-promoter:8080").rstrip("/"),
         "token": os.getenv("ETL_PROMOTER_INTERNAL_TOKEN", "").strip(),
         "request_timeout": _positive_int("ETL_PROMOTER_API_TIMEOUT_SECONDS", 30),
         "wait_seconds": _positive_int("ETL_PROMOTION_DAG_WAIT_SECONDS", 21600),
@@ -95,8 +92,30 @@ def _timestamp(value):
     return parsed.astimezone(timezone.utc)
 
 
+def _supersedes(later, earlier):
+    """Whether ``later`` replaces all data ``earlier`` would promote.
+
+    LIDO batches carry no window: each one is a full rebuild of the database.
+    """
+    earlier_start = _timestamp(earlier.get("window_start"))
+    earlier_end = _timestamp(earlier.get("window_end"))
+    if earlier_start is None or earlier_end is None:
+        return True
+    later_start = _timestamp(later.get("window_start"))
+    later_end = _timestamp(later.get("window_end"))
+    if later_start is None or later_end is None:
+        return False
+    return later_start <= earlier_start and later_end >= earlier_end
+
+
 def select_batches_for_run(batches, minimum_age_hours, now=None):
-    """Select ordered, mature batches after the latest successful promotion."""
+    """Select ordered, mature batches after the latest successful promotion.
+
+    A batch that failed at promotion (usually because a later run rewrote its
+    artifacts) cannot be promoted again as is. It is dropped when a later
+    batch covers its whole window, and otherwise returned so the caller can
+    have it verified again.
+    """
     now = now or datetime.now(timezone.utc)
     promoted_times = [
         _timestamp(batch.get("created_at"))
@@ -109,21 +128,71 @@ def select_batches_for_run(batches, minimum_age_hours, now=None):
     failures = []
     minimum_age = timedelta(hours=minimum_age_hours)
 
+    candidates = []
     for batch in sorted(batches, key=lambda item: item.get("created_at") or ""):
         created_at = _timestamp(batch.get("created_at"))
         if batch.get("status") == "promoted" or not created_at:
             continue
         if cutoff is not None and created_at <= cutoff:
             continue
-        if batch.get("status") == "failed":
-            if batch.get("failed_stage") == "promotion":
-                pending.append(batch)
-            else:
-                failures.append(batch)
+        candidates.append(batch)
+
+    # Batches are promoted in creation order: once one is not ready, the
+    # later ones wait for it.
+    waiting_on = None
+    for index, batch in enumerate(candidates):
+        status = batch.get("status")
+        if status == "failed" and batch.get("failed_stage") != "promotion":
+            failures.append(batch)
             continue
-        mature_at = _timestamp(batch.get("verified_at")) or created_at
-        if batch.get("status") == "promoting" or now - mature_at >= minimum_age:
+        if waiting_on:
+            continue
+        if status == "failed":
+            replacement = next(
+                (
+                    later
+                    for later in candidates[index + 1 :]
+                    if not (
+                        later.get("status") == "failed" and later.get("failed_stage") != "promotion"
+                    )
+                    and _supersedes(later, batch)
+                ),
+                None,
+            )
+            if replacement:
+                logging.info(
+                    "Skipping failed batch %s: superseded by %s",
+                    batch.get("batch_id"),
+                    replacement.get("batch_id"),
+                )
+                continue
             pending.append(batch)
+            waiting_on = batch
+            continue
+        if status == "promoting":
+            pending.append(batch)
+            continue
+        # A batch verified again after a failed promotion keeps its old
+        # created_at, so maturity is measured from verification only.
+        verified_at = _timestamp(batch.get("verified_at"))
+        if status == "verified" and verified_at is None:
+            # The promoter records verified_at whenever it marks a batch
+            # verified; without it the batch would never mature and would
+            # hold back every later batch without a word.
+            raise RuntimeError(
+                f"Verified promotion batch {batch.get('batch_id')} has no verified_at"
+            )
+        if status != "verified" or now - verified_at < minimum_age:
+            logging.info(
+                "Batch %s is %s and not yet %s hours past verification; "
+                "later batches wait for it",
+                batch.get("batch_id"),
+                status,
+                minimum_age_hours,
+            )
+            waiting_on = batch
+            continue
+        pending.append(batch)
 
     if failures:
         details = "; ".join(
@@ -174,9 +243,7 @@ def promote_source_batches(source_dag_id, **_context):
     cfg = client_settings()
     query = urllib.parse.urlencode({"dag_id": source_dag_id})
     listing = promoter_json(f"/v1/batches?{query}", cfg=cfg)
-    pending = select_batches_for_run(
-        listing.get("batches", []), cfg["minimum_age_hours"]
-    )
+    pending = select_batches_for_run(listing.get("batches", []), cfg["minimum_age_hours"])
     if not pending:
         logging.info(
             "No verified %s batches are at least %s hours old",
@@ -189,9 +256,36 @@ def promote_source_batches(source_dag_id, **_context):
     for summary in pending:
         batch_id = summary["batch_id"]
         status = summary.get("status")
-        if status == "verifying":
-            status = _wait_for(batch_id, {"verified", "promoted"}, cfg)["status"]
-        if status in {"verified", "failed"}:
+        if status == "failed":
+            # The promoter only promotes verified batches. Register the run
+            # again so it is verified against its current artifacts; it is
+            # promoted once it has matured, and later batches wait for it.
+            # Same payload as etl_factory.register_promotion: LIDO batches
+            # have no window, so the window keys are left out.
+            payload = {
+                "dag_id": summary.get("dag_id") or source_dag_id,
+                "run_id": summary["run_id"],
+                "requested_by": summary.get("requested_by") or "airflow",
+            }
+            for key in ("window_start", "window_end"):
+                if summary.get(key):
+                    payload[key] = summary[key]
+            # HTTP errors raise in promoter_json. The promoter answers with
+            # the batch it now holds: the same batch_id (derived from dag_id
+            # and run_id), verifying again or already past that.
+            accepted = promoter_json("/v1/batches", method="POST", payload=payload, cfg=cfg)
+            if accepted.get("batch_id") != batch_id or accepted.get("status") == "failed":
+                raise RuntimeError(
+                    f"ETL promoter did not accept batch {batch_id} for verification: "
+                    f"{accepted.get('batch_id')} is {accepted.get('status')}"
+                )
+            raise RuntimeError(
+                f"Promotion batch {batch_id} failed at promotion "
+                f"({summary.get('error') or 'unknown error'}); it is being "
+                f"verified again and will be promoted once it is "
+                f"{cfg['minimum_age_hours']} hours old"
+            )
+        if status == "verified":
             promoter_json(
                 f"/v1/batches/{urllib.parse.quote(batch_id, safe='')}/promote",
                 method="POST",
