@@ -89,7 +89,10 @@ def test_scan_un_treaties_and_rejects_unrelated_geneva_treaties():
         "In 1958 the working party adopted the Geneva Protocol on standardisation of fresh fruit. "
         "The WIPO Copyright Treaty signed in Geneva on 20 December 1996."
     )
-    assert cjeu_treaty.scan(unrelated, "en") == []
+    hits = cjeu_treaty.scan(unrelated, "en")
+    keys = {(h.scheme, h.identifier) for h in hits}
+    assert ("un_treaty", "V-2") not in keys
+    assert ("intl_treaty", "wipo-wct1996") in keys
 
     asylum_and_rights = (
         "Article 1A(2) of the Geneva Convention of 28 July 1951 relating to the Status of Refugees, "

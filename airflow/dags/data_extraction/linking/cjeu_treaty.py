@@ -24,7 +24,7 @@ log = logging.getLogger(__name__)
 
 SCHEMA = "cle_v2"
 DATASET = "cjeu_text_treaty"
-EXTRACTOR_VERSION = "cjeu_treaty/1.0.0"
+EXTRACTOR_VERSION = "cjeu_treaty/2.0.0"
 ROLE = "cited"
 
 # Separators include '_' because historical cellar_extractor fulltexts replaced ',' with '_'.
@@ -460,6 +460,29 @@ def scan(text: str, language: Optional[str] = None) -> List[TreatyHit]:
                 ))
                 seen_acts.add(("un_treaty", ident))
 
+    # 6. Broad 200+ declarative treaty catalog (skipping ECHR/Protocols already handled above)
+    from data_extraction.linking import treaty_matcher
+
+    for ch in treaty_matcher.scan(text, skip_echr_core=True):
+        if (ch.scheme, ch.identifier) in seen_acts:
+            continue
+        if _overlaps((ch.start, ch.end), covered):
+            continue
+        hits.append(
+            TreatyHit(
+                scheme=ch.scheme,
+                identifier=ch.identifier,
+                article=ch.article,
+                raw_subdivision=ch.raw_subdivision,
+                match_method=ch.match_method,
+                confidence=ch.confidence,
+                start=ch.start,
+                end=ch.end,
+                raw_text=ch.raw_text,
+            )
+        )
+        covered.append((ch.start, ch.end))
+
     return hits
 
 
@@ -672,6 +695,12 @@ def load_artifact(conn, path: str) -> Dict[str, int]:
     return load_records(conn, read_jsonl(path))
 
 
+def _candidate_tsquery_groups() -> Tuple[str, ...]:
+    from data_extraction.linking import treaty_matcher
+
+    return treaty_matcher.candidate_tsquery_groups(skip_echr_core=False)
+
+
 _CANDIDATE_TSQUERY = (
     "'ECHR' | 'CEDH' | 'EMRK' | 'EVRM' | 'CEDU' | "
     "'ICCPR' | 'IVBPR' | 'UNCRPD' | 'CRPD' | 'IVRK' | 'UNCRC' | "
@@ -686,28 +715,33 @@ def extract_pending(
     out_path: Optional[str] = None,
     load: bool = False,
 ) -> Dict[str, Any]:
-    """Find CJEU cases mentioning treaties that don't yet have cjeu_text_treaty rows."""
+    """Find newest CJEU cases mentioning treaties that don't yet have cjeu_text_treaty rows."""
+    case_ids_set: set[int] = set()
     with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT cd.case_id
-              FROM {SCHEMA}.cjeu_document cd
-             WHERE NOT EXISTS (
-                   SELECT 1 FROM {SCHEMA}.case_law_reference r
-                    WHERE r.case_id = cd.case_id AND r.source_dataset = %s
-               )
-               AND EXISTS (
-                   SELECT 1 FROM {SCHEMA}.case_text ct
-                    WHERE ct.case_id = cd.case_id
-                      AND ct.fulltext_tsv @@ to_tsquery('simple', %s)
-               )
-             ORDER BY cd.case_id DESC
-             LIMIT %s
-            """,
-            (DATASET, _CANDIDATE_TSQUERY, limit),
-        )
-        case_ids = [int(row[0]) for row in cur.fetchall()]
+        for tsq in _candidate_tsquery_groups():
+            if len(case_ids_set) >= limit:
+                break
+            cur.execute(
+                f"""
+                SELECT cd.case_id
+                  FROM {SCHEMA}.cjeu_document cd
+                 WHERE NOT EXISTS (
+                       SELECT 1 FROM {SCHEMA}.case_law_reference r
+                        WHERE r.case_id = cd.case_id AND r.source_dataset = %s
+                   )
+                   AND EXISTS (
+                       SELECT 1 FROM {SCHEMA}.case_text ct
+                        WHERE ct.case_id = cd.case_id
+                          AND ct.fulltext_tsv @@ to_tsquery('simple', %s)
+                   )
+                 ORDER BY cd.case_id DESC
+                 LIMIT %s
+                """,
+                (DATASET, tsq, limit),
+            )
+            case_ids_set.update(int(row[0]) for row in cur.fetchall())
     conn.rollback()
+    case_ids = sorted(case_ids_set, reverse=True)[:limit]
 
     all_records: List[TreatyRefRecord] = []
     cases_with_hits = 0

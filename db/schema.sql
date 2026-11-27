@@ -1306,7 +1306,8 @@ CREATE INDEX IF NOT EXISTS "case_citation_idx_source_dataset" ON "cle_v2"."case_
 INSERT INTO "cle_v2"."jurisdiction" ("iso_code", "name", "type") VALUES
     ('EU', 'European Union', 'supranational'),
     ('CE', 'Council of Europe', 'international'),
-    ('UN', 'United Nations', 'international')
+    ('UN', 'United Nations', 'international'),
+    ('INTL', 'International', 'international')
 ON CONFLICT ("iso_code") DO NOTHING;
 
 ALTER TABLE "cle_v2"."legislation"
@@ -1322,6 +1323,10 @@ ALTER TABLE "cle_v2"."legal_provision"
 CREATE UNIQUE INDEX IF NOT EXISTS "legislation_uk_external"
     ON "cle_v2"."legislation" ("scheme", "identifier")
     WHERE "scheme" IN ('celex', 'coe_treaty', 'un_treaty');
+
+CREATE UNIQUE INDEX IF NOT EXISTS "legislation_uk_intl_treaty"
+    ON "cle_v2"."legislation" ("scheme", "identifier")
+    WHERE "scheme" = 'intl_treaty';
 
 CREATE INDEX IF NOT EXISTS "legislation_idx_source_dataset"
     ON "cle_v2"."legislation" ("source_dataset")

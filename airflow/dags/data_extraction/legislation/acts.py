@@ -38,8 +38,8 @@ from typing import Dict, Iterable, Iterator, List, Optional, Tuple
 
 from data_extraction.linking.artifact import ArtifactError, ArtifactWriter
 
-SCHEMES = ("celex", "coe_treaty", "un_treaty")
-JURISDICTIONS = ("EU", "CE", "UN")
+SCHEMES = ("celex", "coe_treaty", "un_treaty", "intl_treaty")
+JURISDICTIONS = ("EU", "CE", "UN", "INTL")
 DATASET_CURATED = "legislation_curated"
 DATASET_CELLAR = "legislation_cellar"
 DATASET_CELLAR_SPARQL = "cellar_legislation_sparql"
@@ -50,6 +50,9 @@ FIXTURE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "external_act
 
 # The predicate of legislation_uk_external, restated in every ON CONFLICT.
 UK_PREDICATE = "scheme IN ('celex', 'coe_treaty', 'un_treaty')"
+# The predicate of legislation_uk_intl_treaty (migration 0021).
+UK_INTL_PREDICATE = "scheme = 'intl_treaty'"
+ALL_EXTERNAL_PREDICATE = "scheme IN ('celex', 'coe_treaty', 'un_treaty', 'intl_treaty')"
 
 
 @dataclass(frozen=True)

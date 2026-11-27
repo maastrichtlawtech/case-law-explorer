@@ -53,7 +53,13 @@ from collections import Counter, defaultdict
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
 from data_extraction.legislation import acts as acts_module
-from data_extraction.legislation.acts import UK_PREDICATE, ActRecord, read_acts
+from data_extraction.legislation.acts import (
+    ALL_EXTERNAL_PREDICATE,
+    UK_INTL_PREDICATE,
+    UK_PREDICATE,
+    ActRecord,
+    read_acts,
+)
 from data_extraction.legislation.law_reference import LawReferenceRecord, read_law_references
 
 log = logging.getLogger(__name__)
@@ -65,6 +71,7 @@ JURISDICTIONS = {
     "EU": ("European Union", "supranational"),
     "CE": ("Council of Europe", "international"),
     "UN": ("United Nations", "international"),
+    "INTL": ("International", "international"),
 }
 
 ARTICLE = "article"
@@ -127,12 +134,20 @@ _INSERT_ACTS = f"""
     DO NOTHING
     RETURNING scheme, identifier
 """
+_INSERT_INTL_ACTS = f"""
+    INSERT INTO {SCHEMA}.legislation ({_ACT_COLUMNS})
+    SELECT {_ACT_COLUMNS} FROM (VALUES %s) AS v(ord, {_ACT_COLUMNS})
+     ORDER BY ord
+    ON CONFLICT (scheme, identifier) WHERE {UK_INTL_PREDICATE}
+    DO NOTHING
+    RETURNING scheme, identifier
+"""
 _FIND_ACTS = f"""
     SELECT l.scheme, l.identifier, l.id
       FROM (VALUES %s) AS v(scheme, identifier)
       JOIN {SCHEMA}.legislation l
         ON l.scheme = v.scheme AND l.identifier = v.identifier
-     WHERE l.{UK_PREDICATE}
+     WHERE l.{ALL_EXTERNAL_PREDICATE}
 """
 _INSERT_ALIASES = f"""
     INSERT INTO {SCHEMA}.legislation_alias (legislation_id, alias, source)
@@ -157,8 +172,10 @@ def insert_acts(cursor, records: Sequence[ActRecord], counts) -> Dict[Tuple[str,
     if not records:
         return {}
     jurisdictions = jurisdiction_ids(cursor)
-    rows = [  # in _ACT_FIELDS order
-        (
+    ext_rows = []
+    intl_rows = []
+    for i, r in enumerate(records):
+        row = (
             i,
             r.identifier,
             r.scheme,
@@ -171,9 +188,17 @@ def insert_acts(cursor, records: Sequence[ActRecord], counts) -> Dict[Tuple[str,
             r.source_dataset,
             r.extractor_version,
         )
-        for i, r in enumerate(records)
-    ]
-    inserted = {tuple(row) for row in _values(cursor, _INSERT_ACTS, rows, _ACT_TEMPLATE)}
+        if r.scheme == "intl_treaty":
+            intl_rows.append(row)
+        else:
+            ext_rows.append(row)
+    inserted = set()
+    if ext_rows:
+        inserted.update(tuple(row) for row in _values(cursor, _INSERT_ACTS, ext_rows, _ACT_TEMPLATE))
+    if intl_rows:
+        inserted.update(
+            tuple(row) for row in _values(cursor, _INSERT_INTL_ACTS, intl_rows, _ACT_TEMPLATE)
+        )
     seen = set()
     for r in records:
         if r.key in seen:
