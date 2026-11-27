@@ -1593,3 +1593,38 @@ CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_resolved_ref"
     WHERE "raw_resource" IS NOT NULL
       AND ("legislation_id" IS NOT NULL OR "provision_id" IS NOT NULL)
       AND "source_dataset" IN ('cellar_sparql', 'cellar_law_ref', 'rs_text_eu_law', 'echr_text_eu_law');
+
+-- ---- 0017_legislation_fulltext_and_judges.sql ----
+ALTER TABLE "cle_v2"."legislation"
+    ADD COLUMN IF NOT EXISTS "short_title"           text,
+    ADD COLUMN IF NOT EXISTS "in_force"              boolean,
+    ADD COLUMN IF NOT EXISTS "date_document"         date,
+    ADD COLUMN IF NOT EXISTS "date_entry_into_force" date,
+    ADD COLUMN IF NOT EXISTS "eli"                   text,
+    ADD COLUMN IF NOT EXISTS "subjects"              text[],
+    ADD COLUMN IF NOT EXISTS "legal_basis"           text[],
+    ADD COLUMN IF NOT EXISTS "amending_acts"         text[],
+    ADD COLUMN IF NOT EXISTS "metadata_source"       text,
+    ADD COLUMN IF NOT EXISTS "metadata_fetched_at"   timestamptz,
+    ADD COLUMN IF NOT EXISTS "fulltext_fetched_at"   timestamptz;
+
+CREATE INDEX IF NOT EXISTS "legislation_idx_fulltext_pending"
+    ON "cle_v2"."legislation" ("scheme", "id")
+    WHERE "fulltext_fetched_at" IS NULL;
+
+ALTER TABLE "cle_v2"."case_judge"
+    ADD COLUMN IF NOT EXISTS "source_dataset"    text,
+    ADD COLUMN IF NOT EXISTS "extractor_version" text,
+    ADD COLUMN IF NOT EXISTS "confidence"        real;
+
+CREATE INDEX IF NOT EXISTS "case_judge_idx_source_dataset"
+    ON "cle_v2"."case_judge" ("source_dataset")
+    WHERE "source_dataset" IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS "judge_idx_full_name_lower"
+    ON "cle_v2"."judge" (lower("full_name"))
+    WHERE "full_name" IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS "cjeu_ag_opinion_idx_ag_lower"
+    ON "cle_v2"."cjeu_ag_opinion" (lower("advocate_general"))
+    WHERE "advocate_general" IS NOT NULL;
