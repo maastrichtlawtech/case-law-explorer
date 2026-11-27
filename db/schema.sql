@@ -1628,3 +1628,78 @@ CREATE INDEX IF NOT EXISTS "judge_idx_full_name_lower"
 CREATE INDEX IF NOT EXISTS "cjeu_ag_opinion_idx_ag_lower"
     ON "cle_v2"."cjeu_ag_opinion" (lower("advocate_general"))
     WHERE "advocate_general" IS NOT NULL;
+
+-- Mirror of caselaw-coolify 0018_legislation_citing_counts.sql
+CREATE INDEX IF NOT EXISTS "case_law_reference_idx_legislation_case"
+    ON "cle_v2"."case_law_reference" ("legislation_id", "case_id")
+    WHERE "legislation_id" IS NOT NULL;
+
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_cjeu_treaty"
+    ON "cle_v2"."case_law_reference"
+    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
+    WHERE "raw_resource" IS NOT NULL
+      AND ("legislation_id" IS NOT NULL OR "provision_id" IS NOT NULL)
+      AND "source_dataset" = 'cjeu_text_treaty';
+
+CREATE MATERIALIZED VIEW IF NOT EXISTS "cle_v2"."legislation_citing_counts" AS
+WITH resolved AS (
+    SELECT DISTINCT
+        COALESCE(r."legislation_id", lp."legislation_id") AS "legislation_id",
+        r."case_id",
+        CASE
+            WHEN c."ecli" LIKE 'ECLI:EU:%'      THEN 'CJEU'
+            WHEN c."ecli" LIKE 'ECLI:NL:%'      THEN 'RS'
+            WHEN c."ecli" LIKE 'ECLI:CE:ECHR:%' THEN 'ECHR'
+            ELSE NULL
+        END AS "corpus"
+    FROM "cle_v2"."case_law_reference" r
+    LEFT JOIN "cle_v2"."legal_provision" lp
+           ON r."legislation_id" IS NULL
+          AND lp."id" = r."provision_id"
+    JOIN "cle_v2"."cases" c
+      ON c."id" = r."case_id"
+    WHERE (r."legislation_id" IS NOT NULL OR r."provision_id" IS NOT NULL)
+      AND COALESCE(r."legislation_id", lp."legislation_id") IS NOT NULL
+)
+SELECT
+    "legislation_id",
+    COUNT(*)::int                                    AS "total_count",
+    COUNT(*) FILTER (WHERE "corpus" = 'CJEU')::int   AS "cjeu_count",
+    COUNT(*) FILTER (WHERE "corpus" = 'RS')::int     AS "rs_count",
+    COUNT(*) FILTER (WHERE "corpus" = 'ECHR')::int   AS "echr_count"
+FROM resolved
+GROUP BY "legislation_id";
+
+CREATE UNIQUE INDEX IF NOT EXISTS "legislation_citing_counts_legislation_id"
+    ON "cle_v2"."legislation_citing_counts" ("legislation_id");
+
+CREATE INDEX IF NOT EXISTS "legislation_citing_counts_total_desc"
+    ON "cle_v2"."legislation_citing_counts" ("total_count" DESC, "legislation_id");
+
+-- Mirror of caselaw-coolify 0019_legislation_equivalence.sql
+CREATE TABLE IF NOT EXISTS "cle_v2"."legislation_equivalence" (
+    "canonical_legislation_id" bigint      NOT NULL REFERENCES "cle_v2"."legislation"("id") ON DELETE CASCADE,
+    "alias_legislation_id"     bigint      NOT NULL REFERENCES "cle_v2"."legislation"("id") ON DELETE CASCADE,
+    "relation"                 text        NOT NULL DEFAULT 'same_instrument'
+                               CHECK ("relation" IN ('same_instrument', 'consolidates')),
+    "source"                   text        NOT NULL DEFAULT 'curated',
+    "created_at"               timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("canonical_legislation_id", "alias_legislation_id"),
+    UNIQUE ("alias_legislation_id"),
+    CHECK ("canonical_legislation_id" <> "alias_legislation_id")
+);
+
+CREATE INDEX IF NOT EXISTS "legislation_equivalence_idx_canonical"
+    ON "cle_v2"."legislation_equivalence" ("canonical_legislation_id");
+
+-- Mirror of caselaw-coolify 0020_echr_text_extractors.sql
+CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_echr_treaty"
+    ON "cle_v2"."case_law_reference"
+    ("case_id", "raw_scheme", "raw_resource", COALESCE("raw_subdivision", ''), "role", "source_dataset")
+    WHERE "raw_resource" IS NOT NULL
+      AND ("legislation_id" IS NOT NULL OR "provision_id" IS NOT NULL)
+      AND "source_dataset" = 'echr_text_treaty';
+
+INSERT INTO "cle_v2"."citation_source_dataset" (code, description, corpus, counted, active_in_api)
+VALUES ('echr_text_echr', 'ECtHR full-text precedent extraction for empty-scl judgments.', 'ECHR', true, true)
+ON CONFLICT (code) DO NOTHING;
