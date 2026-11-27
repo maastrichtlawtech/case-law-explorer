@@ -33,6 +33,25 @@ env_file = find_dotenv()
 load_dotenv(env_file, override=True)
 
 
+def _preserve_fulltext_commas():
+    """Use cellar_extractor's comma-preserving HTML renderer for JSON full texts.
+
+    cellar_extractor.eurlex_scraping.get_full_text_from_html replaces every ','
+    with '_' for legacy CSV pipelines, whereas cellar_etl writes full texts as
+    JSON (cellar_full_text.json) and loads them directly into cle_v2.case_text.
+    """
+    try:
+        from cellar_extractor import eurlex_scraping, fulltext_saving
+    except ImportError:
+        return False
+    clean_fn = getattr(eurlex_scraping, "get_clean_text_from_html", None)
+    if clean_fn is None:
+        return False
+    eurlex_scraping.get_full_text_from_html = clean_fn
+    fulltext_saving.get_full_text_from_html = clean_fn
+    return True
+
+
 def _output_paths(output_dir):
     """Extraction artifact paths: month-scoped under output_dir when given,
     otherwise the legacy global raw-dir locations."""
@@ -207,6 +226,8 @@ def cellar_extract(args, output_dir=None, skip_if_exists: bool = False) -> dict:
     session.trust_env = False
     if hasattr(cell, "requests"):
         cell.requests.Session = lambda: session
+    if _preserve_fulltext_commas():
+        logging.info("Enabled comma-preserving CELLAR full-text rendering")
 
     # No EUR-Lex webservice credentials. 2.x documents username and password as
     # deprecated and ignored, and enriches citations over SPARQL
