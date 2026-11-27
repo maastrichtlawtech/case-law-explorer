@@ -16,6 +16,27 @@ the transformer writes as ``ECLI``; extractor_row() undoes that.
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime
+from urllib.parse import unquote
+
+
+def clean_person_name(value: str | None) -> str | None:
+    """Normalize a CELLAR person/judge label, extracting /resource/agent/<Name>
+    URIs and dropping raw cellar UUID URIs so URLs never land in cle_v2.judge."""
+    if not value:
+        return None
+    text = " ".join(str(value).split())
+    if not text:
+        return None
+    lower = text.lower()
+    if lower.startswith(("http://", "https://")):
+        marker = "/resource/agent/"
+        idx = text.find(marker)
+        if idx == -1:
+            return None
+        tail = unquote(text[idx + len(marker) :]).replace("_", " ")
+        tail = " ".join(tail.split())
+        return tail or None
+    return text
 
 CDM_ROLE_COLUMNS = {
     "legal_resource": "legal_basis",
@@ -300,7 +321,7 @@ def map_row(row: dict) -> CaseMapping:
     if is_opinion:
         mapping.ag = {
             "ecli": ecli,
-            "ag": first(get("advocate_general")),
+            "ag": clean_person_name(first(get("advocate_general"))),
             "opinion_uri": first(get("conclusions")),
             "parent_raw": first(get("opinion_advocate_general_joined_to_case_court")),
         }
@@ -323,11 +344,13 @@ def map_row(row: dict) -> CaseMapping:
         for token in toks(get(column)):
             mapping.domains.add((scheme, token))
 
-    rapporteur = first(get("judge_rapporteur"))
+    rapporteur = clean_person_name(first(get("judge_rapporteur")))
     if rapporteur:
         mapping.judges.add((rapporteur, "rapporteur"))
     for judge in toks(get("case_law_delivered_by_judge")):
-        mapping.judges.add((judge, "judge"))
+        cleaned = clean_person_name(judge)
+        if cleaned:
+            mapping.judges.add((cleaned, "judge"))
 
     # Agents and the referring state, as the migration represented them.
     for column, role in AGENT_COLUMNS:

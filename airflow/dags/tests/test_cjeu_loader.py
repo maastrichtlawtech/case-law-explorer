@@ -215,3 +215,24 @@ def test_link_ecli_leaves_cross_dataset_link_rows_alone():
     # them.
     assert "AND NOT (starts_with(cc.source_dataset, 'rs_text_') OR" in cjeu_loader.SQL_LINK_ECLI
     assert "starts_with(cc.source_dataset, 'echr_text_')" in cjeu_loader.SQL_LINK_ECLI
+
+
+def test_map_row_rejects_raw_cellar_uris_and_extracts_agent_uri_names():
+    m = map_row(
+        {
+            "ecli": "ECLI:EU:C:1979:220",
+            "celex": "61977CJ0152",
+            "judge_rapporteur": "http://publications.europa.eu/resource/agent/Pescatore",
+            "case_law_delivered_by_judge": (
+                "http://publications.europa.eu/resource/cellar/7bd562fa-e41b-4843-a862-3dad75cc7c5d;"
+                "http://publications.europa.eu/resource/agent/Bay_Larsen;"
+                "Lenaerts"
+            ),
+            "date_publication": "1979-10-04",
+        }
+    )
+    assert m.judges == {
+        ("Pescatore", "rapporteur"),
+        ("Bay Larsen", "judge"),
+        ("Lenaerts", "judge"),
+    }
