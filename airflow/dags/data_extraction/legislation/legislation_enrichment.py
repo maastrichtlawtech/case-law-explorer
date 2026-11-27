@@ -201,6 +201,8 @@ def parse_cellar_notice_xml(celex: str, xml_bytes: bytes) -> LegislationEnrichme
     expr = root.find("EXPRESSION")
 
     title = _child_value(expr, "EXPRESSION_TITLE")
+    if title:
+        title = re.sub(r"#[^#]*$", "", title).strip() or None
     short_title = _child_value(expr, "EXPRESSION_TITLE_SHORT")
     date_doc = _iso_date(_child_value(work, "WORK_DATE_DOCUMENT"))
     date_eif = _iso_date(_child_value(work, "RESOURCE_LEGAL_DATE_ENTRY-INTO-FORCE"))
