@@ -1675,3 +1675,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS "legislation_citing_counts_legislation_id"
 
 CREATE INDEX IF NOT EXISTS "legislation_citing_counts_total_desc"
     ON "cle_v2"."legislation_citing_counts" ("total_count" DESC, "legislation_id");
+
+-- Mirror of caselaw-coolify 0019_legislation_equivalence.sql
+CREATE TABLE IF NOT EXISTS "cle_v2"."legislation_equivalence" (
+    "canonical_legislation_id" bigint      NOT NULL REFERENCES "cle_v2"."legislation"("id") ON DELETE CASCADE,
+    "alias_legislation_id"     bigint      NOT NULL REFERENCES "cle_v2"."legislation"("id") ON DELETE CASCADE,
+    "relation"                 text        NOT NULL DEFAULT 'same_instrument'
+                               CHECK ("relation" IN ('same_instrument', 'consolidates')),
+    "source"                   text        NOT NULL DEFAULT 'curated',
+    "created_at"               timestamptz NOT NULL DEFAULT now(),
+    PRIMARY KEY ("canonical_legislation_id", "alias_legislation_id"),
+    UNIQUE ("alias_legislation_id"),
+    CHECK ("canonical_legislation_id" <> "alias_legislation_id")
+);
+
+CREATE INDEX IF NOT EXISTS "legislation_equivalence_idx_canonical"
+    ON "cle_v2"."legislation_equivalence" ("canonical_legislation_id");
