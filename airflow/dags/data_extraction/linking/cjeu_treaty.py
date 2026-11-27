@@ -701,7 +701,7 @@ def extract_pending(
                     WHERE ct.case_id = cd.case_id
                       AND ct.fulltext_tsv @@ to_tsquery('simple', %s)
                )
-             ORDER BY cd.case_id
+             ORDER BY cd.case_id DESC
              LIMIT %s
             """,
             (DATASET, _CANDIDATE_TSQUERY, limit),
