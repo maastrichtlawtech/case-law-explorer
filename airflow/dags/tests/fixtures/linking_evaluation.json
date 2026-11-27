@@ -1,0 +1,2507 @@
+{
+  "schema_version": 1,
+  "name": "cross-dataset linking evaluation set",
+  "roadmap_item": "R0.3",
+  "created": "2026-11-24",
+  "sources": {
+    "research": "davidwickerhf/cjeu-migration@13a9904 (branch docs/cross-dataset-linking-roadmap) migration/verify/research-2026-11-24/",
+    "roadmap": "cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md"
+  },
+  "schema": {
+    "id": "unique string",
+    "category": "primary category; see README_linking_evaluation.md",
+    "label": "positive (the link must be predicted) | negative (none of must_not_link may be predicted)",
+    "source": "object {collection: RS|CJEU|ECHR, ecli?, celex?, case_id?, date?}; null on a negative means any source",
+    "target": "positive: the expected target {collection, ecli?, celex?, case_id?, case_number?, appno?}; negative: null",
+    "must_not_link": "negative only: list of target objects that must not be predicted",
+    "relation_type": "cites | preliminary_reference | national_follow_up | opinion_of | ...; a negative may list several",
+    "direction": "negative only, optional: 'either' also forbids target -> source",
+    "text_field": "fulltext | summary | national_judgement_xml | metadata",
+    "text_owner": "source | target: which document's text_field holds the evidence",
+    "text": "verbatim excerpt from the research files, or null",
+    "requires_db": "true when there is no excerpt and the entry can only be scored on a database run",
+    "document_level": "false when the entry is only valid for its excerpt (scored in excerpt mode only)",
+    "tags": "secondary adversarial aspects (e.g. u2011_hyphen, joined_member, d4)",
+    "reason": "why a negative must not be linked (required on negatives)",
+    "note": "free text",
+    "provenance": "research file and line the entry comes from",
+    "identifier_matching": "a predicted endpoint matches a fixture endpoint on the first identifier both carry, in the order ecli, celex, case_id, case_number, appno (case_id is a production cle_v2 id)"
+  },
+  "entries": [
+    {
+      "id": "gold-01",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2017:1098",
+        "date": "2017-04-19"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2019:189",
+        "date": "2019-03-12",
+        "celex": "62017CJ0221",
+        "case_number": "C-221/17"
+      },
+      "relation_type": "preliminary_reference",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Raad van State, 19/04/2017 (201504577/1/A3 ; 201507057/1/A3 ; 201508588/1/A3 et 201601993/1/A3)</p>\n        <p>*P1* Raad van State, Uitspraak 12/02/2020 (201504577/2/A3, 201507057/2/A3, 201508588/2/A3, 201601993/2/A3, 201604943/1/A3 et 201608752/1/A3)</p>\n        <p>Jurifast</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "zaaknummer_list"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:337; cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62017CJ0221, row id 80467); README.md goldset/ ('*A9* Raad van State, 19/04/2017 (201504577/1/A3 ...)')",
+      "note": "Referral named in neither text; only Cellar's *A9* line links it (date 19/04/2017 + zaaknummers 201504577/1/A3 etc. of the referral).",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "gold-02",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2020:423",
+        "date": "2020-02-12"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2019:189",
+        "date": "2019-03-12",
+        "celex": "62017CJ0221",
+        "case_number": "C-221/17"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "ecli"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:345; goldset/trace2.json (other_mentions_cjeu: ecli EU:C:2019:189, name, date; edge <- cites/rs_body_cite)",
+      "note": "Already an rs_body_cite edge; mentions EU:C:2019:189 in fulltext.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-03",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:HR:2020:593",
+        "date": "2020-04-03"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2019:189",
+        "date": "2019-03-12",
+        "celex": "62017CJ0221",
+        "case_number": "C-221/17"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "ecli",
+        "case_number"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:353; goldset/trace2.json (ecli EU:C:2019:189, caseno C-221/17; edge <- cites/rs_body_cite)",
+      "note": "Already an rs_body_cite edge.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-04",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:HR:2022:637",
+        "date": "2022-04-22"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2019:189",
+        "date": "2019-03-12",
+        "celex": "62017CJ0221",
+        "case_number": "C-221/17"
+      },
+      "relation_type": "cites",
+      "text_field": "summary",
+      "text_owner": "source",
+      "tags": [
+        "summary_only",
+        "art81_ro"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:361; README.md goldset/ ('HR:2022:637 cites C-221/17 and EU:C:2019:189 only in case_text.summary'); cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md 'Hand-checked gold set'",
+      "note": "Art. 81 RO ruling: C-221/17 and EU:C:2019:189 appear only in case_text.summary, not in fulltext; an extractor that scans fulltext only misses it.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-05",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2020:0625JUD005227316",
+        "date": "2020-06-25"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2019:189",
+        "date": "2019-03-12",
+        "celex": "62017CJ0221",
+        "case_number": "C-221/17"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "ecli",
+        "case_number",
+        "echr_text_cjeu"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:369; goldset/trace2.json (ecli EU:C:2019:189, caseno C-221/17); goldset/trace.json (b_text mentions EU:C:2019:189 x2, C-221/17 x2)",
+      "note": "Ghoumid and Others v. France cites Tjebbes by short ECLI and case number.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-06",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2012:BW3078",
+        "date": "2012-04-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "preliminary_reference",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-199/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201012342/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201012342/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-200/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201106615/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201106615/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-201/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2012 p. 298-299</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "joined_case_affaire",
+        "zaaknummer_variant"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:401; cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62012CJ0199, row id 71741); README.md goldset/",
+      "note": "*A9* line under '** AFFAIRE C-199/12 **' (18/04/2012). RS zaaknummer 201012342/1/T1/V2 is written without the '/1' in Cellar (201012342/T1/V2), so exact token matching fails.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "gold-07",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2012:BW3077",
+        "date": "2012-04-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "preliminary_reference",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-199/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201012342/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201012342/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-200/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201106615/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201106615/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-201/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2012 p. 298-299</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "joined_case_affaire",
+        "zaaknummer_variant"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:409; cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62012CJ0199, row id 71741); README.md goldset/",
+      "note": "*A9* line under '** AFFAIRE C-200/12 **' (18/04/2012). RS zaaknummer 201106615/1/T1/V2 is written without the '/1' in Cellar (201106615/T1/V2), so exact token matching fails.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "gold-08",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2012:BW3076",
+        "date": "2012-04-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "preliminary_reference",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-199/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201012342/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201012342/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-200/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201106615/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201106615/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-201/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2012 p. 298-299</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "joined_case_affaire"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:417; cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62012CJ0199, row id 71741); README.md goldset/",
+      "note": "*A9* line under '** AFFAIRE C-201/12 **' (18/04/2012). RS zaaknummer 201109928/T1/V2 matches Cellar exactly.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "gold-09",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2013:2423",
+        "date": "2013-12-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number_only"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:425; goldset/trace2.json (caseno C-199/12, name 'X, Y en Z', date '7 november 2013'; no ECLI)",
+      "note": "Cites C-199/12, the name and the date, but no ECLI.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-10",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2013:2424",
+        "date": "2013-12-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number_only"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:433; goldset/trace2.json (caseno C-199/12, name 'X, Y en Z', date '7 november 2013'; no ECLI)",
+      "note": "Cites C-199/12, the name and the date, but no ECLI.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-11",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2013:2422",
+        "date": "2013-12-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number_only",
+        "joined_member"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:441; goldset/trace2.json (caseno C-199/12, C-201/12, name 'X, Y en Z', date '7 november 2013'; no ECLI)",
+      "note": "Cites C-199/12, C-201/12, the name and the date, but no ECLI.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-12",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2015:2170",
+        "date": "2015-07-08"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "ecli",
+        "case_number",
+        "joined_member"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:449; goldset/trace2.json (ecli EU:C:2013:720, caseno C-199/12, C-201/12; edge <- cites/rs_body_cite)",
+      "note": "Already an rs_body_cite edge.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-13",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2015:4062",
+        "date": "2015-12-24"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "ecli",
+        "case_number",
+        "joined_member"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:457; goldset/trace2.json (ecli EU:C:2013:720, caseno C-199/12, C-201/12; edge <- cites/rs_body_cite)",
+      "note": "Already an rs_body_cite edge.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-14",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2014:0626JUD007139812",
+        "date": "2014-06-26"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number_only",
+        "joined_member",
+        "echr_text_cjeu"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:465; goldset/trace2.json (caseno C-199/12, C-200/12, C-201/12)",
+      "note": "M.E. v. Sweden: joined case numbers C-199/12 to C-201/12 must resolve to the one lead judgment (C-200/12 and C-201/12 have no document of their own).",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-15",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2017:1219DEC002141717",
+        "date": "2017-12-19"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number_only",
+        "plain_space_case_number",
+        "echr_text_cjeu"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:473; goldset/trace2.json (caseno 'C-199/12', 'C 199/12'); README.md goldset/ ('French, \"C 199/12\" with a plain space')",
+      "note": "I.K. v. Switzerland (French) writes 'C 199/12' with a plain space.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-16",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2020:1117JUD000088919",
+        "date": "2020-11-17"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number_only",
+        "joined_member",
+        "echr_text_cjeu"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:481; goldset/trace2.json (caseno C-199/12, C-200/12, C-201/12)",
+      "note": "B and C v. Switzerland.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-17",
+      "category": "goldset_citation",
+      "label": "positive",
+      "source": {
+        "collection": "CJEU",
+        "celex": "62012CC0199",
+        "date": null
+      },
+      "target": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2004:0622DEC001734103",
+        "date": "2004-06-22",
+        "appno": "17341/03"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "appno",
+        "cjeu_text_echr",
+        "ag_opinion_source"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:489; README.md goldset/ ('F. v. UK (2004) is cited by AG Sharpston's opinion in C-199/12 (62012CC0199) by application number 17341/03 and \"F. c. Royaume-Uni\", not by the judgment'); cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md 'Hand-checked gold set' (needs R2.6 plus R2.4)",
+      "note": "The gold set lists this as X, Y and Z <-> F. v. UK; the citing document is the AG opinion, not the judgment (D3: no derived cites row for the judgment, see d3-01). Source date not in the research files.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "gold-neg-01",
+      "category": "goldset_non_citation",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2016:0621JUD007613612",
+        "date": "2016-06-21"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "ecli": "ECLI:EU:C:2019:189",
+          "date": "2019-03-12",
+          "celex": "62017CJ0221",
+          "case_number": "C-221/17"
+        }
+      ],
+      "relation_type": "cites",
+      "direction": "either",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "d1",
+        "target_after_source"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:377; goldset/trace2.json (no mentions in either direction); README.md goldset/; cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md D1",
+      "reason": "Ramadan does not cite Tjebbes and is not cited by it (thematic 'same legal question' link in the E-01 key; D1 keeps it out of citation scoring); Ramadan (2016-06-21) also predates Tjebbes (2019-03-12).",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "gold-neg-02",
+      "category": "goldset_non_citation",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2017:0207DEC004238713",
+        "date": "2017-02-07"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "ecli": "ECLI:EU:C:2019:189",
+          "date": "2019-03-12",
+          "celex": "62017CJ0221",
+          "case_number": "C-221/17"
+        }
+      ],
+      "relation_type": "cites",
+      "direction": "either",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "d1",
+        "target_after_source"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:385; goldset/trace2.json (no mentions in either direction); README.md goldset/; cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md D1",
+      "reason": "K2 does not cite Tjebbes and is not cited by it (thematic 'same legal question' link in the E-01 key; D1 keeps it out of citation scoring); K2 (2017-02-07) also predates Tjebbes (2019-03-12).",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "gold-neg-03",
+      "category": "goldset_non_citation",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2020:1222JUD004393618",
+        "date": "2020-12-22"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "ecli": "ECLI:EU:C:2019:189",
+          "date": "2019-03-12",
+          "celex": "62017CJ0221",
+          "case_number": "C-221/17"
+        }
+      ],
+      "relation_type": "cites",
+      "direction": "either",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "d1"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:393; goldset/trace2.json (no mentions in either direction); README.md goldset/; cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md D1",
+      "reason": "Usmanov does not cite Tjebbes and is not cited by it (thematic 'same legal question' link in the E-01 key; D1 keeps it out of citation scoring).",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "ref-fu-01",
+      "category": "cellar_referral_follow_up",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2020:423",
+        "date": "2020-02-12"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2019:189",
+        "date": "2019-03-12",
+        "celex": "62017CJ0221",
+        "case_number": "C-221/17"
+      },
+      "relation_type": "national_follow_up",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Raad van State, 19/04/2017 (201504577/1/A3 ; 201507057/1/A3 ; 201508588/1/A3 et 201601993/1/A3)</p>\n        <p>*P1* Raad van State, Uitspraak 12/02/2020 (201504577/2/A3, 201507057/2/A3, 201508588/2/A3, 201601993/2/A3, 201604943/1/A3 et 201608752/1/A3)</p>\n        <p>Jurifast</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62017CJ0221, row id 80467); goldset/data.js:345 (date 2020-02-12, caseno 201504577/2/A3, 201507057/2/A3, 201508588/2/A3, 201601993/2/A3, 201604943/1/A3 en 201608752/1/A3)",
+      "note": "*P1* Raad van State, Uitspraak 12/02/2020 (201504577/2/A3, ...) matches the zaaknummers of RVS:2020:423 exactly.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "ref-fu-02",
+      "category": "cellar_referral_follow_up",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2013:2423",
+        "date": "2013-12-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "national_follow_up",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-199/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201012342/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201012342/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-200/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201106615/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201106615/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-201/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2012 p. 298-299</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "zaaknummer_variant",
+        "joined_case_affaire"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62012CJ0199, row id 71741); goldset/data.js:425 (date 2013-12-18, caseno 201012342/1/V2)",
+      "note": "*P1* line under '** AFFAIRE C-199/12 **' (18/12/2013) gives 201012342/T1/V2; the RS decision's zaaknummer is 201012342/1/V2 (the referral's number is reused with a different suffix), so matching needs date + court + zaaknummer base, not an exact token.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "ref-fu-03",
+      "category": "cellar_referral_follow_up",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2013:2424",
+        "date": "2013-12-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "national_follow_up",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-199/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201012342/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201012342/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-200/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201106615/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201106615/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-201/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2012 p. 298-299</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "zaaknummer_variant",
+        "joined_case_affaire"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62012CJ0199, row id 71741); goldset/data.js:433 (date 2013-12-18, caseno 201106615/1/V2)",
+      "note": "*P1* line under '** AFFAIRE C-200/12 **' (18/12/2013) gives 201106615/T1/V2; the RS decision's zaaknummer is 201106615/1/V2 (the referral's number is reused with a different suffix), so matching needs date + court + zaaknummer base, not an exact token.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "ref-fu-04",
+      "category": "cellar_referral_follow_up",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2013:2422",
+        "date": "2013-12-18"
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199",
+        "case_number": "C-199/12"
+      },
+      "relation_type": "national_follow_up",
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-199/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201012342/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201012342/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-200/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201106615/T1/V2)</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201106615/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n        <p>** AFFAIRE C-201/12 **</p>\n        <p>*A9* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/04/2012 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2012 p. 298-299</p>\n        <p>*P1* Raad van State, afdeling bestuursrechtspraak, uitpsraak van 18/12/2013 (201109928/T1/V2)</p>\n        <p>- Garben, Sacha; Janssen, Sally: S.E.W. ; Sociaal-economische wetgeving 2014 p. 82-83</p>\n        <p>- Den Heijer, Maarten: Asiel en seksuele gerichtheid: beïnvloedende continuïteit, Asiel en Migrantenrecht 2014 p.31-33</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "zaaknummer_variant",
+        "joined_case_affaire"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62012CJ0199, row id 71741); goldset/data.js:441 (date 2013-12-18, caseno 201109928/1/V2)",
+      "note": "*P1* line under '** AFFAIRE C-201/12 **' (18/12/2013) gives 201109928/T1/V2; the RS decision's zaaknummer is 201109928/1/V2 (the referral's number is reused with a different suffix), so matching needs date + court + zaaknummer base, not an exact token.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "foreign-court-01",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61976CJ0065",
+          "ecli": "ECLI:EU:C:1977:7"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Rechtbank van eerste aanleg te Oudenaarde, vonnis van 25/06/1976 (105/76 1773)</p>\n        <p>*P1* Correctionele rechtbank Oudenaarde, vonnis van 27/05/1977 (105BEP76 1481)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "passes_parse_match_filter"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61976CJ0065, row id 47806); cjeu/entries.json (line kept by parse_match.py's foreign-court filter)",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court that parse_match.py's BE pattern does not catch (it slipped into entries.json); no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-02",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62000CJ0153",
+          "ecli": "ECLI:EU:C:2002:735"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n            <p>*A9* Rechtbank van 1e aanleg Turnhout, vonnis van 13/04/2000 (9/99)</p>\n         </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "passes_parse_match_filter"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62000CJ0153, row id 60295); cjeu/entries.json (line kept by parse_match.py's foreign-court filter)",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court that parse_match.py's BE pattern does not catch (it slipped into entries.json); no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-03",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62010CO0288",
+          "ecli": "ECLI:EU:C:2011:443"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Rechtbank van Koophandel te Dendermonde, kort geding, beschikking van 02/06/2010 (AR.K. 7/2010)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml",
+        "passes_parse_match_filter"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 62010CO0288, row id 68583); cjeu/entries.json (line kept by parse_match.py's foreign-court filter)",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court that parse_match.py's BE pattern does not catch (it slipped into entries.json); no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-04",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61970CJ0012",
+          "ecli": "ECLI:EU:C:1970:86"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A7* Rechtbank van eerste aanleg Kortrijk, vonnis van 21/10/1968 (1448)</p>\n        <p>*A8* Hof van beroep Gent, arrest van 06/02/1969 (I.6007/68)</p>\n        <p>*A9* Hof van Cassatie, 2e kamer, arrest van 09/03/1970 (9598)</p>\n        <p>- Journal des tribunaux. Luxembourg 1970 p.573-574 (*) (Texte français)</p>\n        <p>- Rechtskundig weekblad 1970-71 Col.328-331</p>\n        <p>- Pasicrisie belge 1970 I p.595-598 (Texte français)</p>\n        <p>- Revue fiscale 1970 p.524-527 (Texte français)</p>\n        <p>*P1* Hof van Cassatie, 2e kamer, arrest van 11/05/1971 (9598)</p>\n        <p>- Rechtskundig weekblad 1971-72 Col.421-424</p>\n        <p>- Pasicrisie belge 1971 I p.829-831 (*) (Texte français)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61970CJ0012, row id 46891); filtered out by parse_match.py's BE pattern",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court; no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-05",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61971CJ0023",
+          "ecli": "ECLI:EU:C:1971:101"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Arbeidsrechtbank van het Arrondissement Tongeren, vonnis van 30/04/1971 (234/1970)</p>\n        <p>- J.R.R.: Rechtskundig weekblad 1971-72 Col.1251-1252</p>\n        <p>*P1* Arbeidsrechtbank Tongeren, vonnis van 24/10/1972 (243/1970)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61971CJ0023, row id 47011); filtered out by parse_match.py's BE pattern",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court; no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-06",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61972CJ0020",
+          "ecli": "ECLI:EU:C:1972:94"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Rechtbank van koophandel te Antwerpen, 3e kamer, vonnis van 26/04/1972 (92.899/68)</p>\n        <p>*P1* Rechtbank van koophandel Antwerpen, brief van 21/09/1977 (92.899/68)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61972CJ0020, row id 47139); filtered out by parse_match.py's BE pattern",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court; no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-07",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61972CJ0045",
+          "ecli": "ECLI:EU:C:1972:121"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Arbeidsrechtbank Hasselt, vonnis van 23/06/1972 (72/910)</p>\n        <p>*P1* Arbeidsrechtbank Hasselt, 1e kamer, vonnis van 28/05/1973 (72/910)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61972CJ0045, row id 47152); filtered out by parse_match.py's BE pattern",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court; no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-08",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61973CJ0037",
+          "ecli": "ECLI:EU:C:1973:165"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-37/73 **</p>\n        <p>*A9* Arbeidsrechtbank Antwerpen, 11e kamer, vonnis van 23/02/1973 (4.261)</p>\n        <p>*I1* Arbeidshof Brussel, 9e kamer, arrest van 09/08/1974 (1424)</p>\n        <p>*P1* Arbeidsrechtbank Antwerpen, 11e kamer, vonnis van 22/11/1974 (4.261)</p>\n        <p>*P2* Hof van Cassatie, 3e kamer, arrest van 14/01/1976 (1564)</p>\n        <p>- Europäische Grundrechte-Zeitschrift 1977 p.370-372 (*) (Texte allemand)</p>\n        <p>- Rechtskundig weekblad 1975-76 Col.1762-1769</p>\n        <p>- Pasicrisie belge 1976 I p.538-545 (*) (Texte français)</p>\n        <p>** AFFAIRE C-38/73 **</p>\n        <p>*A9* Arbeidsrechtbank Antwerpen, 11e kamer, vonnis van 23/02/1973 (4.318)</p>\n        <p>*I1* Arbeidshof Brussel, 9e kamer, arrest van 09/08/1974 (1426)</p>\n        <p>*P1* Arbeidsrechtbank Antwerpen, 11e kamer, vonnis van 22/11/1974 (4.318)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61973CJ0037, row id 47317); filtered out by parse_match.py's BE pattern",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court; no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-09",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61973CJ0127",
+          "ecli": "ECLI:EU:C:1974:6"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>*A9* Rechtbank van 1e aanleg Brussel, 12e kamer, vonnis van 04/04/1973 (149)</p>\n        <p>- Rechtskundig weekblad 1973-74 Col.2338-2345</p>\n        <p>- Common Market Law Reports 1974 Vol.2 p.244-251 p.285-293</p>\n        <p>- Journal des tribunaux 1974 p.263-266</p>\n        <p>- Rivista di diritto industriale 1974 II p.334-339</p>\n        <p>- Van Bunnen, Louis: Journal des tribunaux 1974 p.266 (FR)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61973CJ0127, row id 47326); filtered out by parse_match.py's BE pattern",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court; no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "foreign-court-10",
+      "category": "referral_foreign_court",
+      "label": "negative",
+      "source": null,
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61973CJ0178",
+          "ecli": "ECLI:EU:C:1974:36"
+        }
+      ],
+      "relation_type": [
+        "preliminary_reference",
+        "national_follow_up",
+        "earlier_instance"
+      ],
+      "text_field": "national_judgement_xml",
+      "text_owner": "target",
+      "text": "<national_judgement>\n        <p>** AFFAIRE C-178/73 **</p>\n        <p>*A8* Rechtbank van eerste aanleg Antwerpen, 10e kamer bis, vonnis van 29/06/1970 (4850)</p>\n        <p>*A9* Hof van beroep te Brussel, 15e kamer, arrest van 05/03/1971 (433/71)</p>\n        <p>*I1* Hof van Cassatie, désistement partiel du 11/04/1972 (433/71)</p>\n        <p>*I2* Hof van Cassatie, arrest van 19/12/1972</p>\n        <p>- Pasicrisie belge 1973 I p.396-422 (*) (Texte français)</p>\n        <p>*P1* Hof van beroep Antwerpen, 7e kamer, arrest van 30/06/1982 (972 679/A/74)</p>\n        <p>** AFFAIRE C-179/73 **</p>\n        <p>*A7* Rechtbank van eerste aanleg Antwerpen, 10e kamer bis, vonnis van 29/06/1970 (4850)</p>\n        <p>*A8* Hof van beroep Brussel, 15e kamer, arrest van 05/03/1971 (433/71)</p>\n        <p>*A9* Hof van beroep te Brussel, 15e kamer, arrest van 28/05/1971 (1135/71)</p>\n        <p>*I1* Hof van Cassatie, désistement partiel du 07/06/1971 (433/71)</p>\n        <p>*I2* Hof van Cassatie, arrest van 19/12/1972</p>\n        <p>- Pasicrisie belge 1973 I p.396-422 (*) (Texte français)</p>\n        <p>*P1* Hof van beroep Antwerpen, brief van 10/02/1977 (1135/71)</p>\n        <p>** AFFAIRE C-180/73 **</p>\n        <p>*A9* Hof van beroep te Brussel, 15e kamer, arrest van 28/02/1973</p>\n        <p>*I1* Hof van Cassatie, arrest van 25/09/1973 (1916)</p>\n        <p>*P1* Hof van beroep Antwerpen, 7e kamer, arrest van 05/05/1978 (545 690/A/72)</p>\n        <p>*P2* Hof van Cassatie, 2e kamer, arrest van 10/10/1978 (4867)</p>\n        <p>- Pasicrisie belge 1979 I p.185-191 (*) (Texte français)</p>\n      </national_judgement>",
+      "tags": [
+        "referral_xml"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/cjeu/nj_nl.json (national_judgement_xml of 61973CJ0178, row id 47352); filtered out by parse_match.py's BE pattern",
+      "reason": "Every *A*/*P*/*I* line in this record names a Belgian court; no Rechtspraak document may be linked to this ruling as referral or follow-up.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "after-source-01",
+      "category": "target_after_source",
+      "label": "negative",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2017:1098",
+        "date": "2017-04-19"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "ecli": "ECLI:EU:C:2019:189",
+          "date": "2019-03-12",
+          "celex": "62017CJ0221",
+          "case_number": "C-221/17"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:337 (dates 2017-04-19 vs 2019-03-12)",
+      "reason": "The referral (2017-04-19) predates the ruling (2019-03-12); the link is preliminary_reference (gold), never cites.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "referral-not-cited-01",
+      "category": "referral_not_a_citation",
+      "label": "negative",
+      "source": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2019:189",
+        "date": "2019-03-12",
+        "celex": "62017CJ0221"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "RS",
+          "ecli": "ECLI:NL:RVS:2017:1098",
+          "date": "2017-04-19"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md goldset/ ('The referrals (RVS:2017:1098, BW3076-BW3078) are named in neither text')",
+      "reason": "The CJEU ruling does not name its referring decision; the referral link comes from national_judgement_xml as preliminary_reference, not from a text citation.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "after-source-02",
+      "category": "target_after_source",
+      "label": "negative",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2012:BW3078",
+        "date": "2012-04-18"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "ecli": "ECLI:EU:C:2013:720",
+          "date": "2013-11-07",
+          "celex": "62012CJ0199",
+          "case_number": "C-199/12"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:401 (dates 2012-04-18 vs 2013-11-07)",
+      "reason": "The referral (2012-04-18) predates the ruling (2013-11-07); the link is preliminary_reference (gold), never cites.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "referral-not-cited-02",
+      "category": "referral_not_a_citation",
+      "label": "negative",
+      "source": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "RS",
+          "ecli": "ECLI:NL:RVS:2012:BW3078",
+          "date": "2012-04-18"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md goldset/ ('The referrals (RVS:2017:1098, BW3076-BW3078) are named in neither text')",
+      "reason": "The CJEU ruling does not name its referring decision; the referral link comes from national_judgement_xml as preliminary_reference, not from a text citation.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "after-source-03",
+      "category": "target_after_source",
+      "label": "negative",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2012:BW3077",
+        "date": "2012-04-18"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "ecli": "ECLI:EU:C:2013:720",
+          "date": "2013-11-07",
+          "celex": "62012CJ0199",
+          "case_number": "C-199/12"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:409 (dates 2012-04-18 vs 2013-11-07)",
+      "reason": "The referral (2012-04-18) predates the ruling (2013-11-07); the link is preliminary_reference (gold), never cites.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "referral-not-cited-03",
+      "category": "referral_not_a_citation",
+      "label": "negative",
+      "source": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "RS",
+          "ecli": "ECLI:NL:RVS:2012:BW3077",
+          "date": "2012-04-18"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md goldset/ ('The referrals (RVS:2017:1098, BW3076-BW3078) are named in neither text')",
+      "reason": "The CJEU ruling does not name its referring decision; the referral link comes from national_judgement_xml as preliminary_reference, not from a text citation.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "after-source-04",
+      "category": "target_after_source",
+      "label": "negative",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2012:BW3076",
+        "date": "2012-04-18"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "ecli": "ECLI:EU:C:2013:720",
+          "date": "2013-11-07",
+          "celex": "62012CJ0199",
+          "case_number": "C-199/12"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/goldset/data.js:417 (dates 2012-04-18 vs 2013-11-07)",
+      "reason": "The referral (2012-04-18) predates the ruling (2013-11-07); the link is preliminary_reference (gold), never cites.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "referral-not-cited-04",
+      "category": "referral_not_a_citation",
+      "label": "negative",
+      "source": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "RS",
+          "ecli": "ECLI:NL:RVS:2012:BW3076",
+          "date": "2012-04-18"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "referral"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md goldset/ ('The referrals (RVS:2017:1098, BW3076-BW3078) are named in neither text')",
+      "reason": "The CJEU ruling does not name its referring decision; the referral link comes from national_judgement_xml as preliminary_reference, not from a text citation.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "d3-01",
+      "category": "ag_opinion_vs_judgment",
+      "label": "negative",
+      "source": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2013:720",
+        "date": "2013-11-07",
+        "celex": "62012CJ0199"
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "ECHR",
+          "ecli": "ECLI:CE:ECHR:2004:0622DEC001734103",
+          "date": "2004-06-22",
+          "appno": "17341/03"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "d3"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md goldset/ ('cited by AG Sharpston's opinion ... not by the judgment'); cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md D3",
+      "reason": "Only the AG opinion 62012CC0199 cites F. v. UK; no derived cites row for the judgment (D3).",
+      "document_level": true,
+      "text": null,
+      "requires_db": true
+    },
+    {
+      "id": "ag-link-01",
+      "category": "ag_opinion_link",
+      "label": "positive",
+      "source": {
+        "collection": "CJEU",
+        "celex": "62012CC0199",
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62012CJ0199",
+        "ecli": "ECLI:EU:C:2013:720"
+      },
+      "relation_type": "opinion_of",
+      "text_field": "metadata",
+      "text_owner": "source",
+      "tags": [
+        "celex_cc_to_cj"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md goldset/ (AG Sharpston's opinion in C-199/12 (62012CC0199)) and cjeu/ ('CC->CJ swap matches 11,021 of 11,446')",
+      "note": "CELEX CC -> CJ swap (R2.4).",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "rs-echr-01",
+      "category": "rs_text_echr",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RVS:2017:1098",
+        "date": "2017-04-19"
+      },
+      "target": {
+        "collection": "ECHR",
+        "ecli": "ECLI:CE:ECHR:2016:0621JUD007613612",
+        "date": "2016-06-21",
+        "appno": "76136/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md goldset/ ('Ramadan is cited by the referral RVS:2017:1098')",
+      "note": "How Ramadan is cited (ECLI, appno or name) is not recorded in the research files.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "near-ecli-01",
+      "category": "rs_case_number_near_other_ecli",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RBGEL:2026:1195",
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "case_number": "C-684/16"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number",
+        "nearby_ecli_other_case"
+      ],
+      "provenance": "cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md R2.1; cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md rs/ ('a blind 80-character ECLI rule wrongly drops RBGEL:2026:1195 (C-684/16 sits 65 characters from the ECLI of C-619/16)')",
+      "note": "C-684/16 written as a case number 65 characters from the ECLI of C-619/16. Both must be found: skip a case number only when a nearby EU ECLI resolves to the same case number. Source date and the ECLI value are not in the files.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "near-ecli-02",
+      "category": "rs_case_number_near_other_ecli",
+      "label": "positive",
+      "source": {
+        "collection": "RS",
+        "ecli": "ECLI:NL:RBGEL:2026:1195",
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "case_number": "C-619/16"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "tags": [
+        "case_number",
+        "nearby_ecli_other_case"
+      ],
+      "provenance": "cjeu-migration@13a9904 docs/CROSS_DATASET_ROADMAP.md R2.1; cjeu-migration@13a9904 migration/verify/research-2026-11-24/README.md rs/ ('a blind 80-character ECLI rule wrongly drops RBGEL:2026:1195 (C-684/16 sits 65 characters from the ECLI of C-619/16)')",
+      "note": "C-619/16 cited by its ECLI, 65 characters from the case number C-684/16. Both must be found: skip a case number only when a nearby EU ECLI resolves to the same case number. Source date and the ECLI value are not in the files.",
+      "document_level": true,
+      "text": null,
+      "requires_db": true,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-02",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3743832,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "61998CJ0448",
+        "case_id": 3839174,
+        "case_number": "C-448/98"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "udgment concerned the free movement of goods and not, as in the present case, free establishment and the free circulation of services and capital, was devoid of justification.) The Court of Justice had subsequently, in the Guimont judgment of 5 December 2000 (C-448/98), confirmed the application of the Pistre case-law to national rules that were applicable “without distinction”, and had then extended that reasoning t",
+      "tags": [],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:2 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-02-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3743832,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61998CC0448"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "udgment concerned the free movement of goods and not, as in the present case, free establishment and the free circulation of services and capital, was devoid of justification.) The Court of Justice had subsequently, in the Guimont judgment of 5 December 2000 (C-448/98), confirmed the application of the Pistre case-law to national rules that were applicable “without distinction”, and had then extended that reasoning t",
+      "tags": [],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:2; rs/allres_nums.txt (C-448/98 -> 61998CC0448 61998CJ0448)",
+      "reason": "C-448/98 also has 61998CC0448 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-03",
+      "category": "echr_quoted_domestic_judgment",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3773393,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62005CJ0013",
+        "case_id": 3843734,
+        "case_number": "C-13/05"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "y analogy to grounds of discrimination other than those that were explicitly listed in Article 1 of that Directive.  129 . In this connection, the Supreme Court relied on the following: judgment of 11 July 2006, Sonia Chacón Navas v Eurest Colectividades SA , C-13/05, ECLI:EU:C:2006:456, in which the CJEU had held that Directive 2000/78/EC could not be extended by analogy to prohibit discrimination on the grounds of",
+      "tags": [
+        "ecli_in_same_citation",
+        "d4"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:3 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": "The Supreme Court (domestic) relied on the CJEU judgment; ECtHR reports it. D4 is open: the relation may become cites_in_domestic_law.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-03-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3773393,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62005CC0013"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "y analogy to grounds of discrimination other than those that were explicitly listed in Article 1 of that Directive.  129 . In this connection, the Supreme Court relied on the following: judgment of 11 July 2006, Sonia Chacón Navas v Eurest Colectividades SA , C-13/05, ECLI:EU:C:2006:456, in which the CJEU had held that Directive 2000/78/EC could not be extended by analogy to prohibit discrimination on the grounds of",
+      "tags": [
+        "ecli_in_same_citation",
+        "d4"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:3; rs/allres_nums.txt (C-13/05 -> 62005CC0013 62005CJ0013)",
+      "reason": "C-13/05 also has 62005CC0013 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-04",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3769528,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62011CJ0175",
+        "case_id": 3851115,
+        "case_number": "C-175/11"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "o a relationship of subordination of the former to the latter or to doubts as to the former’s impartiality, if, once appointed, they are free from influence or pressure when carrying out their role (see, to that effect, judgment of 31 January 2013, D. and A., C‑175/11, EU:C:2013:45, paragraph 99, and ECtHR, 28 June 1984, Campbell and Fell v. United Kingdom , CE:ECHR:1984:0628JUD000781977, § 79; 2 June 2005, Zolotas v",
+      "tags": [
+        "u2011_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:4 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-04-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3769528,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62011CC0175"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "o a relationship of subordination of the former to the latter or to doubts as to the former’s impartiality, if, once appointed, they are free from influence or pressure when carrying out their role (see, to that effect, judgment of 31 January 2013, D. and A., C‑175/11, EU:C:2013:45, paragraph 99, and ECtHR, 28 June 1984, Campbell and Fell v. United Kingdom , CE:ECHR:1984:0628JUD000781977, § 79; 2 June 2005, Zolotas v",
+      "tags": [
+        "u2011_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:4; rs/allres_nums.txt (C-175/11 -> 62011CC0175 62011CJ0175)",
+      "reason": "C-175/11 also has 62011CC0175 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-05",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3777361,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62022CJ0670",
+        "case_id": 3869480,
+        "case_number": "C-670/22"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "’une procédure nationale similaire soient applicables aux mesures d’enquête indiquées dans la DEE, sans imposer aux États membres de prévoir des voies de recours supplémentaires (points 25 à 27).  74 . Dans son arrêt M.N. (EncroChat) du 30 avril 2024 (affaire C-670/22, EU:C:2024:372), la CJUE a examiné, en Grande chambre, une série de questions préjudicielles relatives à l’émission et à l’exécution de DEE ordonnées e",
+      "tags": [
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:5 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-05-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3777361,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62022CC0670"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "’une procédure nationale similaire soient applicables aux mesures d’enquête indiquées dans la DEE, sans imposer aux États membres de prévoir des voies de recours supplémentaires (points 25 à 27).  74 . Dans son arrêt M.N. (EncroChat) du 30 avril 2024 (affaire C-670/22, EU:C:2024:372), la CJUE a examiné, en Grande chambre, une série de questions préjudicielles relatives à l’émission et à l’exécution de DEE ordonnées e",
+      "tags": [
+        "ecli_in_same_citation"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:5; rs/allres_nums.txt (C-670/22 -> 62022CC0670 62022CJ0670)",
+      "reason": "C-670/22 also has 62022CC0670 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-06",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3722101,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "61991CJ0009",
+        "case_id": 3834045,
+        "case_number": "C-9/91"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "o free prescriptions was not objectively justified to ensure coherence between the retirement pension system and the regulations concerning prescriptions and was not necessarily linked to the difference between pensionable ages for men and women.  In the Case C-9/91 The Queen v. Secretary of State for Social Security , ex parte Equal Opportunities Commission [2000] ECR I-3701 (“the EOC case” concerning reference for",
+      "tags": [],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:6 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-06-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3722101,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61991CC0009"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "o free prescriptions was not objectively justified to ensure coherence between the retirement pension system and the regulations concerning prescriptions and was not necessarily linked to the difference between pensionable ages for men and women.  In the Case C-9/91 The Queen v. Secretary of State for Social Security , ex parte Equal Opportunities Commission [2000] ECR I-3701 (“the EOC case” concerning reference for",
+      "tags": [],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:6; rs/allres_nums.txt (C-9/91 -> 61991CC0009 61991CJ0009)",
+      "reason": "C-9/91 also has 61991CC0009 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-08",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3779973,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62023CJ0144",
+        "case_id": 3870277,
+        "case_number": "C-144/23"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "bsence of such case-law, that the interpretation of EU law was so obvious to the national court or tribunal of last instance as to leave no scope for any reasonable doubt.”  21 . The CJEU confirmed this obligation in its judgment of 15 October 2024 in KUBERA (C-144/23, EU:C:2024:881, paragraph 65) in the context of decisions refusing leave to appeal:  “... Article 267 TFEU, read in the light of the second paragraph o",
+      "tags": [
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:8 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-08-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3779973,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62023CC0144"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "bsence of such case-law, that the interpretation of EU law was so obvious to the national court or tribunal of last instance as to leave no scope for any reasonable doubt.”  21 . The CJEU confirmed this obligation in its judgment of 15 October 2024 in KUBERA (C-144/23, EU:C:2024:881, paragraph 65) in the context of decisions refusing leave to appeal:  “... Article 267 TFEU, read in the light of the second paragraph o",
+      "tags": [
+        "ecli_in_same_citation"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:8; rs/allres_nums.txt (C-144/23 -> 62023CC0144 62023CJ0144)",
+      "reason": "C-144/23 also has 62023CC0144 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-09",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3928993,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62013CJ0206",
+        "case_id": 3852759,
+        "case_number": "C-206/13"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "ed by EU law, even if it is capable of indirectly affecting matters that are covered by EU law; and (c) whether there are specific rules of EU law on the issue or which are capable of affecting it (see, among others, CJEU, judgment of 6 March 2014, Siragusa , C-206/13, EU:C:2014:126, paragraph 25; judgment of 10 July 2014, Julián Hernández and Others , C ‑ 198/13, EU:C:2014:2055, paragraph 37; and judgment of 5 May",
+      "tags": [
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:9 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-10",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3742097,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62006CJ0072",
+        "case_id": 3844465,
+        "case_number": "C-72/06"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "ge classes where necessary for them to undergo normal schooling.  In 2007 the European Commission asked the CJEC (now the CJEU) to examine whether Greece was fulfilling its obligations concerning the reception of refugees. In a judgment of 19 April 2007 (Case C-72/06 Commission v . Greece ), the CJEC found that Greece had failed to fulfil its obligations under the Reception Directive. The Greek authorities subsequent",
+      "tags": [],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:10 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-11",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3747337,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62006CJ0143",
+        "case_id": 3845023,
+        "case_number": "C-143/06"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "législation nationale mettant en œuvre la faculté prévue à cette disposition, doit demeurer exceptionnelle afin de préserver l’effet utile de la procédure d’[autorisation de mise sur le marché] (voir, en ce sens, l’arrêt du 8 novembre 2007, Ludwigs-Apotheke , C-143/06, Rec. p. I-9623, points 33 et 35).  33. Ainsi que l’a exposé M. l’avocat général au point 34 de ses conclusions, la faculté, qui découle de l’article 5",
+      "tags": [
+        "opinion_cue_nearby"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:11 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-12",
+      "category": "echr_quoted_domestic_judgment",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3761947,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "61990CJ0006",
+        "case_id": 3833671,
+        "case_number": "C-6/90"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "liability on the State for acts that were carried out by valid legal instruments for the purpose of implementing a legal duty. MacMenamin J also pointed out that the tort as found in the judgment under appeal did not derive from a Francovich breach of EU law (C-6/90 and C ‑ 9/90, EU:C:1991:428) but rather from the damage allegedly caused by the implementation of EU law after a breach thereof was identified by the CJE",
+      "tags": [
+        "joined_member_in_citation",
+        "ecli_in_same_citation",
+        "d4"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:12 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": "MacMenamin J (Irish court) cites Francovich; the ECtHR reports the domestic reasoning. D4 is open: the relation may become cites_in_domestic_law.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-12-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3761947,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "61990CC0006"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "liability on the State for acts that were carried out by valid legal instruments for the purpose of implementing a legal duty. MacMenamin J also pointed out that the tort as found in the judgment under appeal did not derive from a Francovich breach of EU law (C-6/90 and C ‑ 9/90, EU:C:1991:428) but rather from the damage allegedly caused by the implementation of EU law after a breach thereof was identified by the CJE",
+      "tags": [
+        "joined_member_in_citation",
+        "ecli_in_same_citation",
+        "d4"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:12; rs/allres_nums.txt (C-6/90 -> 61990CC0006 61990CJ0006)",
+      "reason": "C-6/90 also has 61990CC0006 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-13",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3776363,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62015CJ0219",
+        "case_id": 3857455,
+        "case_number": "C-219/15"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "e que modifiée, doit prendre toutes les mesures nécessaires afin de s’acquitter de ses obligations au titre de l’article 16, paragraphe 6, de ladite directive et des points 3.2, 3.3, 4.1 à 4.3 et 5.1 de l’annexe II de celle-ci (CJUE, 16 février 2017, Schmitt, C-219/15).  Il résulte de cette décision que, en présence d’indices laissant supposer qu’un dispositif médical ne serait pas conforme aux exigences qui découlen",
+      "tags": [],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:13 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-13-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3776363,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62015CC0219"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "e que modifiée, doit prendre toutes les mesures nécessaires afin de s’acquitter de ses obligations au titre de l’article 16, paragraphe 6, de ladite directive et des points 3.2, 3.3, 4.1 à 4.3 et 5.1 de l’annexe II de celle-ci (CJUE, 16 février 2017, Schmitt, C-219/15).  Il résulte de cette décision que, en présence d’indices laissant supposer qu’un dispositif médical ne serait pas conforme aux exigences qui découlen",
+      "tags": [],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:13; rs/allres_nums.txt (C-219/15 -> 62015CC0219 62015CJ0219)",
+      "reason": "C-219/15 also has 62015CC0219 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-ecli-wins-14-pos",
+      "category": "echr_ecli_overrides_case_number",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3776066,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2020:791"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "the competent national authorities consider, on the basis of objective evidence, that there exists, in one or more geographical areas, a high risk of preparation for or commission of such offences.”  La Quadrature du Net and Others (C ‑ 511/18, C ‑ 512/18 and C ‑ 520/18, EU:C:2020:791)  78 . In a judgment of 6 October 2020, given pursuant to requests for a preliminary reference lodged by the French Council of State a",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "joined_member_in_citation",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:14; README.md echr/ ('the 3 misses picked an AG opinion or judgment where an ECLI in the same citation named the right document')",
+      "note": "C-520/18 is a non-lead member of La Quadrature du Net (C-511/18, C-512/18, C-520/18); the only C-520/18 document is the AG opinion 62018CC0520, which the case-number guess picked. The ECLI EU:C:2020:791 in the same citation names the judgment; 'In a judgment of 6 October 2020' follows.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-ecli-wins-14-neg",
+      "category": "echr_ecli_overrides_case_number",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3776066,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62018CC0520",
+          "case_id": 3862571
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "the competent national authorities consider, on the basis of objective evidence, that there exists, in one or more geographical areas, a high risk of preparation for or commission of such offences.”  La Quadrature du Net and Others (C ‑ 511/18, C ‑ 512/18 and C ‑ 520/18, EU:C:2020:791)  78 . In a judgment of 6 October 2020, given pursuant to requests for a preliminary reference lodged by the French Council of State a",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "joined_member_in_citation",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:14 (hand-checked wrong pick)",
+      "reason": "C-520/18 is a non-lead member of La Quadrature du Net (C-511/18, C-512/18, C-520/18); the only C-520/18 document is the AG opinion 62018CC0520, which the case-number guess picked. The ECLI EU:C:2020:791 in the same citation names the judgment; 'In a judgment of 6 October 2020' follows.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-15",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3778523,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62017TJ0254",
+        "case_id": 3863695,
+        "case_number": "T-254/17"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "decision is based allows the courts to ensure that the principle of protection against arbitrary and disproportionate interventions and the rights of defence are respected ...”  62. In the judgment of 5 October 2020 in Intermarché Casino Achats v. Commission (T‑254/17, EU:T:2020:459), the General Court based its examination of the effectiveness of the judicial review against an inspection decision on the following pr",
+      "tags": [
+        "u2011_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:15 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-16",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3780170,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62021CJ0040",
+        "case_id": 3867914,
+        "case_number": "C-40/21"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "breaches of the rules on the funding of political parties and electoral campaigns.  C. European Union case-law  38. The relevant parts of the judgment of the Court of Justice of the European Union (“the CJEU”) T.A.C. v. Agenția Națională de Integritate (ANI) (C-40/21, C:2023:367) of 4 May 2023 may be found in Păcurar v. Romania (no. 17985/18, § 110, 24 June 2025). In its judgment the CJEU underlined its views on the",
+      "tags": [
+        "truncated_ecli"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:16 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-16-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3780170,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62021CC0040"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "breaches of the rules on the funding of political parties and electoral campaigns.  C. European Union case-law  38. The relevant parts of the judgment of the Court of Justice of the European Union (“the CJEU”) T.A.C. v. Agenția Națională de Integritate (ANI) (C-40/21, C:2023:367) of 4 May 2023 may be found in Păcurar v. Romania (no. 17985/18, § 110, 24 June 2025). In its judgment the CJEU underlined its views on the",
+      "tags": [
+        "truncated_ecli"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:16; rs/allres_nums.txt (C-40/21 -> 62021CC0040 62021CJ0040)",
+      "reason": "C-40/21 also has 62021CC0040 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-17",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3755428,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62012CJ0293",
+        "case_id": 3852887,
+        "case_number": "C-293/12"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "1 on law enforcement operational needs with respect to public telecommunication networks and services.  147. The judgment the Court of Justice of the European Union (CJEU) of 8 April 2014 in the joined cases of Digital Rights Ireland and Seitinger and Others (C-293/12 and C-594/12, EU:C:2014:238) declared invalid the Data Retention Directive 2006/24/EC laying down the obligation on the providers of publicly available",
+      "tags": [
+        "joined_member_in_citation",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:17 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-17-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3755428,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62012CC0293"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "1 on law enforcement operational needs with respect to public telecommunication networks and services.  147. The judgment the Court of Justice of the European Union (CJEU) of 8 April 2014 in the joined cases of Digital Rights Ireland and Seitinger and Others (C-293/12 and C-594/12, EU:C:2014:238) declared invalid the Data Retention Directive 2006/24/EC laying down the obligation on the providers of publicly available",
+      "tags": [
+        "joined_member_in_citation",
+        "ecli_in_same_citation"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:17; rs/allres_nums.txt (C-293/12 -> 62012CC0293 62012CJ0293)",
+      "reason": "C-293/12 also has 62012CC0293 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-18",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3768689,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62020CJ0354",
+        "case_id": 3863882,
+        "case_number": "C-354/20"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": ", 20 October 2016, Muršić v. Croatia , CE:ECHR:2016:1020JUD000733413, §§ 75 and 114 and the case-law cited).”  53. In its judgment of 17 December 2020 in the case of L and P , reported as Openbaar Ministerie (Independence of the issuing judicial authority) , (C-354/20 PPU and C-412/20 PPU, EU:C:2020:1033), the CJEU ruled that where the executing judicial authority had evidence of systemic or generalised deficiencies",
+      "tags": [
+        "joined_member_in_citation",
+        "ecli_in_same_citation",
+        "ppu_suffix"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:18 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-18-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3768689,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62020CC0354"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": ", 20 October 2016, Muršić v. Croatia , CE:ECHR:2016:1020JUD000733413, §§ 75 and 114 and the case-law cited).”  53. In its judgment of 17 December 2020 in the case of L and P , reported as Openbaar Ministerie (Independence of the issuing judicial authority) , (C-354/20 PPU and C-412/20 PPU, EU:C:2020:1033), the CJEU ruled that where the executing judicial authority had evidence of systemic or generalised deficiencies",
+      "tags": [
+        "joined_member_in_citation",
+        "ecli_in_same_citation",
+        "ppu_suffix"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:18; rs/allres_nums.txt (C-354/20 -> 62020CC0354 62020CJ0354)",
+      "reason": "C-354/20 also has 62020CC0354 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-20",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3756512,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62008CJ0127",
+        "case_id": 3845783,
+        "case_number": "C-127/08"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "lien for family reunification purposes (see, for example, Jeunesse v. the Netherlands [GC], no. 12738/10, § 69, 3 October 2014).  59. Moreover, in a judgment of 25 July 2008 in Blaise Baheten Metock and Others v. Minister for Justice, Equality and Law Reform (C ‑ 127/08, EU:C:2008:449) the Court of Justice of the European Union (CJEU) clarified the conditions and limits applicable to the right of residence of spouses",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:20 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-20-not-ag",
+      "category": "judgment_vs_order",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3756512,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62008CO0127"
+        },
+        {
+          "collection": "CJEU",
+          "celex": "62008CP0127"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "lien for family reunification purposes (see, for example, Jeunesse v. the Netherlands [GC], no. 12738/10, § 69, 3 October 2014).  59. Moreover, in a judgment of 25 July 2008 in Blaise Baheten Metock and Others v. Minister for Justice, Equality and Law Reform (C ‑ 127/08, EU:C:2008:449) the Court of Justice of the European Union (CJEU) clarified the conditions and limits applicable to the right of residence of spouses",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:20; rs/allres_nums.txt (C-127/08 -> 62008CJ0127 62008CO0127 62008CP0127)",
+      "reason": "C-127/08 also has 62008CO0127, 62008CP0127 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-21",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3767008,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62008CJ0135",
+        "case_id": 3847562,
+        "case_number": "C-135/08"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "d as soon as possible. The suspension will be lifted, at the latest, when the judge rules on the application to have the decision set aside or varied.”  CASE-LAW OF THE COURT OF JUSTICE OF THE EUROPEAN UNION  23. In its judgment of 2 March 2010, in Rottmann , C ‑ 135/08, EU:C:2010:104, the Court of Justice of the European Union (CJEU) examined a request for a preliminary ruling referred in a case concerning the withd",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:21 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-21-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3767008,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62008CC0135"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "d as soon as possible. The suspension will be lifted, at the latest, when the judge rules on the application to have the decision set aside or varied.”  CASE-LAW OF THE COURT OF JUSTICE OF THE EUROPEAN UNION  23. In its judgment of 2 March 2010, in Rottmann , C ‑ 135/08, EU:C:2010:104, the Court of Justice of the European Union (CJEU) examined a request for a preliminary ruling referred in a case concerning the withd",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:21; rs/allres_nums.txt (C-135/08 -> 62008CC0135 62008CJ0135)",
+      "reason": "C-135/08 also has 62008CC0135 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    },
+    {
+      "id": "echr-ecli-wins-22-pos",
+      "category": "echr_ecli_overrides_case_number",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3778535,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "ecli": "ECLI:EU:C:2021:593"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "e Court to either (i) suspend all actions (both procedural and administrative) of the Disciplinary Chamber of the Supreme Court against him until the Government fully implemented the order of the Vice-President of CJEU of 14 July 2021 ( Commission v. Poland , C-204/21 R, EU:C:2021:593) and the judgment of that court of 15 July 2021 (in Commission v. Poland (Disciplinary regime for judges) , C-791/19, EU:C:2021:596),",
+      "tags": [
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:22; README.md echr/ ('the 3 misses picked an AG opinion or judgment where an ECLI in the same citation named the right document')",
+      "note": "'C-204/21 R, EU:C:2021:593' is the Vice-President's order of 14 July 2021; the case-number guess picked the judgment 62021CJ0204. The ECLI in the same citation wins.",
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-ecli-wins-22-neg",
+      "category": "echr_ecli_overrides_case_number",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3778535,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62021CJ0204",
+          "case_id": 3868034
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "e Court to either (i) suspend all actions (both procedural and administrative) of the Disciplinary Chamber of the Supreme Court against him until the Government fully implemented the order of the Vice-President of CJEU of 14 July 2021 ( Commission v. Poland , C-204/21 R, EU:C:2021:593) and the judgment of that court of 15 July 2021 (in Commission v. Poland (Disciplinary regime for judges) , C-791/19, EU:C:2021:596),",
+      "tags": [
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:22 (hand-checked wrong pick)",
+      "reason": "'C-204/21 R, EU:C:2021:593' is the Vice-President's order of 14 July 2021; the case-number guess picked the judgment 62021CJ0204. The ECLI in the same citation wins.",
+      "document_level": true,
+      "requires_db": false
+    },
+    {
+      "id": "echr-hc-23",
+      "category": "echr_text_cjeu",
+      "label": "positive",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3767037,
+        "ecli": null,
+        "date": null
+      },
+      "target": {
+        "collection": "CJEU",
+        "celex": "62011CJ0179",
+        "case_id": 3850648,
+        "case_number": "C-179/11"
+      },
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "according to national law ...”  Decisions of the Court of Justice of the European Union (CJEU)  98. At paragraphs 39 and 56 of its judgment in Cimade and GISTI v. Ministre de l’Intérieur, de l’Outre ‑ mer, des Collectivités territoriales et de l’Immigration (C ‑ 179/11, EU:C:2012:594) of 27 September 2012, the CJEU held:  “... Regarding the period during which the material reception conditions, that is to say, housi",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:23 (hand-checked correct, README.md echr/ '19/22 exact')",
+      "note": null,
+      "document_level": true,
+      "requires_db": false,
+      "reason": null
+    },
+    {
+      "id": "echr-hc-23-not-ag",
+      "category": "ag_opinion_without_cue",
+      "label": "negative",
+      "source": {
+        "collection": "ECHR",
+        "case_id": 3767037,
+        "ecli": null,
+        "date": null
+      },
+      "target": null,
+      "must_not_link": [
+        {
+          "collection": "CJEU",
+          "celex": "62011CC0179"
+        }
+      ],
+      "relation_type": "cites",
+      "text_field": "fulltext",
+      "text_owner": "source",
+      "text": "according to national law ...”  Decisions of the Court of Justice of the European Union (CJEU)  98. At paragraphs 39 and 56 of its judgment in Cimade and GISTI v. Ministre de l’Intérieur, de l’Outre ‑ mer, des Collectivités territoriales et de l’Immigration (C ‑ 179/11, EU:C:2012:594) of 27 September 2012, the CJEU held:  “... Regarding the period during which the material reception conditions, that is to say, housi",
+      "tags": [
+        "u2011_hyphen",
+        "spaced_hyphen",
+        "ecli_in_same_citation"
+      ],
+      "document_level": false,
+      "provenance": "cjeu-migration@13a9904 migration/verify/research-2026-11-24/echr/handcheck.txt:23; rs/allres_nums.txt (C-179/11 -> 62011CC0179 62011CJ0179)",
+      "reason": "C-179/11 also has 62011CC0179 in the database, but the excerpt cites the judgment and has no Opinion/conclusions cue. Excerpt-level only: the full ECtHR text is not in the research files and might cite the opinion elsewhere.",
+      "requires_db": false
+    }
+  ]
+}

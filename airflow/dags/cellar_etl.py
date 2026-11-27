@@ -91,7 +91,7 @@ def cellar_etl(**kwargs):
 
 
 with dag:
-    etl_tasks = build_monthly_task_group(dag, "cellar_etl", "CELLAR", cellar_etl)
+    etl_tasks = build_monthly_task_group(dag, "cellar_etl", "CELLAR", cellar_etl, links=True)
     promotion = PythonOperator(
         task_id="register_promotion",
         python_callable=register_promotion,

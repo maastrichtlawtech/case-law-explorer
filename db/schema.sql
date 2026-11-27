@@ -517,9 +517,9 @@ CREATE INDEX "case_citation_idx_target" ON "cle_v2"."case_citation" ("target_cas
 CREATE INDEX "case_citation_idx_target_celex_raw" ON "cle_v2"."case_citation" ("target_celex_raw");
 CREATE INDEX "case_citation_idx_target_ecli_raw" ON "cle_v2"."case_citation" ("target_ecli_raw");
 CREATE INDEX "case_citation_idx_weight" ON "cle_v2"."case_citation" ("weight");
-CREATE UNIQUE INDEX "case_citation_uk_resolved" ON "cle_v2"."case_citation" ("source_case_id","target_case_id","relation_type","source_dataset");
-CREATE UNIQUE INDEX "case_citation_uk_unresolved_celex" ON "cle_v2"."case_citation" ("source_case_id","target_celex_raw","relation_type","source_dataset");
-CREATE UNIQUE INDEX "case_citation_uk_unresolved_ecli" ON "cle_v2"."case_citation" ("source_case_id","target_ecli_raw","relation_type","source_dataset");
+CREATE UNIQUE INDEX "case_citation_uk_resolved" ON "cle_v2"."case_citation" ("source_case_id","target_case_id","relation_type","source_dataset") WHERE "target_case_id" IS NOT NULL;
+CREATE UNIQUE INDEX "case_citation_uk_unresolved_celex" ON "cle_v2"."case_citation" ("source_case_id","target_celex_raw","relation_type","source_dataset") WHERE "target_case_id" IS NULL AND "target_celex_raw" IS NOT NULL;
+CREATE UNIQUE INDEX "case_citation_uk_unresolved_ecli" ON "cle_v2"."case_citation" ("source_case_id","target_ecli_raw","relation_type","source_dataset") WHERE "target_case_id" IS NULL AND "target_ecli_raw" IS NOT NULL;
 CREATE INDEX "case_domain_idx_domain_id" ON "cle_v2"."case_domain" ("domain_id");
 CREATE INDEX "case_entity_idx_case_id" ON "cle_v2"."case_entity" ("case_id");
 CREATE INDEX "case_judge_idx_case_id" ON "cle_v2"."case_judge" ("case_id");
@@ -663,3 +663,587 @@ CREATE VIEW "cle_v2"."echr_v_judgments_decisions" AS (SELECT item_id, case_id, l
 CREATE VIEW "cle_v2"."rs_v_document_law_reference" AS (SELECT r.case_id, c.ecli, r.raw_resource AS bwb_resource, COALESCE(r.raw_subdivision, ''::text) AS article, r.version_date, r.raw_label_id AS bwb_label_id, r.source_dataset AS source, r.raw_reference AS opschrift, ((('http://wetten.overheid.nl/id/'::text || r.raw_resource) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text)) || '/0'::text AS legal_provision_url, CASE WHEN r.raw_label_id IS NULL THEN NULL::text ELSE (((((('http://linkeddata.overheid.nl/terms/bwb/id/'::text || r.raw_resource) || '/'::text) || r.raw_label_id::text) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text)) || '/'::text) || COALESCE(cle_v2.rs_date_to_iso(r.version_date), '1900-01-01'::text) END AS legal_provision_url_lido FROM cle_v2.case_law_reference r JOIN cle_v2.cases c ON c.id = r.case_id WHERE r.raw_scheme = 'bwb'::text);
 CREATE VIEW "cle_v2"."rs_v_document_legal_provisions" AS (SELECT DISTINCT c.ecli, lr.raw_reference AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lr.raw_reference, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lp.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legal_provision lp ON lp.bwb_label_id = lr.raw_label_id WHERE lr.raw_scheme = 'bwb'::text AND lr.raw_label_id IS NOT NULL AND NULLIF(lp.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lp.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource JOIN cle_v2.legal_provision lp ON lp.legislation_id = lg.id AND lower(lp.article_label) = lower(lr.raw_subdivision) AND lp.element_type = 'artikel'::text WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lp.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, lg.title AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, (lg.title || ', Artikel '::text) || lr.raw_subdivision AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL AND NULLIF(lr.raw_subdivision, ''::text) IS NOT NULL UNION SELECT DISTINCT c.ecli, (lg.title || ', Bijlage '::text) || lr.raw_subdivision AS legal_provision FROM cle_v2.case_law_reference lr JOIN cle_v2.cases c ON c.id = lr.case_id JOIN cle_v2.legislation lg ON lg.scheme = 'bwb'::text AND lg.identifier = lr.raw_resource WHERE lr.raw_scheme = 'bwb'::text AND NULLIF(lg.title, ''::text) IS NOT NULL AND NULLIF(lr.raw_subdivision, ''::text) IS NOT NULL AND lr.raw_reference ~~* '%bijlage%'::text);
 CREATE VIEW "cle_v2"."rs_v_document_with_text" AS (SELECT d.case_id, d.date_decision, d.document_type, d.instance, d.domains, d.source, d.jurisdiction_country, d.procedure_type, d.url_publication, d.legal_provisions, d.predecessor_successor_cases, d.created_at, d.updated_at, d.date_published, d.date_issued, d.date_modified, d.title, d.language, d.access_rights, d.zittingsplaats, d.replaces_identifier, d.creator_uri, d.vindplaatsen, d.subject_uris, d.zaaknummer, d.opendata_status, t.summary, t.fulltext, t.fulltext_tsv FROM cle_v2.rs_document d LEFT JOIN cle_v2.case_text_canonical t ON t.case_id = d.case_id AND t.language = 'nl'::text);
+
+-- =============================================================================
+-- Mirrored from MaastrichtU-BISS/caselaw-coolify db/migrations (the deployed
+-- schema): 0008_case_text_document_kind, 0009_cross_dataset_links and
+-- 0010_case_citation_link_indexes. Keep in step with those files.
+-- =============================================================================
+
+-- ---- 0008_case_text_document_kind.sql ----
+-- What document a case_text row holds, not just where it was fetched from.
+--
+-- `source` records the fetch route (CELLAR_ITEM, INFOCURIA_BLOB_HTML, ...),
+-- which says nothing about what the text is. CJEU rows have mixed the
+-- decision itself with abstracts of it (CELLAR `_SUM` summaries, `_INF`
+-- information sheets, Official Journal notices) and with texts of other
+-- documents filed under the wrong case (an Advocate General's opinion in a
+-- judgment's slot). All of them looked like "the fulltext" of the case.
+--
+-- document_kind:
+--   judgment | order | opinion | ruling | decision | other
+--                  the decision itself (same vocabulary as document_type.code)
+--   extract        a partial text of the decision (CELLAR `_EXT`)
+--   summary        a summary of the decision (CELLAR `_SUM`, `_RES`)
+--   information    an information sheet (CELLAR `_INF`)
+--   oj_notice      the decision's Official Journal notice
+--   misfiled       another document's text filed under this case; kept for
+--                  provenance, never served as this case's text
+--   NULL           not classified (Rechtspraak, HUDOC, rows loaded before
+--                  classification); treated like the decision itself
+-- document_celex: CELEX of the work the text was taken from, when known.
+
+ALTER TABLE "cle_v2"."case_text"
+    ADD COLUMN IF NOT EXISTS "document_kind" text,
+    ADD COLUMN IF NOT EXISTS "document_celex" text;
+
+ALTER TABLE "cle_v2"."case_text"
+    DROP CONSTRAINT IF EXISTS "case_text_document_kind_check";
+ALTER TABLE "cle_v2"."case_text"
+    ADD CONSTRAINT "case_text_document_kind_check" CHECK (
+        "document_kind" IN (
+            'judgment', 'order', 'opinion', 'ruling', 'decision', 'other',
+            'extract', 'summary', 'information', 'oj_notice', 'misfiled'
+        )
+    ) NOT VALID;
+
+COMMENT ON COLUMN "cle_v2"."case_text"."document_kind" IS
+    'What the text is: the decision itself (judgment, order, opinion, ruling, decision, other), an extract, summary, information sheet or OJ notice of it, or misfiled (another document''s text). NULL = not classified.';
+COMMENT ON COLUMN "cle_v2"."case_text"."document_celex" IS
+    'CELEX of the work the text was taken from, when known.';
+
+-- One text per (case, language): the decision itself before extracts before
+-- abstracts; within a kind, a non-empty text first, then the origin source
+-- (Rechtspraak, HUDOC), then CELLAR, which is keyed by the document's own
+-- CELEX, before InfoCuria. Misfiled texts are never served.
+CREATE OR REPLACE VIEW "cle_v2"."case_text_canonical" AS
+SELECT DISTINCT ON (t."case_id", t."language") t.*
+FROM "cle_v2"."case_text" t
+WHERE t."document_kind" IS DISTINCT FROM 'misfiled'
+ORDER BY t."case_id", t."language",
+         CASE
+             WHEN t."document_kind" IN ('summary', 'information', 'oj_notice') THEN 2
+             WHEN t."document_kind" = 'extract' THEN 1
+             ELSE 0
+         END,
+         (t."fulltext" IS NULL OR btrim(t."fulltext") = ''),
+         CASE t."source"
+             WHEN 'RECHTSPRAAK' THEN 1
+             WHEN 'HUDOC' THEN 2
+             WHEN 'CELLAR_ITEM' THEN 3
+             WHEN 'INFOCURIA_BLOB_HTML' THEN 4
+             ELSE 5
+         END,
+         t."id";
+
+-- ---- 0009_cross_dataset_links.sql ----
+-- Cross-dataset links: provenance, identifiers and the tables later phases fill.
+--
+-- Design: cjeu-migration docs/LINKING_DESIGN.md (Phase 1 of
+-- docs/CROSS_DATASET_ROADMAP.md). Strictly additive:
+--
+--   * case_citation gains four nullable columns (no default, so existing rows
+--     are not rewritten) and two NOT VALID checks on them (no scan of existing
+--     rows; enforced for new and updated rows).
+--   * Everything else is a new, empty table or a function nothing calls yet.
+--     None of it feeds a count or an API response.
+--
+-- Lock order: the new tables that reference cases, case_text and case_segment
+-- come first; the ALTER TABLE on case_citation (ACCESS EXCLUSIVE, held to the
+-- end of the file) and the tables that reference case_citation come last, so
+-- API reads of case_citation are never queued behind this file waiting for a
+-- lock on another table. Nothing here scans or rewrites case_citation.
+--
+-- Indexes on case_citation itself are in 0010: built here, they would scan
+-- case_citation while this file holds ACCESS EXCLUSIVE on it.
+--
+-- Before applying in production, check that none of the new table names exist
+-- yet in the schema (CREATE TABLE IF NOT EXISTS would silently keep an older
+-- definition).
+
+-- (migration only) SET LOCAL lock_timeout = '5s';
+
+-- ---------------------------------------------------------------------------
+-- case_identifier: every identifier a case is cited by (R1.2)
+-- ---------------------------------------------------------------------------
+-- Not unique on (scheme, value_normalized): a CJEU case number belongs to the
+-- judgment, its orders and the Advocate General's opinion, an application
+-- number to several ECtHR documents. Extractors choose among them and record
+-- how in case_citation.match_method / confidence. value_normalized follows
+-- case-law-explorer data_extraction/linking/identifiers.py.
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."case_identifier" (
+    "id" bigint GENERATED ALWAYS AS IDENTITY,
+    "case_id" bigint NOT NULL,
+    "scheme" text NOT NULL,                 -- ecli | ljn | celex | cjeu_case_number | echr_appno | nl_zaaknummer | cellar_dossier_uuid
+    "value" text NOT NULL,                  -- as found
+    "value_normalized" text NOT NULL,
+    "source" text NOT NULL,                 -- where it was found, e.g. cjeu_document.case_number, cellar_joins, echr_document_appno
+    "is_primary" boolean DEFAULT false NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    PRIMARY KEY ("id"),
+    CONSTRAINT "fk_case_identifier_case" FOREIGN KEY ("case_id")
+        REFERENCES "cle_v2"."cases" ("id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "case_identifier_uk"
+    ON "cle_v2"."case_identifier" ("case_id", "scheme", "value_normalized");
+CREATE INDEX IF NOT EXISTS "case_identifier_idx_lookup"
+    ON "cle_v2"."case_identifier" ("scheme", "value_normalized");
+CREATE INDEX IF NOT EXISTS "case_identifier_idx_value_trgm"
+    ON "cle_v2"."case_identifier" USING gin ("value_normalized" gin_trgm_ops);
+
+-- ---------------------------------------------------------------------------
+-- What each relation type and each source dataset is (documentation lookups)
+-- ---------------------------------------------------------------------------
+-- No foreign keys: existing rows stay as they are. Nothing reads these tables
+-- until the count and API guard (a later, separately approved change), which
+-- first registers every dataset and relation type present in production, read
+-- from production at that time, keeping today's datasets counted so it changes
+-- no number on its own. Relation types are seeded here only where their
+-- meaning is known; `counted` matters only once correct counts (R1.4) land.
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."citation_relation_type" (
+    "code" text NOT NULL,
+    "description" text NOT NULL,
+    "is_citation" boolean NOT NULL,         -- a decision relying on another decision
+    "is_inverse" boolean DEFAULT false NOT NULL,  -- a citation stored from the cited side (Cellar cited_by)
+    "is_identity" boolean DEFAULT false NOT NULL, -- the same decision under another identifier
+    "counted" boolean NOT NULL,             -- for citation counts once correct counts (R1.4) land
+    "active_in_api" boolean DEFAULT true NOT NULL,
+    PRIMARY KEY ("code")
+);
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."citation_source_dataset" (
+    "code" text NOT NULL,
+    "description" text NOT NULL,
+    "corpus" text,                          -- RS | CJEU | ECHR | cross
+    "counted" boolean DEFAULT false NOT NULL,
+    "active_in_api" boolean DEFAULT false NOT NULL,
+    PRIMARY KEY ("code")
+);
+
+INSERT INTO "cle_v2"."citation_relation_type"
+    ("code", "description", "is_citation", "is_inverse", "is_identity", "counted", "active_in_api")
+VALUES
+    ('cites', 'The source decision cites the target decision.', true, false, false, true, true),
+    ('cited_by', 'A citation stored from the cited side: the target decision cites the source (Cellar).', true, true, false, false, true),
+    ('joins', 'Joined cases (Cellar).', false, false, false, false, true),
+    ('is_about_concept', 'A subject-matter concept, not a decision (Cellar).', false, false, false, false, false),
+    ('subject_to_appeal', 'Points forward in time: the source decision was appealed in the target case (Cellar).', false, false, false, false, true),
+    ('reexamined_by', 'Points forward in time: the source decision was reviewed in the target case (Cellar).', false, false, false, false, true),
+    ('referred_for_preliminary_ruling', 'Reference for a preliminary ruling (Cellar).', false, false, false, false, true),
+    ('interprets_judgement', 'Interpretation of an earlier judgment (Cellar); a procedure, not a precedent citation.', false, false, false, false, true),
+    ('logical_successor_of', 'Successor document (Cellar).', false, false, false, false, true),
+    ('replaced_by', 'Rechtspraak formal relation; across courts mostly an identity alias (an ECLI:NL copy of a foreign decision).', false, false, true, false, false),
+    ('preliminary_reference', 'A national court''s referral to the CJEU ruling that answers it.', false, false, false, false, true),
+    ('national_follow_up', 'A national decision given after a CJEU ruling, to that ruling (procedural; a text citation is a separate cites row).', false, false, false, false, true),
+    ('opinion_of', 'An Advocate General''s opinion to the judgment it was delivered in.', false, false, false, false, true),
+    ('appeal_of', 'A CJEU appeal judgment to the General Court decision under appeal.', false, false, false, false, true),
+    ('earlier_instance', 'A decision to an earlier decision in the same national proceedings.', false, false, false, false, true),
+    ('cites_in_domestic_law', 'An ECtHR judgment refers to the decision only where it reports the domestic proceedings or law (decision D4, pending).', false, false, false, false, true)
+ON CONFLICT ("code") DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- Other cited authorities (Phase 4): parliamentary papers, policy rules,
+-- EU preparatory acts, foreign and EFTA courts, treaty bodies, literature
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."authority_document" (
+    "id" bigint GENERATED ALWAYS AS IDENTITY,
+    "kind" text NOT NULL,                   -- nl_parliamentary_paper | nl_policy_rule | eu_preparatory_act | national_court_decision | efta_court | un_treaty_body | coe_body | literature
+    "identifier" text,                      -- extractors give documents without a structured identifier a synthetic one
+    "identifier_scheme" text,
+    "title" text,
+    "issuer" text,
+    "date" date,
+    "url" text,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    PRIMARY KEY ("id")
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "authority_document_uk" ON "cle_v2"."authority_document"
+    ("kind", COALESCE("identifier_scheme", ''), "identifier") WHERE "identifier" IS NOT NULL;
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."case_authority_reference" (
+    "id" bigint GENERATED ALWAYS AS IDENTITY,
+    "case_id" bigint NOT NULL,
+    "authority_document_id" bigint,
+    "raw_reference" text NOT NULL,
+    "pinpoint" text,
+    "case_text_id" bigint,
+    "text_field" text,
+    "language" text,
+    "char_start" int,
+    "char_end" int,
+    "context" text,
+    "context_segment_id" bigint,
+    "source_dataset" text NOT NULL,
+    "extractor_version" text NOT NULL,
+    "match_method" text,
+    "confidence" real,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    PRIMARY KEY ("id"),
+    CONSTRAINT "case_authority_reference_confidence_check"
+        CHECK ("confidence" IS NULL OR "confidence" BETWEEN 0 AND 1),
+    CONSTRAINT "case_authority_reference_offsets_check"
+        CHECK ("char_start" IS NULL OR "char_end" IS NULL OR ("char_start" >= 0 AND "char_end" >= "char_start")),
+    CONSTRAINT "fk_case_authority_reference_case" FOREIGN KEY ("case_id")
+        REFERENCES "cle_v2"."cases" ("id") ON DELETE CASCADE,
+    CONSTRAINT "fk_case_authority_reference_document" FOREIGN KEY ("authority_document_id")
+        REFERENCES "cle_v2"."authority_document" ("id") ON DELETE SET NULL,
+    CONSTRAINT "fk_case_authority_reference_case_text" FOREIGN KEY ("case_text_id")
+        REFERENCES "cle_v2"."case_text" ("id") ON DELETE SET NULL,
+    CONSTRAINT "fk_case_authority_reference_segment" FOREIGN KEY ("context_segment_id")
+        REFERENCES "cle_v2"."case_segment" ("id") ON DELETE SET NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "case_authority_reference_uk" ON "cle_v2"."case_authority_reference"
+    ("case_id", md5("raw_reference"), COALESCE("text_field", ''), COALESCE("language", ''),
+     COALESCE("char_start", -1), "source_dataset");
+CREATE INDEX IF NOT EXISTS "case_authority_reference_idx_document" ON "cle_v2"."case_authority_reference"
+    ("authority_document_id") WHERE "authority_document_id" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "case_authority_reference_idx_case_text" ON "cle_v2"."case_authority_reference"
+    ("case_text_id") WHERE "case_text_id" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "case_authority_reference_idx_segment" ON "cle_v2"."case_authority_reference"
+    ("context_segment_id") WHERE "context_segment_id" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "case_authority_reference_idx_dataset" ON "cle_v2"."case_authority_reference"
+    ("source_dataset");
+
+-- ---------------------------------------------------------------------------
+-- Outcomes and status (Phase 5)
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."case_outcome" (
+    "id" bigint GENERATED ALWAYS AS IDENTITY,
+    "case_id" bigint NOT NULL,
+    "scope" text DEFAULT 'overall' NOT NULL, -- overall | article
+    "article" text,                         -- ECtHR: '3', '8', 'P1-1'
+    "outcome" text NOT NULL,                -- violation | no_violation | dismissed | upheld | quashed | inadmissible | annulled | answered | ...
+    "raw_value" text,
+    "source_dataset" text NOT NULL,
+    "extractor_version" text NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    PRIMARY KEY ("id"),
+    CONSTRAINT "fk_case_outcome_case" FOREIGN KEY ("case_id")
+        REFERENCES "cle_v2"."cases" ("id") ON DELETE CASCADE
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "case_outcome_uk" ON "cle_v2"."case_outcome"
+    ("case_id", "scope", COALESCE("article", ''), "outcome", "source_dataset");
+CREATE INDEX IF NOT EXISTS "case_outcome_idx_filter" ON "cle_v2"."case_outcome"
+    ("scope", "article", "outcome");
+CREATE INDEX IF NOT EXISTS "case_outcome_idx_dataset" ON "cle_v2"."case_outcome" ("source_dataset");
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."case_status" (
+    "id" bigint GENERATED ALWAYS AS IDENTITY,
+    "case_id" bigint NOT NULL,
+    "status" text NOT NULL,                 -- pending | struck_out | referred_to_grand_chamber | final | overturned
+    "status_date" date,
+    "related_case_id" bigint,
+    "raw_value" text,
+    "source_dataset" text NOT NULL,
+    "extractor_version" text NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    PRIMARY KEY ("id"),
+    CONSTRAINT "fk_case_status_case" FOREIGN KEY ("case_id")
+        REFERENCES "cle_v2"."cases" ("id") ON DELETE CASCADE,
+    CONSTRAINT "fk_case_status_related" FOREIGN KEY ("related_case_id")
+        REFERENCES "cle_v2"."cases" ("id") ON DELETE SET NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "case_status_uk" ON "cle_v2"."case_status"
+    ("case_id", "status", COALESCE("status_date", '-infinity'::date), "source_dataset");
+CREATE INDEX IF NOT EXISTS "case_status_idx_related" ON "cle_v2"."case_status"
+    ("related_case_id") WHERE "related_case_id" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "case_status_idx_status" ON "cle_v2"."case_status" ("status");
+CREATE INDEX IF NOT EXISTS "case_status_idx_dataset" ON "cle_v2"."case_status" ("source_dataset");
+
+-- ---------------------------------------------------------------------------
+-- Corrected ECtHR edges for the rebuild (roadmap R6.1), built and reviewed
+-- before anything is swapped. Empty until its gate has passed and the owner
+-- has approved it. Natural keys only, so it can be built on db-dev and replayed.
+-- ---------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS "cle_v2"."echr_edge_v2_staging" (
+    "id" bigint GENERATED ALWAYS AS IDENTITY,
+    "source_ecli" text,
+    "source_item_id" text,
+    "target_ecli" text,
+    "target_item_id" text,
+    "scl_reference" text NOT NULL,          -- the HUDOC scl entry the edge comes from
+    "appno" text,
+    "rule" text NOT NULL,                   -- which disambiguation rule chose the target
+    "build_version" text NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    PRIMARY KEY ("id"),
+    CONSTRAINT "echr_edge_v2_staging_source_check"
+        CHECK ("source_ecli" IS NOT NULL OR "source_item_id" IS NOT NULL)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "echr_edge_v2_staging_uk" ON "cle_v2"."echr_edge_v2_staging"
+    (COALESCE("source_ecli", "source_item_id"), COALESCE("target_ecli", "target_item_id", ''),
+     "scl_reference", "build_version");
+CREATE INDEX IF NOT EXISTS "echr_edge_v2_staging_idx_source"
+    ON "cle_v2"."echr_edge_v2_staging" ("build_version", COALESCE("source_ecli", "source_item_id"));
+CREATE INDEX IF NOT EXISTS "echr_edge_v2_staging_idx_target"
+    ON "cle_v2"."echr_edge_v2_staging" ("build_version", "target_ecli") WHERE "target_ecli" IS NOT NULL;
+
+-- ---------------------------------------------------------------------------
+-- Correct citation counts, set-based (R1.4). Created here, called by nothing:
+-- switching counts over is a separate change with a before/after report.
+-- ---------------------------------------------------------------------------
+-- For the given cases (all cases when NULL): cites_count = distinct cases
+-- cited, cited_by_count = distinct citing cases, from resolved rows only,
+-- leaving out self-loops, relation types marked not counted, and datasets not
+-- registered as counted (fail closed: a dataset loaded before it is registered
+-- is not counted). Relation types missing from the lookup count. Writes only
+-- rows that change, and creates rows only for cases with a nonzero count.
+--
+-- SECURITY DEFINER: every table is schema-qualified and pg_temp is searched
+-- last, so a caller cannot substitute a temporary table for one of them.
+
+CREATE OR REPLACE FUNCTION "cle_v2"."refresh_case_citation_counts"(p_case_ids bigint[] DEFAULT NULL)
+RETURNS integer
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = "cle_v2", pg_temp
+SET work_mem = '64MB'
+AS $$
+DECLARE
+    changed integer;
+BEGIN
+    IF p_case_ids IS NULL THEN
+        WITH counted AS MATERIALIZED (
+            SELECT cc."source_case_id" AS s, cc."target_case_id" AS t
+              FROM "cle_v2"."case_citation" cc
+              LEFT JOIN "cle_v2"."citation_relation_type" rt ON rt."code" = cc."relation_type"
+              JOIN "cle_v2"."citation_source_dataset" sd
+                ON sd."code" = cc."source_dataset" AND sd."counted"
+             WHERE cc."source_case_id" IS NOT NULL
+               AND cc."target_case_id" IS NOT NULL
+               AND cc."source_case_id" <> cc."target_case_id"
+               AND COALESCE(rt."counted", true)
+             GROUP BY 1, 2
+        ),
+        fresh AS (
+            SELECT k.case_id, sum(k.cites)::int AS cites_count, sum(k.cited_by)::int AS cited_by_count
+              FROM (
+                    SELECT s AS case_id, 1 AS cites, 0 AS cited_by FROM counted
+                    UNION ALL
+                    SELECT t, 0, 1 FROM counted
+                   ) k
+             GROUP BY k.case_id
+        ),
+        target AS (
+            SELECT COALESCE(f.case_id, x."case_id") AS case_id,
+                   COALESCE(f.cites_count, 0) AS cites_count,
+                   COALESCE(f.cited_by_count, 0) AS cited_by_count
+              FROM fresh f
+              FULL JOIN "cle_v2"."case_citation_counts" x ON x."case_id" = f.case_id
+             WHERE x."case_id" IS NULL
+                OR x."cites_count" IS DISTINCT FROM COALESCE(f.cites_count, 0)
+                OR x."cited_by_count" IS DISTINCT FROM COALESCE(f.cited_by_count, 0)
+        ),
+        upserted AS (
+            INSERT INTO "cle_v2"."case_citation_counts" AS cnt
+                ("case_id", "cites_count", "cited_by_count", "updated_at")
+            SELECT case_id, cites_count, cited_by_count, now() FROM target
+            ON CONFLICT ("case_id") DO UPDATE
+               SET "cites_count" = EXCLUDED."cites_count",
+                   "cited_by_count" = EXCLUDED."cited_by_count",
+                   "updated_at" = now()
+            RETURNING 1
+        )
+        SELECT count(*) INTO changed FROM upserted;
+    ELSE
+        WITH scope AS (
+            SELECT DISTINCT u.case_id
+              FROM unnest(p_case_ids) AS u(case_id)
+              JOIN "cle_v2"."cases" c ON c."id" = u.case_id
+        ),
+        counted AS NOT MATERIALIZED (
+            SELECT cc."source_case_id" AS s, cc."target_case_id" AS t
+              FROM "cle_v2"."case_citation" cc
+              LEFT JOIN "cle_v2"."citation_relation_type" rt ON rt."code" = cc."relation_type"
+              JOIN "cle_v2"."citation_source_dataset" sd
+                ON sd."code" = cc."source_dataset" AND sd."counted"
+             WHERE cc."source_case_id" IS NOT NULL
+               AND cc."target_case_id" IS NOT NULL
+               AND cc."source_case_id" <> cc."target_case_id"
+               AND COALESCE(rt."counted", true)
+        ),
+        fresh AS (
+            SELECT sc.case_id,
+                   (SELECT count(DISTINCT k.t) FROM counted k WHERE k.s = sc.case_id)::int AS cites_count,
+                   (SELECT count(DISTINCT k.s) FROM counted k WHERE k.t = sc.case_id)::int AS cited_by_count
+              FROM scope sc
+        ),
+        target AS (
+            SELECT f.case_id, f.cites_count, f.cited_by_count
+              FROM fresh f
+              LEFT JOIN "cle_v2"."case_citation_counts" x ON x."case_id" = f.case_id
+             WHERE (x."case_id" IS NULL AND (f.cites_count > 0 OR f.cited_by_count > 0))
+                OR (x."case_id" IS NOT NULL
+                    AND (x."cites_count" IS DISTINCT FROM f.cites_count
+                         OR x."cited_by_count" IS DISTINCT FROM f.cited_by_count))
+        ),
+        upserted AS (
+            INSERT INTO "cle_v2"."case_citation_counts" AS cnt
+                ("case_id", "cites_count", "cited_by_count", "updated_at")
+            SELECT case_id, cites_count, cited_by_count, now() FROM target
+            ON CONFLICT ("case_id") DO UPDATE
+               SET "cites_count" = EXCLUDED."cites_count",
+                   "cited_by_count" = EXCLUDED."cited_by_count",
+                   "updated_at" = now()
+            RETURNING 1
+        )
+        SELECT count(*) INTO changed FROM upserted;
+    END IF;
+    RETURN changed;
+END;
+$$;
+
+REVOKE ALL ON FUNCTION "cle_v2"."refresh_case_citation_counts"(bigint[]) FROM PUBLIC;
+
+-- ---------------------------------------------------------------------------
+-- Last: everything that locks case_citation.
+-- ---------------------------------------------------------------------------
+
+-- How each link was found (R1.1).
+ALTER TABLE "cle_v2"."case_citation"
+    ADD COLUMN IF NOT EXISTS "match_method" text,
+    ADD COLUMN IF NOT EXISTS "confidence" real,
+    ADD COLUMN IF NOT EXISTS "target_ref_raw" text,
+    ADD COLUMN IF NOT EXISTS "target_ref_scheme" text;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = '"cle_v2"."case_citation"'::regclass
+           AND conname = 'case_citation_confidence_check'
+    ) THEN
+        ALTER TABLE "cle_v2"."case_citation"
+            ADD CONSTRAINT "case_citation_confidence_check"
+            CHECK ("confidence" IS NULL OR "confidence" BETWEEN 0 AND 1) NOT VALID;
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = '"cle_v2"."case_citation"'::regclass
+           AND conname = 'case_citation_target_ref_scheme_check'
+    ) THEN
+        ALTER TABLE "cle_v2"."case_citation"
+            ADD CONSTRAINT "case_citation_target_ref_scheme_check"
+            CHECK ("target_ref_raw" IS NULL OR "target_ref_scheme" IS NOT NULL) NOT VALID;
+    END IF;
+END
+$$;
+
+COMMENT ON COLUMN "cle_v2"."case_citation"."match_method" IS
+    'How the target was found: ecli | celex | case_number | appno | ljn | zaaknummer | metadata | formal_relation | name_date. NULL on rows loaded before 0009.';
+COMMENT ON COLUMN "cle_v2"."case_citation"."confidence" IS
+    'The extractor''s own estimate that the link is right, 0 to 1. NULL on rows loaded before 0009.';
+COMMENT ON COLUMN "cle_v2"."case_citation"."target_ref_raw" IS
+    'The cited reference, normalised, when it is not an ECLI or CELEX (a CJEU case number, an ECtHR application number, a Dutch case number). The text as written is in case_citation_mention.raw_text.';
+COMMENT ON COLUMN "cle_v2"."case_citation"."target_ref_scheme" IS
+    'Scheme of target_ref_raw: cjeu_case_number | echr_appno | nl_zaaknummer | ljn | name_date. Required when target_ref_raw is set.';
+
+-- Every place a link occurs (R1.1, R1.3). case_citation keeps one row per
+-- (source, target, relation, dataset); a judgment often cites the same case in
+-- several paragraphs. Each occurrence is a row here, with where it is and,
+-- later, how the court treats it (R5.4).
+CREATE TABLE IF NOT EXISTS "cle_v2"."case_citation_mention" (
+    "id" bigint GENERATED ALWAYS AS IDENTITY,
+    "citation_id" bigint NOT NULL,
+    "case_text_id" bigint,
+    "text_field" text NOT NULL,             -- fulltext | summary | national_judgement_xml | metadata
+    "language" text,
+    "char_start" int,                       -- offsets into the text as stored when extracted
+    "char_end" int,
+    "raw_text" text NOT NULL,               -- the reference as written
+    "context" text,                         -- up to ~300 characters around it
+    "segment_id" bigint,
+    "section" text,                         -- e.g. the ECtHR part quoting domestic law (decision D4)
+    "treatment_label" text,                 -- follows | applies | distinguishes | departs_from (R5.4)
+    "treatment_model" text,
+    "treatment_confidence" real,
+    "extractor_version" text NOT NULL,
+    "created_at" timestamptz DEFAULT now() NOT NULL,
+    PRIMARY KEY ("id"),
+    CONSTRAINT "case_citation_mention_treatment_confidence_check"
+        CHECK ("treatment_confidence" IS NULL OR "treatment_confidence" BETWEEN 0 AND 1),
+    CONSTRAINT "case_citation_mention_offsets_check"
+        CHECK ("char_start" IS NULL OR "char_end" IS NULL OR ("char_start" >= 0 AND "char_end" >= "char_start")),
+    CONSTRAINT "fk_case_citation_mention_citation" FOREIGN KEY ("citation_id")
+        REFERENCES "cle_v2"."case_citation" ("id") ON DELETE CASCADE,
+    CONSTRAINT "fk_case_citation_mention_case_text" FOREIGN KEY ("case_text_id")
+        REFERENCES "cle_v2"."case_text" ("id") ON DELETE SET NULL,
+    CONSTRAINT "fk_case_citation_mention_segment" FOREIGN KEY ("segment_id")
+        REFERENCES "cle_v2"."case_segment" ("id") ON DELETE SET NULL
+);
+CREATE UNIQUE INDEX IF NOT EXISTS "case_citation_mention_uk" ON "cle_v2"."case_citation_mention"
+    ("citation_id", "text_field", COALESCE("language", ''), COALESCE("char_start", -1), md5("raw_text"));
+CREATE INDEX IF NOT EXISTS "case_citation_mention_idx_segment"
+    ON "cle_v2"."case_citation_mention" ("segment_id") WHERE "segment_id" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "case_citation_mention_idx_case_text"
+    ON "cle_v2"."case_citation_mention" ("case_text_id") WHERE "case_text_id" IS NOT NULL;
+CREATE INDEX IF NOT EXISTS "case_citation_mention_idx_treatment"
+    ON "cle_v2"."case_citation_mention" ("treatment_label") WHERE "treatment_label" IS NOT NULL;
+
+-- For the ECtHR edge rebuild (R6.1): same columns and defaults as
+-- case_citation, not its identity, indexes, foreign keys or triggers, so
+-- archived rows keep their original id and nothing fires. Archive and restore
+-- list their columns explicitly. Created after the ALTER above so it has the
+-- new columns too.
+CREATE TABLE IF NOT EXISTS "cle_v2"."case_citation_archive"
+    (LIKE "cle_v2"."case_citation" INCLUDING DEFAULTS);
+ALTER TABLE "cle_v2"."case_citation_archive"
+    ADD COLUMN IF NOT EXISTS "archived_at" timestamptz DEFAULT now() NOT NULL,
+    ADD COLUMN IF NOT EXISTS "archive_reason" text NOT NULL,
+    ADD COLUMN IF NOT EXISTS "archive_batch" text NOT NULL;
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint
+         WHERE conrelid = '"cle_v2"."case_citation_archive"'::regclass AND contype = 'p'
+    ) THEN
+        ALTER TABLE "cle_v2"."case_citation_archive"
+            ADD CONSTRAINT "case_citation_archive_pkey" PRIMARY KEY ("archive_batch", "id");
+    END IF;
+END
+$$;
+
+-- ---- 0010_case_citation_link_indexes.sql ----
+-- Indexes on case_citation for the cross-dataset link columns of 0009.
+--
+-- A separate file from 0009 on purpose: the migrator applies each file in one
+-- transaction, and here no ALTER TABLE precedes the index builds, so each build
+-- takes only a SHARE lock on case_citation. API reads continue; writes to
+-- case_citation wait for the scans. Apply outside the Monday ETL and Thursday
+-- promotion windows.
+--
+--   case_citation_uk_unresolved_ref   idempotent unresolved rows referenced by
+--                                     case number / application number, like
+--                                     the existing _uk_unresolved_ecli/_celex
+--   case_citation_idx_target_ref      late-binding resolution (roadmap R2.9)
+--                                     looks rows up by reference
+--   case_citation_idx_source_dataset  one-statement removal of a dataset, and
+--                                     per-dataset verification counts
+--
+-- The two partial indexes cover no existing row (target_ref_raw is new and
+-- NULL everywhere), but building them still reads the table once each. Measure
+-- the build on db-dev first; the API container waits for the migrator.
+--
+-- The lookups of 0009 are not seeded from case_citation here: that would add
+-- two more scans under this lock, and an empty db-dev would end up with
+-- different rows than production. The count and API guard registers the
+-- datasets present in production when it ships.
+
+-- (migration only) SET LOCAL lock_timeout = '5s';
+-- (migration only) SET LOCAL maintenance_work_mem = '128MB';
+
+CREATE UNIQUE INDEX IF NOT EXISTS "case_citation_uk_unresolved_ref" ON "cle_v2"."case_citation"
+    ("source_case_id", "target_ref_scheme", "target_ref_raw", COALESCE("relation_type", ''), "source_dataset")
+    WHERE "target_case_id" IS NULL AND "target_ref_raw" IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS "case_citation_idx_target_ref" ON "cle_v2"."case_citation"
+    ("target_ref_scheme", "target_ref_raw")
+    WHERE "target_case_id" IS NULL AND "target_ref_raw" IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS "case_citation_idx_source_dataset" ON "cle_v2"."case_citation"
+    ("source_dataset");
