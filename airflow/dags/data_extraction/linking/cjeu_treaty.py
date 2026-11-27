@@ -676,8 +676,7 @@ _CANDIDATE_TSQUERY = (
     "'ECHR' | 'CEDH' | 'EMRK' | 'EVRM' | 'CEDU' | "
     "'ICCPR' | 'IVBPR' | 'UNCRPD' | 'CRPD' | 'IVRK' | 'UNCRC' | "
     "'Vluchtelingenverdrag' | 'Flüchtlingskonvention' | "
-    "('Geneva' & 'Refugees') | ('Genève' & 'réfugiés') | "
-    "('Human' & 'Rights' & 'Rome') | ('droits' & 'homme' & 'Rome')"
+    "('Geneva' & 'Refugees') | ('Genève' & 'réfugiés')"
 )
 
 
@@ -691,19 +690,21 @@ def extract_pending(
     with conn.cursor() as cur:
         cur.execute(
             f"""
-            SELECT DISTINCT c.id
-              FROM {SCHEMA}.case_text ct
-              JOIN {SCHEMA}.cases c ON c.id = ct.case_id
-             WHERE c.ecli LIKE 'ECLI:EU:%%'
-               AND ct.fulltext_tsv @@ to_tsquery('simple', %s)
-               AND NOT EXISTS (
+            SELECT cd.case_id
+              FROM {SCHEMA}.cjeu_document cd
+             WHERE NOT EXISTS (
                    SELECT 1 FROM {SCHEMA}.case_law_reference r
-                    WHERE r.case_id = c.id AND r.source_dataset = %s
+                    WHERE r.case_id = cd.case_id AND r.source_dataset = %s
                )
-             ORDER BY c.id
+               AND EXISTS (
+                   SELECT 1 FROM {SCHEMA}.case_text ct
+                    WHERE ct.case_id = cd.case_id
+                      AND ct.fulltext_tsv @@ to_tsquery('simple', %s)
+               )
+             ORDER BY cd.case_id
              LIMIT %s
             """,
-            (_CANDIDATE_TSQUERY, DATASET, limit),
+            (DATASET, _CANDIDATE_TSQUERY, limit),
         )
         case_ids = [int(row[0]) for row in cur.fetchall()]
     conn.rollback()
