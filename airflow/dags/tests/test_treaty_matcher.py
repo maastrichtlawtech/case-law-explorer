@@ -100,3 +100,17 @@ def test_berne_wildlife_vs_berne_copyright_and_curly_apostrophes():
     cp_hits = {(h.scheme, h.identifier, h.raw_subdivision) for h in treaty_matcher.scan(copyright_doc)}
     assert ("intl_treaty", "wipo-berne1886", "19") in cp_hits
     assert all(h[0:2] != ("coe_treaty", "104") for h in cp_hits)
+
+
+def test_turkish_dotted_capital_i_preserves_1to1_offsets():
+    """Turkish 'İ' (U+0130) expands to 2 codepoints under str.lower(); must never raise IndexError."""
+    turkish_prefix = ("İstanbul İzmir İnsan Hakları Mahkemesi " * 30)
+    doc = turkish_prefix + "Under Article 31 of the Vienna Convention on the Law of Treaties and the Istanbul Convention."
+    assert len(treaty_matcher._normalize_1to1(doc)) == len(doc)
+    hits = treaty_matcher.scan(doc)
+    keys = {(h.scheme, h.identifier, h.raw_subdivision) for h in hits}
+    assert ("un_treaty", "XXIII-1", "31") in keys
+    assert ("coe_treaty", "210", None) in keys
+    # Verify exact slice alignment back onto the original text
+    vclt = next(h for h in hits if (h.scheme, h.identifier) == ("un_treaty", "XXIII-1"))
+    assert doc[vclt.start : vclt.end] == "Article 31 of the Vienna Convention on the Law of Treaties"

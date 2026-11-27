@@ -232,6 +232,7 @@ def _overlaps(span: Tuple[int, int], covered: Sequence[Tuple[int, int]]) -> bool
 
 
 _NORM_TRANS = str.maketrans({
+    "\u0130": "i",  # Turkish 'İ'.lower() expands to 2 codepoints ('i\u0307'); keep 1:1 length
     "\u2018": "'",
     "\u2019": "'",
     "\u02bc": "'",
@@ -247,8 +248,12 @@ _NORM_TRANS = str.maketrans({
 
 
 def _normalize_1to1(text: str) -> str:
-    """1-to-1 character normalization (preserves exact span offsets)."""
-    return text.translate(_NORM_TRANS).lower()
+    """Strict 1-to-1 character normalization (guarantees len(out) == len(text))."""
+    translated = text.translate(_NORM_TRANS)
+    out = translated.lower()
+    if len(out) != len(text):
+        out = "".join(c.lower()[0] for c in translated)
+    return out
 
 
 def scan(
