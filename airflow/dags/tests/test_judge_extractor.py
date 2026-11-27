@@ -31,6 +31,36 @@ def test_extract_rs_phr_advocate_general():
     assert recs[0].source_dataset == "rs_phr_ag"
 
 
+def test_extract_rs_phr_advocate_general_header_formats():
+    modern = (
+        "PROCUREUR-GENERAAL\n\nBIJ DE\n\nHOGE RAAD DER NEDERLANDEN\n\n"
+        "Nummer 24/00203\n\nZitting 15 november 2024\n\nCONCLUSIE\n\n"
+        "E.B. Rank-Berenschot\n\nIn de zaak\n\nPartij A tegen Partij B\n"
+    )
+    r1 = mod.extract_rs_judges(modern, "ECLI:NL:PHR:2024:1228")
+    assert [(r.name, r.role, r.source_dataset) for r in r1] == [
+        ("E.B. Rank-Berenschot", "advocate_general", "rs_phr_ag")
+    ]
+
+    classic_caps = (
+        "PROCUREUR-GENERAAL BIJ DE HOGE RAAD DER NEDERLANDEN\n\n"
+        "MR. M.E. VAN HILTEN\n\nADVOCAAT-GENERAAL\n\nConclusie van 1 oktober 2009 inzake:\n"
+    )
+    r2 = mod.extract_rs_judges(classic_caps, "ECLI:NL:PHR:2012:BK1057")
+    assert [(r.name, r.role, r.source_dataset) for r in r2] == [
+        ("M.E. van Hilten", "advocate_general", "rs_phr_ag")
+    ]
+
+    early_parket = (
+        "Rekestnr. R05/166HR\n\nmr. E.M. Wesseling-van Gent\n\n"
+        "Parket, 2 juni 2006\n\nConclusie inzake:\n"
+    )
+    r3 = mod.extract_rs_judges(early_parket, "ECLI:NL:PHR:2006:AX8848")
+    assert [(r.name, r.role, r.source_dataset) for r in r3] == [
+        ("E.M. Wesseling-van Gent", "advocate_general", "rs_phr_ag")
+    ]
+
+
 def test_extract_echr_judges_en_and_fr_excludes_registrar():
     en_text = (
         "The European Court of Human Rights (Second Section), sitting as a Chamber composed of:\n"

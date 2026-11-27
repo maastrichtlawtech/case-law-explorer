@@ -121,12 +121,38 @@ _NL_TRAILING_ROLE_RE = re.compile(
     re.IGNORECASE,
 )
 
+_PHR_AG_HEADER_RE = re.compile(
+    r"(?:^|\n)\s*CONCLUSIE\s*\n+\s*([^\n]{4,80}?)\s*\n+\s*(?:in\s+de\s+zaak|inzake)\b"
+    r"|(?:^|\n)\s*(?:PROCUREUR|ADVOCAAT)-GENERAAL\s+BIJ\s+DE\s+HOGE\s+RAAD[^\n]*\n+\s*([^\n]{4,80}?)\s*\n+\s*(?:PLV\.?\s*)?(?:ADVOCAAT-GENERAAL|PROCUREUR-GENERAAL|A-G)\b"
+    r"|(?:^|\n)\s*(?:(?:prof|dr)\.?\s*)*mr\.?\s+([^\n]{4,70}?)\s*\n+\s*(?:Parket\b|(?:Eerste|Tweede|Derde|Vierde|Belasting|Civiele|Straf)\s*kamer|Conclusie\s+inzake\b)",
+    re.IGNORECASE,
+)
+
 _PHR_AG_SIGNATURE_RE = re.compile(
     r"(?:De\s+(?:waarnemend\s+|plv\.?\s+)?(?:Procureur|Advocaat)-Generaal\s+bij\s+de\s+Hoge\s+Raad"
     r"[^\n]{0,80}\n+\s*(?:w\.g\.?\s*)?([^\n]{4,100})"
     r"|(?:prof\.?\s*)?(?:dr\.?\s*)?mr\.?\s+([A-ZÀ-Ý][A-Za-zÀ-ÿ.'\- ]{2,70}?)\s*,?\s*\n?\s*(?:plv\.?\s*)?(?:Advocaat-Generaal|A-G)\b)",
     re.IGNORECASE,
 )
+
+_NL_PARTICLES: Set[str] = {"van", "de", "den", "der", "ten", "ter", "te", "in", "'t", "op", "aan", "bij"}
+
+
+def _normalize_allcaps_dutch_name(text: str) -> str:
+    """Convert ALL-CAPS surnames ('M.E. VAN HILTEN') to normal casing ('M.E. van Hilten')."""
+    letters = [c for c in text if c.isalpha()]
+    if not letters or not all(c.isupper() for c in letters):
+        return text
+    out: List[str] = []
+    for tok in text.split(" "):
+        if "." in tok:
+            out.append(tok.upper())
+        elif tok.lower() in _NL_PARTICLES and out:
+            out.append(tok.lower())
+        else:
+            out.append("-".join(part.capitalize() for part in tok.split("-")))
+    return " ".join(out)
+
 
 _VALID_NAME_RE = re.compile(r"^[^\W\d_](?:[^\W\d_]|[.'’\- ]){2,75}$", re.UNICODE)
 
@@ -138,6 +164,7 @@ def _clean_dutch_name(raw: str) -> Optional[str]:
     text = _NL_HONORIFIC_RE.sub("", text).strip(" ,;:.")
     text = _NL_TRAILING_ROLE_RE.sub("", text).strip(" ,;:.")
     text = _NL_HONORIFIC_RE.sub("", text).strip(" ,;:.")
+    text = _normalize_allcaps_dutch_name(text)
     if not text or text.lower() in _NL_ROLE_STOPWORDS:
         return None
     if any(ch.isdigit() for ch in text):
@@ -160,10 +187,11 @@ def extract_rs_judges(fulltext: str, ecli: str) -> List[JudgeRecord]:
     seen: Set[Tuple[str, str]] = set()
     tail = fulltext[-3000:] if len(fulltext) > 3000 else fulltext
 
-    # 1. Parket bij de Hoge Raad conclusions -> Advocate General
+    # 1. Parket bij de Hoge Raad conclusions -> Advocate General (header first, then tail)
     if ecli.upper().startswith("ECLI:NL:PHR:"):
-        for m in _PHR_AG_SIGNATURE_RE.finditer(tail):
-            raw = m.group(1) or m.group(2)
+        head = fulltext[:1500]
+        for m in _PHR_AG_HEADER_RE.finditer(head):
+            raw = m.group(1) or m.group(2) or m.group(3)
             name = _clean_dutch_name(raw or "")
             if name and (name.lower(), "advocate_general") not in seen:
                 seen.add((name.lower(), "advocate_general"))
@@ -173,9 +201,24 @@ def extract_rs_judges(fulltext: str, ecli: str) -> List[JudgeRecord]:
                         name=name,
                         role="advocate_general",
                         source_dataset="rs_phr_ag",
-                        confidence=0.92,
+                        confidence=0.94,
                     )
                 )
+        if not out:
+            for m in _PHR_AG_SIGNATURE_RE.finditer(tail):
+                raw = m.group(1) or m.group(2)
+                name = _clean_dutch_name(raw or "")
+                if name and (name.lower(), "advocate_general") not in seen:
+                    seen.add((name.lower(), "advocate_general"))
+                    out.append(
+                        JudgeRecord(
+                            source_ecli=ecli,
+                            name=name,
+                            role="advocate_general",
+                            source_dataset="rs_phr_ag",
+                            confidence=0.92,
+                        )
+                    )
         return out
 
     # 2. Regular Rechtspraak judgments -> panel judges
