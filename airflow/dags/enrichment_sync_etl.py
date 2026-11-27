@@ -188,6 +188,52 @@ def run_resolve_pending_law_refs(**context):
     return summary
 
 
+def run_enrich_legislation_fulltext(**context):
+    load_dotenv(find_dotenv(), override=True)
+    from data_extraction.legislation import legislation_enrichment
+    from data_loading.clients.postgres import PostgresCLEClient
+
+    out_dir = _out_dir(context)
+    artifact_path = os.path.join(out_dir, "legislation_enrichment.jsonl")
+    limit_celex = int(os.environ.get("LEGISLATION_ENRICH_CELEX_LIMIT", "30"))
+    limit_bwb = int(os.environ.get("LEGISLATION_ENRICH_BWB_LIMIT", "30"))
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        summary = legislation_enrichment.enrich_connection(
+            conn,
+            limit_celex=limit_celex,
+            limit_bwb=limit_bwb,
+            out_path=artifact_path,
+            load=True,
+        )
+    _write_summary(os.path.join(out_dir, "_legislation_enrichment_counts.json"), summary)
+    logging.info("Legislation full-text enrichment complete: %s", summary)
+    return summary
+
+
+def run_extract_cross_court_judges(**context):
+    load_dotenv(find_dotenv(), override=True)
+    from data_extraction.case_context import judges
+    from data_loading.clients.postgres import PostgresCLEClient
+
+    out_dir = _out_dir(context)
+    artifact_path = os.path.join(out_dir, "cross_court_judges.jsonl")
+    limit_rs = int(os.environ.get("JUDGES_EXTRACT_RS_LIMIT", "2000"))
+    limit_echr = int(os.environ.get("JUDGES_EXTRACT_ECHR_LIMIT", "2000"))
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        summary = judges.extract_pending(
+            conn,
+            limit_rs=limit_rs,
+            limit_echr=limit_echr,
+            out_path=artifact_path,
+            load=True,
+        )
+    _write_summary(os.path.join(out_dir, "_judges_extraction_counts.json"), summary)
+    logging.info("Cross-court judge extraction complete: %s", summary)
+    return summary
+
+
 def run_register_reconciliation_promotion(**context):
     tag = _run_tag(context)
     return register_promotion("enrichment_sync_etl", var_prefix=None, window_tag=tag, **context)
@@ -214,9 +260,17 @@ with dag:
         task_id="resolve_pending_law_refs",
         python_callable=run_resolve_pending_law_refs,
     )
+    t_leg_fulltext = PythonOperator(
+        task_id="enrich_legislation_fulltext",
+        python_callable=run_enrich_legislation_fulltext,
+    )
+    t_judges = PythonOperator(
+        task_id="extract_cross_court_judges",
+        python_callable=run_extract_cross_court_judges,
+    )
     t_promote = PythonOperator(
         task_id="register_promotion",
         python_callable=run_register_reconciliation_promotion,
         trigger_rule="all_done",
     )
-    [t_uuid, t_leg, t_appeals, t_late, t_law] >> t_promote
+    [t_uuid, t_leg, t_appeals, t_late, t_law, t_leg_fulltext, t_judges] >> t_promote
