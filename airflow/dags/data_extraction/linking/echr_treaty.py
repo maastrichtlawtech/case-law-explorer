@@ -28,14 +28,14 @@ import re
 from collections import Counter
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
-from data_extraction.linking import cjeu_treaty
+from data_extraction.linking import cjeu_treaty, treaty_matcher
 from data_extraction.linking.cjeu_treaty import TreatyHit, TreatyRefRecord
 
 log = logging.getLogger(__name__)
 
 SCHEMA = "cle_v2"
 DATASET = "echr_text_treaty"
-EXTRACTOR_VERSION = "echr_treaty/1.0.0"
+EXTRACTOR_VERSION = "echr_treaty/2.0.0"
 ROLE = "cited"
 
 _ART_SPEC = cjeu_treaty._ART_SPEC
@@ -199,7 +199,32 @@ def scan(text: str, language: Optional[str] = None) -> List[TreatyHit]:
                     )
                 )
                 seen_acts.add(("un_treaty", ident))
+
+    # Broad 200+ declarative treaty catalog (all non-ECHR CoE, UN, HCCH, ILO, WIPO, WTO, IHL, etc.)
+    for ch in treaty_matcher.scan(text, skip_echr_core=True):
+        if ch.scheme == "un_treaty" and ("un_treaty", ch.identifier) in seen_acts:
+            continue
+        if _overlaps_spans((ch.start, ch.end), covered):
+            continue
+        hits.append(
+            TreatyHit(
+                scheme=ch.scheme,
+                identifier=ch.identifier,
+                article=ch.article,
+                raw_subdivision=ch.raw_subdivision,
+                match_method=ch.match_method,
+                confidence=ch.confidence,
+                start=ch.start,
+                end=ch.end,
+                raw_text=ch.raw_text,
+            )
+        )
+        covered.append((ch.start, ch.end))
     return hits
+
+
+def _overlaps_spans(span: Tuple[int, int], covered: Sequence[Tuple[int, int]]) -> bool:
+    return cjeu_treaty._overlaps(span, covered)
 
 
 def records_for_case(
@@ -340,18 +365,8 @@ def load_artifact(conn, path: str) -> Dict[str, int]:
     return load_records(conn, cjeu_treaty.read_jsonl(path))
 
 
-_CANDIDATE_TSQUERY = (
-    "'ICCPR' | 'ICESCR' | 'ICERD' | 'CEDAW' | 'UNCAT' | 'UNCRC' | 'UNCRPD' | 'CRPD' | "
-    "('Geneva' & 'Refugees') | ('Genève' & 'réfugiés') | "
-    "('Status' & 'Refugees') | ('statut' & 'réfugiés') | "
-    "('Covenant' & 'Civil' & 'Political') | ('Pacte' & 'civils' & 'politiques') | "
-    "('Covenant' & 'Economic' & 'Cultural') | ('Pacte' & 'économiques' & 'culturels') | "
-    "('Convention' & 'against' & 'Torture') | ('Convention' & 'contre' & 'torture') | "
-    "('Rights' & 'Child' & 'Convention') | ('droits' & 'enfant' & 'Convention') | "
-    "('Persons' & 'Disabilities') | ('personnes' & 'handicapées') | "
-    "('Elimination' & 'Racial' & 'Discrimination') | ('élimination' & 'discrimination' & 'raciale') | "
-    "('Elimination' & 'Discrimination' & 'Women') | ('élimination' & 'discrimination' & 'femmes')"
-)
+_CANDIDATE_TSQUERY_GROUPS = treaty_matcher.candidate_tsquery_groups(skip_echr_core=True)
+_CANDIDATE_TSQUERY = _CANDIDATE_TSQUERY_GROUPS[0]
 
 
 def extract_pending(
@@ -360,30 +375,35 @@ def extract_pending(
     out_path: Optional[str] = None,
     load: bool = False,
 ) -> Dict[str, Any]:
-    """Find newest ECHR cases mentioning UN treaties that don't yet have echr_text_treaty rows."""
+    """Find newest ECHR cases mentioning international treaties without echr_text_treaty rows."""
+    case_ids_set: set[int] = set()
     with conn.cursor() as cur:
-        cur.execute(
-            f"""
-            SELECT c.id
-              FROM {SCHEMA}.cases c
-             WHERE c.ecli LIKE 'ECLI:CE:ECHR:%%'
-               AND NOT EXISTS (
-                   SELECT 1 FROM {SCHEMA}.case_law_reference r
-                    WHERE r.case_id = c.id AND r.source_dataset = %s
-               )
-               AND EXISTS (
-                   SELECT 1 FROM {SCHEMA}.case_text ct
-                    WHERE ct.case_id = c.id
-                      AND ct.source = 'HUDOC'
-                      AND ct.fulltext_tsv @@ to_tsquery('simple', %s)
-               )
-             ORDER BY c.id DESC
-             LIMIT %s
-            """,
-            (DATASET, _CANDIDATE_TSQUERY, limit),
-        )
-        case_ids = [int(row[0]) for row in cur.fetchall()]
+        for tsq in _CANDIDATE_TSQUERY_GROUPS:
+            if len(case_ids_set) >= limit:
+                break
+            cur.execute(
+                f"""
+                SELECT c.id
+                  FROM {SCHEMA}.cases c
+                 WHERE c.ecli LIKE 'ECLI:CE:ECHR:%%'
+                   AND NOT EXISTS (
+                       SELECT 1 FROM {SCHEMA}.case_law_reference r
+                        WHERE r.case_id = c.id AND r.source_dataset = %s
+                   )
+                   AND EXISTS (
+                       SELECT 1 FROM {SCHEMA}.case_text ct
+                        WHERE ct.case_id = c.id
+                          AND ct.source = 'HUDOC'
+                          AND ct.fulltext_tsv @@ to_tsquery('simple', %s)
+                   )
+                 ORDER BY c.id DESC
+                 LIMIT %s
+                """,
+                (DATASET, tsq, limit),
+            )
+            case_ids_set.update(int(row[0]) for row in cur.fetchall())
     conn.rollback()
+    case_ids = sorted(case_ids_set, reverse=True)[:limit]
 
     all_records: List[TreatyRefRecord] = []
     cases_with_hits = 0
