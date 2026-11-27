@@ -1708,3 +1708,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS "case_law_reference_uk_echr_treaty"
 INSERT INTO "cle_v2"."citation_source_dataset" (code, description, corpus, counted, active_in_api)
 VALUES ('echr_text_echr', 'ECtHR full-text precedent extraction for empty-scl judgments.', 'ECHR', true, true)
 ON CONFLICT (code) DO NOTHING;
+
+-- Mirror of caselaw-coolify 0022_person_governance_overrides.sql
+CREATE TABLE IF NOT EXISTS "cle_v2"."person_governance_override" (
+    "id"               bigint PRIMARY KEY GENERATED ALWAYS AS IDENTITY,
+    "match_name"       text        NOT NULL,
+    "match_role"       text        CHECK ("match_role" IS NULL OR "match_role" IN ('judge', 'rapporteur', 'advocate_general')),
+    "match_court"      text        CHECK ("match_court" IS NULL OR "match_court" IN ('CJEU', 'ECHR', 'RS')),
+    "action"           text        NOT NULL CHECK ("action" IN ('suppress', 'rename', 'split_exclude')),
+    "replacement_name" text,
+    "reason"           text        NOT NULL,
+    "ticket_ref"       text,
+    "active"           boolean     NOT NULL DEFAULT true,
+    "created_at"       timestamptz NOT NULL DEFAULT now(),
+    "updated_at"       timestamptz NOT NULL DEFAULT now(),
+    CHECK ("action" <> 'rename' OR ("replacement_name" IS NOT NULL AND length(trim("replacement_name")) > 0))
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS "person_governance_override_uk_active"
+    ON "cle_v2"."person_governance_override" (
+        lower("match_name"),
+        COALESCE("match_role", ''),
+        COALESCE("match_court", ''),
+        "action"
+    )
+    WHERE "active" = true;
+
+CREATE INDEX IF NOT EXISTS "person_governance_override_idx_updated_at"
+    ON "cle_v2"."person_governance_override" ("updated_at" DESC);
