@@ -255,6 +255,48 @@ def run_extract_cjeu_treaties(**context):
     return summary
 
 
+def run_extract_echr_text_echr(**context):
+    load_dotenv(find_dotenv(), override=True)
+    from data_extraction.linking import echr_text_echr
+    from data_loading.clients.postgres import PostgresCLEClient
+
+    out_dir = _out_dir(context)
+    artifact_path = os.path.join(out_dir, "echr_text_echr.jsonl")
+    limit = int(os.environ.get("ECHR_TEXT_ECHR_LIMIT", "2000"))
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        summary = echr_text_echr.extract_pending(
+            conn,
+            limit=limit,
+            out_path=artifact_path,
+            load=True,
+        )
+    _write_summary(os.path.join(out_dir, "_echr_text_echr_counts.json"), summary)
+    logging.info("ECtHR empty-scl fulltext citation extraction complete: %s", summary)
+    return summary
+
+
+def run_extract_echr_treaties(**context):
+    load_dotenv(find_dotenv(), override=True)
+    from data_extraction.linking import echr_treaty
+    from data_loading.clients.postgres import PostgresCLEClient
+
+    out_dir = _out_dir(context)
+    artifact_path = os.path.join(out_dir, "echr_text_treaty.jsonl")
+    limit = int(os.environ.get("ECHR_TREATY_EXTRACT_LIMIT", "2000"))
+    with PostgresCLEClient() as client:
+        conn = client._get_conn()
+        summary = echr_treaty.extract_pending(
+            conn,
+            limit=limit,
+            out_path=artifact_path,
+            load=True,
+        )
+    _write_summary(os.path.join(out_dir, "_echr_treaty_counts.json"), summary)
+    logging.info("ECtHR UN treaty reference extraction complete: %s", summary)
+    return summary
+
+
 def run_register_reconciliation_promotion(**context):
     tag = _run_tag(context)
     return register_promotion("enrichment_sync_etl", var_prefix=None, window_tag=tag, **context)
@@ -293,9 +335,20 @@ with dag:
         task_id="extract_cjeu_treaties",
         python_callable=run_extract_cjeu_treaties,
     )
+    t_echr_text_echr = PythonOperator(
+        task_id="extract_echr_text_echr",
+        python_callable=run_extract_echr_text_echr,
+    )
+    t_echr_treaties = PythonOperator(
+        task_id="extract_echr_treaties",
+        python_callable=run_extract_echr_treaties,
+    )
     t_promote = PythonOperator(
         task_id="register_promotion",
         python_callable=run_register_reconciliation_promotion,
         trigger_rule="all_done",
     )
-    [t_uuid, t_leg, t_appeals, t_late, t_law, t_leg_fulltext, t_judges, t_cjeu_treaties] >> t_promote
+    [
+        t_uuid, t_leg, t_appeals, t_late, t_law,
+        t_leg_fulltext, t_judges, t_cjeu_treaties, t_echr_text_echr, t_echr_treaties,
+    ] >> t_promote
